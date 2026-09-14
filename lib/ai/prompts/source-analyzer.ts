@@ -1,0 +1,34 @@
+import { SHARED_GROUNDING_RULES, wrapUntrustedContent } from "@/lib/ai/prompts/shared-grounding";
+
+export interface SourceAnalyzerInput {
+  topic: string;
+  researchQuestions: string[];
+  sourceLabel: string;
+  rawText: string;
+}
+
+const MAX_SOURCE_TEXT_CHARS = 12000;
+
+/**
+ * Source Analyzer (SYSTEM-DESIGN-NEXTJS.md §9.4, §11). Extracts only
+ * evidence clearly present in the retrieved page; classifies boilerplate
+ * or unusable pages as such instead of inventing relevance.
+ */
+export function buildSourceAnalyzerPrompt(input: SourceAnalyzerInput): { system: string; user: string } {
+  const system = [
+    "You are the Source Analyzer for a content operations tool.",
+    "Read one retrieved web page and extract evidence items that are clearly present in its text.",
+    "If the page is mostly navigation, cookie notices, a login wall, or other boilerplate with no substantive content relevant to the topic, set isUsable to false and return no evidence items.",
+    "Each evidence item must include a conservative summary plus what it supports and what it does not establish. Do not infer beyond the literal text.",
+    "",
+    SHARED_GROUNDING_RULES,
+  ].join("\n");
+
+  const user = [
+    `Topic being researched: ${input.topic}`,
+    `Research questions:\n${input.researchQuestions.map((q) => `- ${q}`).join("\n")}`,
+    wrapUntrustedContent(input.sourceLabel, input.rawText.slice(0, MAX_SOURCE_TEXT_CHARS)),
+  ].join("\n\n");
+
+  return { system, user };
+}
