@@ -11,7 +11,7 @@ import { ResearchFailureList } from "@/components/research/research-failure-list
 import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
 import { ContentPlanEditor } from "@/components/articles/content-plan-editor";
 import { ArticleComparison } from "@/components/articles/article-comparison";
-import { listContentArtifacts } from "@/lib/repositories/content";
+import { listContentArtifacts, listArtifactVersions } from "@/lib/repositories/content";
 import { getLatestEvaluation } from "@/lib/repositories/evaluations";
 
 /**
@@ -82,12 +82,17 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
         return [a.id, await getLatestEvaluation(supabase, version.id)] as const;
       })
     );
+    const allVersionsEntries = await Promise.all(
+      articleArtifacts.map(async (a) => [a.id, await listArtifactVersions(supabase, a.id)] as const)
+    );
     articleSection = (
       <ArticleComparison
         requestId={requestId}
         articleArtifacts={articleArtifacts}
         currentVersionsByArtifact={versionsByArtifact}
         evaluationsByArtifact={Object.fromEntries(evaluationEntries)}
+        versionsByArtifact={Object.fromEntries(allVersionsEntries)}
+        selectedArticleVersionId={request.selected_article_version_id}
         canGenerate={request.status === "content_development"}
       />
     );

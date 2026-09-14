@@ -19,7 +19,7 @@ const VALID_ARTICLE = {
   primaryKeyword: "AI agents in recruiting",
   secondaryKeywords: [],
   bodyMarkdown: "# AI Agents in Recruiting\n\nSome teams reported reduced workload.\n\n## Details\n\nMore text here about it.",
-  links: ["https://a.com"],
+  links: [{ url: "https://a.com", label: "Source" }],
   claims: [
     {
       claimId: "C1",

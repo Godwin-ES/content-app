@@ -17,6 +17,8 @@ interface ArticleComparisonProps {
   articleArtifacts: ContentArtifactRow[];
   currentVersionsByArtifact: Record<string, ArtifactVersionRow | null>;
   evaluationsByArtifact: Record<string, EvaluationRow | null>;
+  versionsByArtifact: Record<string, ArtifactVersionRow[]>;
+  selectedArticleVersionId: string | null;
   canGenerate: boolean;
 }
 
@@ -29,6 +31,8 @@ export function ArticleComparison({
   articleArtifacts,
   currentVersionsByArtifact,
   evaluationsByArtifact,
+  versionsByArtifact,
+  selectedArticleVersionId,
   canGenerate,
 }: ArticleComparisonProps) {
   const [error, setError] = useState<string | null>(null);
@@ -69,9 +73,16 @@ export function ArticleComparison({
           {articleArtifacts.map((artifact) => (
             <ArticleOptionCard
               key={artifact.id}
+              requestId={requestId}
               artifact={artifact}
               currentVersion={currentVersionsByArtifact[artifact.id] ?? null}
               evaluation={evaluationsByArtifact[artifact.id] ?? null}
+              versions={versionsByArtifact[artifact.id] ?? []}
+              isSelected={
+                currentVersionsByArtifact[artifact.id]?.id !== undefined &&
+                currentVersionsByArtifact[artifact.id]?.id === selectedArticleVersionId
+              }
+              canSelectAny={selectedArticleVersionId === null}
             />
           ))}
         </div>
