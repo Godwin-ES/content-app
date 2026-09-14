@@ -28,3 +28,24 @@ export interface ActionError {
 }
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: ActionError };
+
+/**
+ * Normalizes an unknown thrown value into a readable string. Some SDKs
+ * (observed with the Google GenAI client) throw plain objects rather than
+ * Error instances; `String(plainObject)` silently produces the useless
+ * "[object Object]", which defeats the failure-transparency principle
+ * (SYSTEM-DESIGN-NEXTJS.md §26.1 "what failed?"). Falls back to
+ * JSON.stringify for anything without a meaningful message.
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "An unknown error occurred.";
+    }
+  }
+  return String(error);
+}

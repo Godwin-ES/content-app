@@ -1,7 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { DomainError } from "@/lib/domain/errors";
+import { DomainError, getErrorMessage } from "@/lib/domain/errors";
 import type { AIProvider, GenerateStructuredInput } from "@/lib/ai/types";
 
 const RESULT_TOOL_NAME = "emit_result";
@@ -32,20 +32,28 @@ export class AnthropicAIProvider implements AIProvider {
 
   async generateStructured<T>({ modelId, system, user, schema }: GenerateStructuredInput<T>): Promise<T> {
     const attempt = async (): Promise<T> => {
-      const response = await this.client.messages.create({
-        model: modelId,
-        max_tokens: MAX_OUTPUT_TOKENS,
-        system,
-        messages: [{ role: "user", content: user }],
-        tools: [
-          {
-            name: RESULT_TOOL_NAME,
-            description: "Return the required structured result. Always call this tool exactly once.",
-            input_schema: toToolInputSchema(schema),
-          },
-        ],
-        tool_choice: { type: "tool", name: RESULT_TOOL_NAME },
-      });
+      let response: Anthropic.Message;
+      try {
+        response = await this.client.messages.create({
+          model: modelId,
+          max_tokens: MAX_OUTPUT_TOKENS,
+          system,
+          messages: [{ role: "user", content: user }],
+          tools: [
+            {
+              name: RESULT_TOOL_NAME,
+              description: "Return the required structured result. Always call this tool exactly once.",
+              input_schema: toToolInputSchema(schema),
+            },
+          ],
+          tool_choice: { type: "tool", name: RESULT_TOOL_NAME },
+        });
+      } catch (error) {
+        // Normalize any thrown value to a readable message, mirroring the
+        // fix applied to the Google adapter after manual verification
+        // surfaced "[object Object]" errors (see ../../../../BUILD-NOTES-NEXTJS.md).
+        throw new DomainError("VALIDATION_ERROR", "ai_provider", `Claude request failed: ${getErrorMessage(error)}`);
+      }
 
       const toolUse = response.content.find((block) => block.type === "tool_use");
       if (!toolUse) {

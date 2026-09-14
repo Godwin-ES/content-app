@@ -1,6 +1,6 @@
 import "server-only";
 import { DomainError } from "@/lib/domain/errors";
-import { providerForModel, resolveModelId } from "@/lib/ai/model-config";
+import { providerForModel, resolveModelId, getAllowedAIModels } from "@/lib/ai/model-config";
 import type { AIModelChoice } from "@/lib/domain/types";
 import type { AIProvider } from "@/lib/ai/types";
 import { AnthropicAIProvider } from "@/lib/ai/providers/anthropic";
@@ -36,6 +36,21 @@ export function getAIProvider(model: AIModelChoice): AIProvider {
   }
   const providerName = providerForModel(model);
   return providerName === "google" ? new GoogleAIProvider() : new AnthropicAIProvider();
+}
+
+/**
+ * A request's chosen model applies only while AI test mode is enabled and
+ * only if it is still an allowed choice; otherwise the configured
+ * production model is used (SYSTEM-DESIGN-NEXTJS.md §4.9, §12.4). The
+ * browser cannot influence this outside test mode.
+ */
+export function resolveAIModelForRequest(request: { test_model_choice: string | null }): AIModelChoice {
+  const allowed = getAllowedAIModels();
+  if (process.env.ENABLE_AI_TEST_MODE === "true" && request.test_model_choice) {
+    const choice = request.test_model_choice as AIModelChoice;
+    if (allowed.includes(choice)) return choice;
+  }
+  return allowed[0];
 }
 
 export function getModelIdFor(model: AIModelChoice): string {

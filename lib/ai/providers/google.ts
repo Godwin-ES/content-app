@@ -1,7 +1,7 @@
 import "server-only";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
-import { DomainError } from "@/lib/domain/errors";
+import { DomainError, getErrorMessage } from "@/lib/domain/errors";
 import type { AIProvider, GenerateStructuredInput } from "@/lib/ai/types";
 
 function toJsonSchema(schema: z.ZodType): unknown {
@@ -23,15 +23,24 @@ export class GoogleAIProvider implements AIProvider {
 
   async generateStructured<T>({ modelId, system, user, schema }: GenerateStructuredInput<T>): Promise<T> {
     const attempt = async (): Promise<T> => {
-      const response = await this.client.models.generateContent({
-        model: modelId,
-        contents: user,
-        config: {
-          systemInstruction: system,
-          responseMimeType: "application/json",
-          responseJsonSchema: toJsonSchema(schema),
-        },
-      });
+      let response: Awaited<ReturnType<typeof this.client.models.generateContent>>;
+      try {
+        response = await this.client.models.generateContent({
+          model: modelId,
+          contents: user,
+          config: {
+            systemInstruction: system,
+            responseMimeType: "application/json",
+            responseJsonSchema: toJsonSchema(schema),
+          },
+        });
+      } catch (error) {
+        // The Google GenAI client can throw plain objects rather than Error
+        // instances; normalize so callers always get a readable message
+        // instead of "[object Object]" (found via manual research-pipeline
+        // verification, see ../../../../BUILD-NOTES-NEXTJS.md).
+        throw new DomainError("VALIDATION_ERROR", "ai_provider", `Gemini request failed: ${getErrorMessage(error)}`);
+      }
 
       const text = response.text;
       if (!text) {

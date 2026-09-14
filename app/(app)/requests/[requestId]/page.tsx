@@ -3,8 +3,11 @@ import { requireCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getContentRequest } from "@/lib/repositories/requests";
 import { listSupportingMaterials } from "@/lib/repositories/materials";
+import { listResearchSources } from "@/lib/repositories/sources";
 import { Badge } from "@/components/ui/badge";
 import { SupportingMaterialUpload } from "@/components/requests/supporting-material-upload";
+import { ResearchProgress } from "@/components/research/research-progress";
+import { ResearchFailureList } from "@/components/research/research-failure-list";
 
 /**
  * Minimal placeholder for the request workspace. Task 19 replaces this with
@@ -21,6 +24,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   if (!request) notFound();
 
   const materials = await listSupportingMaterials(supabase, requestId);
+  const sources = await listResearchSources(supabase, requestId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -32,6 +36,8 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
         The full research and review workspace for this request is under construction.
       </p>
       <SupportingMaterialUpload requestId={requestId} initialMaterials={materials} />
+      <ResearchProgress requestId={requestId} status={request.status} />
+      <ResearchFailureList sources={sources} />
     </div>
   );
 }
