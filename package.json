@@ -1,0 +1,50 @@
+{
+  "name": "app",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
+    "@google/genai": "^2.22.0",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.116.0",
+    "firecrawl": "^4.39.0",
+    "mammoth": "^1.12.3",
+    "next": "16.3.5",
+    "pdf-parse": "^2.4.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "^4.6.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^5.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "jsdom": "^30.0.1",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.13",
+    "typescript": "^5",
+    "vitest": "^5.0.0"
+  },
+  "packageManager": "pnpm@12.3.4"
+}
