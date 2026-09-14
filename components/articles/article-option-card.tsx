@@ -2,19 +2,23 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { retryArticleOptionAction } from "@/actions/articles";
+import { retryArticleOptionAction, evaluateArticleAction } from "@/actions/articles";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { EvaluationSummary } from "@/components/articles/evaluation-summary";
+import { EvaluationDrawer } from "@/components/articles/evaluation-drawer";
 import type { Database } from "@/lib/supabase/database.types";
 import type { ArticleOutput } from "@/lib/ai/schemas/article";
 
 type ContentArtifactRow = Database["public"]["Tables"]["content_artifacts"]["Row"];
 type ArtifactVersionRow = Database["public"]["Tables"]["artifact_versions"]["Row"];
+type EvaluationRow = Database["public"]["Tables"]["evaluations"]["Row"];
 
 interface ArticleOptionCardProps {
   artifact: ContentArtifactRow;
   currentVersion: ArtifactVersionRow | null;
+  evaluation: EvaluationRow | null;
 }
 
 const ANGLE_LABEL: Record<string, string> = { A: "Practical", B: "Strategic", C: "Educational" };
@@ -24,7 +28,7 @@ const ANGLE_LABEL: Record<string, string> = { A: "Practical", B: "Strategic", C:
  * article rendered side by side with two others. Selecting/opening the
  * full article is a Task 14 concern.
  */
-export function ArticleOptionCard({ artifact, currentVersion }: ArticleOptionCardProps) {
+export function ArticleOptionCard({ artifact, currentVersion, evaluation }: ArticleOptionCardProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -36,6 +40,19 @@ export function ArticleOptionCard({ artifact, currentVersion }: ArticleOptionCar
     setError(null);
     startTransition(async () => {
       const result = await retryArticleOptionAction(artifact.id);
+      if (result.ok) {
+        router.refresh();
+      } else {
+        setError(result.error.message);
+      }
+    });
+  }
+
+  function evaluate() {
+    setError(null);
+    startTransition(async () => {
+      if (!currentVersion) return;
+      const result = await evaluateArticleAction(currentVersion.id);
       if (result.ok) {
         router.refresh();
       } else {
@@ -57,6 +74,8 @@ export function ArticleOptionCard({ artifact, currentVersion }: ArticleOptionCar
         <>
           <h4 className="font-medium">{content.title}</h4>
           <p className="line-clamp-2 text-sm text-muted-foreground">{content.metaDescription}</p>
+          <EvaluationSummary evaluation={evaluation} />
+          {evaluation ? <EvaluationDrawer evaluation={evaluation} /> : null}
         </>
       ) : (
         <p className="text-sm text-muted-foreground">Generation failed for this option.</p>
@@ -68,11 +87,17 @@ export function ArticleOptionCard({ artifact, currentVersion }: ArticleOptionCar
         </Alert>
       ) : null}
 
-      {!hasVersion ? (
-        <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={retry} className="w-fit">
-          {isPending ? "Retrying..." : "Retry"}
-        </Button>
-      ) : null}
+      <div className="flex gap-2">
+        {!hasVersion ? (
+          <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={retry} className="w-fit">
+            {isPending ? "Retrying..." : "Retry"}
+          </Button>
+        ) : (
+          <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={evaluate} className="w-fit">
+            {isPending ? "Evaluating..." : evaluation ? "Re-evaluate" : "Evaluate"}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

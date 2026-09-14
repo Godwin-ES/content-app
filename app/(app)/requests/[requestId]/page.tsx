@@ -12,6 +12,7 @@ import { SourceReviewWorkspace } from "@/components/research/source-review-works
 import { ContentPlanEditor } from "@/components/articles/content-plan-editor";
 import { ArticleComparison } from "@/components/articles/article-comparison";
 import { listContentArtifacts } from "@/lib/repositories/content";
+import { getLatestEvaluation } from "@/lib/repositories/evaluations";
 
 /**
  * Minimal placeholder for the request workspace. Task 19 replaces this with
@@ -73,11 +74,20 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
         return [a.id, data ?? null] as const;
       })
     );
+    const versionsByArtifact = Object.fromEntries(versionEntries);
+    const evaluationEntries = await Promise.all(
+      articleArtifacts.map(async (a) => {
+        const version = versionsByArtifact[a.id];
+        if (!version) return [a.id, null] as const;
+        return [a.id, await getLatestEvaluation(supabase, version.id)] as const;
+      })
+    );
     articleSection = (
       <ArticleComparison
         requestId={requestId}
         articleArtifacts={articleArtifacts}
-        currentVersionsByArtifact={Object.fromEntries(versionEntries)}
+        currentVersionsByArtifact={versionsByArtifact}
+        evaluationsByArtifact={Object.fromEntries(evaluationEntries)}
         canGenerate={request.status === "content_development"}
       />
     );

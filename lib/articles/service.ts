@@ -4,20 +4,27 @@ import type { Database } from "@/lib/supabase/database.types";
 import { DomainError, getErrorMessage } from "@/lib/domain/errors";
 import { hashCanonicalJson } from "@/lib/domain/hashing";
 import type { AIProvider } from "@/lib/ai/types";
-import { generateArticle } from "@/lib/ai/service";
+import { generateArticle, evaluateArticle as evaluateArticleAI } from "@/lib/ai/service";
 import type { ArticleAngle } from "@/lib/ai/prompts/article-writer";
 import type { ContentPlan, ContentPlanSection } from "@/lib/ai/schemas/content-plan";
+import type { ArticleOutput } from "@/lib/ai/schemas/article";
+import type { Evaluation } from "@/lib/ai/schemas/evaluation";
 import { getEvidenceContextForRequest } from "@/lib/grounding/evidence-context";
 import { validateClaimEvidence } from "@/lib/grounding/claim-validation";
+import { validateEvaluationConsistency } from "@/lib/grounding/semantic-validation";
+import { validateArticleSEO } from "@/lib/seo/validate";
 import {
   getContentArtifactBySlot,
   createContentArtifact,
   createArtifactVersion,
+  getArtifactVersion,
 } from "@/lib/repositories/content";
 import { createOperationRun, updateOperationRun, findActiveOperationRun } from "@/lib/repositories/operations";
 import { recordActivityEvent } from "@/lib/repositories/activity";
+import { createEvaluation } from "@/lib/repositories/evaluations";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
+type EvaluationRow = Database["public"]["Tables"]["evaluations"]["Row"];
 type ContentPlanRow = Database["public"]["Tables"]["content_plans"]["Row"];
 type ArticleSlot = "A" | "B" | "C";
 
@@ -138,6 +145,17 @@ async function generateOneOption(
     });
 
     await updateOperationRun(supabase, run.id, { status: "succeeded", finished_at: new Date().toISOString() });
+
+    // Best-effort: evaluation runs immediately after a successful generation
+    // (SYSTEM-DESIGN-NEXTJS.md §47 blueprint), but its failure must not
+    // erase the article that was just successfully created. The Content
+    // Manager can still trigger evaluation manually if this fails.
+    try {
+      await evaluateArticleVersion(supabase, ai, modelId, version.id);
+    } catch {
+      // Swallowed intentionally; the article option itself still succeeded.
+    }
+
     return { slot, status: "succeeded", versionId: version.id };
   } catch (error) {
     await updateOperationRun(supabase, run.id, {
@@ -239,4 +257,100 @@ export async function regenerateArticleOption(
     validEvidenceIds,
     artifact.slot as ArticleSlot
   );
+}
+
+/**
+ * Evaluates one article version (SYSTEM-DESIGN-NEXTJS.md §17). The writer
+ * and evaluator are separate AI calls; the evaluator never receives the
+ * writer's internal justification, only the public article, its claim
+ * ledger, and the same approved evidence. Deterministic SEO checks run
+ * first and always accompany the evaluation regardless of what the AI
+ * says. A single controlled retry covers an internally inconsistent
+ * evaluator output (e.g. `pass` alongside an unsupported claim); if the
+ * retry is also inconsistent, the evaluation fails and the article is
+ * left untouched — no evaluation row is created either way.
+ */
+export async function evaluateArticleVersion(
+  supabase: SupabaseClient<Database>,
+  ai: AIProvider,
+  modelId: string,
+  articleVersionId: string
+): Promise<EvaluationRow> {
+  const version = await getArtifactVersion(supabase, articleVersionId);
+  if (!version) throw new DomainError("NOT_FOUND", "article_evaluation", "Article version not found.");
+
+  const { data: artifact, error: artifactError } = await supabase
+    .from("content_artifacts")
+    .select()
+    .eq("id", version.artifact_id)
+    .single();
+  if (artifactError || !artifact) throw artifactError ?? new DomainError("NOT_FOUND", "article_evaluation", "Artifact not found.");
+
+  const request = await getRequestOrThrow(supabase, artifact.request_id);
+  const { packets: evidencePackets } = await getEvidenceContextForRequest(supabase, request);
+
+  const article = version.content as unknown as ArticleOutput;
+  const deterministicChecks = validateArticleSEO({
+    title: article.title,
+    primaryKeyword: article.primaryKeyword,
+    bodyMarkdown: article.bodyMarkdown,
+    links: article.links,
+  });
+  const articleClaimIds = new Set(article.claims.map((c) => c.claimId));
+
+  const run = await createOperationRun(supabase, {
+    request_id: request.id,
+    operation_type: "article_evaluation",
+    status: "running",
+    model: modelId,
+    base_artifact_version_id: version.id,
+    started_at: new Date().toISOString(),
+  });
+
+  async function attempt(): Promise<Evaluation> {
+    const evaluation = await evaluateArticleAI(ai, modelId, {
+      audience: request.resolved_audience,
+      objective: request.resolved_objective,
+      tone: request.resolved_tone,
+      article,
+      evidencePackets,
+    });
+    validateEvaluationConsistency(evaluation, articleClaimIds);
+    return evaluation;
+  }
+
+  let evaluation: Evaluation;
+  try {
+    evaluation = await attempt();
+  } catch {
+    try {
+      evaluation = await attempt();
+    } catch (secondError) {
+      await updateOperationRun(supabase, run.id, {
+        status: "failed",
+        finished_at: new Date().toISOString(),
+        error_message: getErrorMessage(secondError),
+      });
+      throw new DomainError(
+        "VALIDATION_ERROR",
+        "article_evaluation",
+        `Evaluation failed after one retry: ${getErrorMessage(secondError)}`
+      );
+    }
+  }
+
+  await updateOperationRun(supabase, run.id, { status: "succeeded", finished_at: new Date().toISOString() });
+
+  return createEvaluation(supabase, {
+    artifact_version_id: version.id,
+    overall_status: evaluation.overallStatus,
+    deterministicChecks: deterministicChecks,
+    criteria: evaluation.criteria,
+    claimAudit: evaluation.claimAudit,
+    unsupportedClaims: evaluation.unsupportedClaims,
+    sectionsNeedingRevision: evaluation.sectionsNeedingRevision,
+    revision_instructions: evaluation.revisionInstructions,
+    operation_run_id: run.id,
+    created_by: request.owner_id,
+  });
 }

@@ -10,11 +10,13 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type ContentArtifactRow = Database["public"]["Tables"]["content_artifacts"]["Row"];
 type ArtifactVersionRow = Database["public"]["Tables"]["artifact_versions"]["Row"];
+type EvaluationRow = Database["public"]["Tables"]["evaluations"]["Row"];
 
 interface ArticleComparisonProps {
   requestId: string;
   articleArtifacts: ContentArtifactRow[];
   currentVersionsByArtifact: Record<string, ArtifactVersionRow | null>;
+  evaluationsByArtifact: Record<string, EvaluationRow | null>;
   canGenerate: boolean;
 }
 
@@ -22,7 +24,13 @@ interface ArticleComparisonProps {
  * Article generation trigger + compact option comparison
  * (SYSTEM-DESIGN-NEXTJS.md §15, §34.7).
  */
-export function ArticleComparison({ requestId, articleArtifacts, currentVersionsByArtifact, canGenerate }: ArticleComparisonProps) {
+export function ArticleComparison({
+  requestId,
+  articleArtifacts,
+  currentVersionsByArtifact,
+  evaluationsByArtifact,
+  canGenerate,
+}: ArticleComparisonProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -59,7 +67,12 @@ export function ArticleComparison({ requestId, articleArtifacts, currentVersions
       {articleArtifacts.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-3">
           {articleArtifacts.map((artifact) => (
-            <ArticleOptionCard key={artifact.id} artifact={artifact} currentVersion={currentVersionsByArtifact[artifact.id] ?? null} />
+            <ArticleOptionCard
+              key={artifact.id}
+              artifact={artifact}
+              currentVersion={currentVersionsByArtifact[artifact.id] ?? null}
+              evaluation={evaluationsByArtifact[artifact.id] ?? null}
+            />
           ))}
         </div>
       ) : (
