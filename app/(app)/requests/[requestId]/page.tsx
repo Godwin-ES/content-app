@@ -3,11 +3,12 @@ import { requireCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getContentRequest } from "@/lib/repositories/requests";
 import { listSupportingMaterials } from "@/lib/repositories/materials";
-import { listResearchSources } from "@/lib/repositories/sources";
+import { listResearchSources, listSourceEvidence, getLatestSourceDecision, listSourceConflicts } from "@/lib/repositories/sources";
 import { Badge } from "@/components/ui/badge";
 import { SupportingMaterialUpload } from "@/components/requests/supporting-material-upload";
 import { ResearchProgress } from "@/components/research/research-progress";
 import { ResearchFailureList } from "@/components/research/research-failure-list";
+import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
 
 /**
  * Minimal placeholder for the request workspace. Task 19 replaces this with
@@ -26,6 +27,24 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   const materials = await listSupportingMaterials(supabase, requestId);
   const sources = await listResearchSources(supabase, requestId);
 
+  let sourceReviewSection = null;
+  if (request.status === "source_review") {
+    const [evidenceEntries, decisionEntries, conflicts] = await Promise.all([
+      Promise.all(sources.map(async (s) => [s.id, await listSourceEvidence(supabase, s.id)] as const)),
+      Promise.all(sources.map(async (s) => [s.id, await getLatestSourceDecision(supabase, s.id)] as const)),
+      listSourceConflicts(supabase, requestId),
+    ]);
+    sourceReviewSection = (
+      <SourceReviewWorkspace
+        requestId={requestId}
+        sources={sources}
+        evidenceBySource={Object.fromEntries(evidenceEntries)}
+        decisionsBySource={Object.fromEntries(decisionEntries)}
+        conflicts={conflicts}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -37,7 +56,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       </p>
       <SupportingMaterialUpload requestId={requestId} initialMaterials={materials} />
       <ResearchProgress requestId={requestId} status={request.status} />
-      <ResearchFailureList sources={sources} />
+      {sourceReviewSection ?? <ResearchFailureList sources={sources} />}
     </div>
   );
 }
