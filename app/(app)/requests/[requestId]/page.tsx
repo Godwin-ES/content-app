@@ -11,6 +11,7 @@ import { ResearchFailureList } from "@/components/research/research-failure-list
 import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
 import { ContentPlanEditor } from "@/components/articles/content-plan-editor";
 import { ArticleComparison } from "@/components/articles/article-comparison";
+import { ChannelWorkspace } from "@/components/channels/channel-workspace";
 import { listContentArtifacts, listArtifactVersions } from "@/lib/repositories/content";
 import { getLatestEvaluation } from "@/lib/repositories/evaluations";
 
@@ -98,6 +99,36 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
     );
   }
 
+  let channelSection = null;
+  if (request.selected_article_version_id) {
+    const artifacts = await listContentArtifacts(supabase, requestId);
+    const channelArtifacts = artifacts.filter((a) => a.kind !== "article");
+    const versionEntries = await Promise.all(
+      channelArtifacts.map(async (a) => {
+        if (!a.current_version_id) return [a.id, null] as const;
+        const { data } = await supabase.from("artifact_versions").select().eq("id", a.current_version_id).single();
+        return [a.id, data ?? null] as const;
+      })
+    );
+    const versionsByArtifact = Object.fromEntries(versionEntries);
+    const evaluationEntries = await Promise.all(
+      channelArtifacts.map(async (a) => {
+        const version = versionsByArtifact[a.id];
+        if (!version) return [a.id, null] as const;
+        return [a.id, await getLatestEvaluation(supabase, version.id)] as const;
+      })
+    );
+    channelSection = (
+      <ChannelWorkspace
+        requestId={requestId}
+        channelArtifacts={channelArtifacts}
+        currentVersionsByArtifact={versionsByArtifact}
+        evaluationsByArtifact={Object.fromEntries(evaluationEntries)}
+        canGenerate={request.status === "content_development"}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -112,6 +143,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       {sourceReviewSection ?? <ResearchFailureList sources={sources} />}
       {contentPlanSection}
       {articleSection}
+      {channelSection}
     </div>
   );
 }

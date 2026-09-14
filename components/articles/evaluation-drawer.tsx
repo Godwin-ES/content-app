@@ -44,7 +44,7 @@ export function EvaluationDrawer({ evaluation }: EvaluationDrawerProps) {
       {open ? (
         <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
           <div>
-            <p className="font-medium">Deterministic SEO checks</p>
+            <p className="font-medium">Deterministic checks</p>
             <ul className="flex flex-col gap-1">
               {deterministicChecks.map((check) => (
                 <li key={check.key} className="flex items-center gap-2">
