@@ -1,0 +1,3 @@
+# Sample
+
+Koya Content Studio supporting material sample text for extraction tests.
