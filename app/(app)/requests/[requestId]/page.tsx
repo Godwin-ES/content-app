@@ -10,6 +10,8 @@ import { ResearchProgress } from "@/components/research/research-progress";
 import { ResearchFailureList } from "@/components/research/research-failure-list";
 import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
 import { ContentPlanEditor } from "@/components/articles/content-plan-editor";
+import { ArticleComparison } from "@/components/articles/article-comparison";
+import { listContentArtifacts } from "@/lib/repositories/content";
 
 /**
  * Minimal placeholder for the request workspace. Task 19 replaces this with
@@ -60,6 +62,27 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
     );
   }
 
+  let articleSection = null;
+  if (request.current_plan_id) {
+    const artifacts = await listContentArtifacts(supabase, requestId);
+    const articleArtifacts = artifacts.filter((a) => a.kind === "article");
+    const versionEntries = await Promise.all(
+      articleArtifacts.map(async (a) => {
+        if (!a.current_version_id) return [a.id, null] as const;
+        const { data } = await supabase.from("artifact_versions").select().eq("id", a.current_version_id).single();
+        return [a.id, data ?? null] as const;
+      })
+    );
+    articleSection = (
+      <ArticleComparison
+        requestId={requestId}
+        articleArtifacts={articleArtifacts}
+        currentVersionsByArtifact={Object.fromEntries(versionEntries)}
+        canGenerate={request.status === "content_development"}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -73,6 +96,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       <ResearchProgress requestId={requestId} status={request.status} />
       {sourceReviewSection ?? <ResearchFailureList sources={sources} />}
       {contentPlanSection}
+      {articleSection}
     </div>
   );
 }

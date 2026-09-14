@@ -6,8 +6,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AIProvider } from "@/lib/ai/types";
 import { createContentPlan as createContentPlanAI } from "@/lib/ai/service";
 import type { ContentPlan, ContentPlanSection } from "@/lib/ai/schemas/content-plan";
-import { buildEvidencePackets } from "@/lib/grounding/evidence";
-import { getSourceSetSources, listSourceEvidence, listSourceConflicts } from "@/lib/repositories/sources";
+import { getEvidenceContextForRequest } from "@/lib/grounding/evidence-context";
+import { listSourceConflicts } from "@/lib/repositories/sources";
 import { recordActivityEvent } from "@/lib/repositories/activity";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
@@ -52,23 +52,6 @@ export function validateContentPlan(plan: ContentPlan | ManualContentPlanInput, 
       }
     }
   }
-}
-
-async function getValidEvidenceIdsForRequest(
-  supabase: SupabaseClient<Database>,
-  request: ContentRequestRow
-): Promise<Set<string>> {
-  if (!request.current_source_set_id) {
-    throw new DomainError("INVALID_STATE", "content_plan", "This request has no confirmed source set yet.");
-  }
-
-  const sources = await getSourceSetSources(supabase, request.current_source_set_id);
-  const evidenceBySource = new Map<string, Awaited<ReturnType<typeof listSourceEvidence>>>();
-  for (const source of sources) {
-    evidenceBySource.set(source.id, await listSourceEvidence(supabase, source.id));
-  }
-  const packets = buildEvidencePackets(sources, evidenceBySource);
-  return new Set(packets.map((p) => `${p.sourceLabel}:${p.evidenceKey}`));
 }
 
 async function nextPlanVersionNumber(supabase: SupabaseClient<Database>, requestId: string): Promise<number> {
@@ -148,17 +131,7 @@ export async function generateContentPlan(
   requestId: string
 ): Promise<ContentPlanRow> {
   const request = await getRequestOrThrow(supabase, requestId);
-  if (!request.current_source_set_id) {
-    throw new DomainError("INVALID_STATE", "content_plan", "This request has no confirmed source set yet.");
-  }
-
-  const sources = await getSourceSetSources(supabase, request.current_source_set_id);
-  const evidenceBySource = new Map<string, Awaited<ReturnType<typeof listSourceEvidence>>>();
-  for (const source of sources) {
-    evidenceBySource.set(source.id, await listSourceEvidence(supabase, source.id));
-  }
-  const evidencePackets = buildEvidencePackets(sources, evidenceBySource);
-  const validEvidenceIds = new Set(evidencePackets.map((p) => `${p.sourceLabel}:${p.evidenceKey}`));
+  const { packets: evidencePackets, validEvidenceIds } = await getEvidenceContextForRequest(supabase, request);
 
   const conflicts = await listSourceConflicts(supabase, requestId);
   const resolvedConflicts = conflicts
@@ -181,7 +154,7 @@ export async function generateContentPlan(
   return persistPlanVersion(
     supabase,
     requestId,
-    request.current_source_set_id,
+    request.current_source_set_id!,
     {
       title: plan.title,
       primaryKeyword: plan.primaryKeyword,
@@ -222,7 +195,7 @@ export async function saveManualContentPlan(
   actorId: string
 ): Promise<ContentPlanRow> {
   const request = await getRequestOrThrow(supabase, requestId);
-  const validEvidenceIds = await getValidEvidenceIdsForRequest(supabase, request);
+  const { validEvidenceIds } = await getEvidenceContextForRequest(supabase, request);
   validateContentPlan(updates, validEvidenceIds);
 
   return persistPlanVersion(supabase, requestId, request.current_source_set_id!, updates, actorId);
