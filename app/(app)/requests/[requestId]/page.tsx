@@ -9,6 +9,7 @@ import { SupportingMaterialUpload } from "@/components/requests/supporting-mater
 import { ResearchProgress } from "@/components/research/research-progress";
 import { ResearchFailureList } from "@/components/research/research-failure-list";
 import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
+import { ContentPlanEditor } from "@/components/articles/content-plan-editor";
 
 /**
  * Minimal placeholder for the request workspace. Task 19 replaces this with
@@ -45,6 +46,20 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
     );
   }
 
+  let contentPlanSection = null;
+  if (request.status === "content_development" || request.current_plan_id) {
+    const { data: plan } = await supabase
+      .from("content_plans")
+      .select()
+      .eq("request_id", requestId)
+      .order("version_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    contentPlanSection = (
+      <ContentPlanEditor requestId={requestId} plan={plan} canGenerate={request.status === "content_development"} />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -57,6 +72,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       <SupportingMaterialUpload requestId={requestId} initialMaterials={materials} />
       <ResearchProgress requestId={requestId} status={request.status} />
       {sourceReviewSection ?? <ResearchFailureList sources={sources} />}
+      {contentPlanSection}
     </div>
   );
 }

@@ -182,6 +182,28 @@ export async function resolveSourceConflict(
  * at least one usable accepted source, and blocks on any unresolved
  * conflict.
  */
+/**
+ * Resolves a confirmed source-set version to the exact research_sources
+ * rows it references, via source_set_items.
+ */
+export async function getSourceSetSources(
+  supabase: SupabaseClient<Database>,
+  sourceSetVersionId: string
+): Promise<ResearchSourceRow[]> {
+  const { data: items, error: itemsError } = await supabase
+    .from("source_set_items")
+    .select("source_id")
+    .eq("source_set_version_id", sourceSetVersionId);
+  if (itemsError) throw itemsError;
+
+  const sourceIds = (items ?? []).map((item) => item.source_id);
+  if (sourceIds.length === 0) return [];
+
+  const { data: sources, error } = await supabase.from("research_sources").select().in("id", sourceIds);
+  if (error) throw error;
+  return sources ?? [];
+}
+
 export async function confirmSourceSet(
   supabase: SupabaseClient<Database>,
   requestId: string
