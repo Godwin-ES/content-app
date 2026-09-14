@@ -15,3 +15,16 @@ export class DomainError extends Error {
     this.name = "DomainError";
   }
 }
+
+/**
+ * The safe, serializable shape a server action returns to the client after
+ * an error — never the raw thrown value, which may carry internal detail.
+ */
+export interface ActionError {
+  code: string;
+  stage: string;
+  message: string;
+  retrySafe: boolean;
+}
+
+export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: ActionError };
