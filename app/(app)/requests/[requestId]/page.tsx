@@ -12,8 +12,11 @@ import { SourceReviewWorkspace } from "@/components/research/source-review-works
 import { ContentPlanEditor } from "@/components/articles/content-plan-editor";
 import { ArticleComparison } from "@/components/articles/article-comparison";
 import { ChannelWorkspace } from "@/components/channels/channel-workspace";
+import { PackageReadiness } from "@/components/approvals/package-readiness";
+import { ContentPackagePreview } from "@/components/approvals/content-package-preview";
 import { listContentArtifacts, listArtifactVersions } from "@/lib/repositories/content";
 import { getLatestEvaluation } from "@/lib/repositories/evaluations";
+import { getPackageReadiness } from "@/lib/packages/service";
 
 /**
  * Minimal placeholder for the request workspace. Task 19 replaces this with
@@ -129,6 +132,26 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
     );
   }
 
+  let packageSection = null;
+  if (request.selected_article_version_id) {
+    const readiness = await getPackageReadiness(supabase, requestId);
+    let currentPackage = null;
+    if (request.current_package_id) {
+      const { data } = await supabase.from("content_packages").select().eq("id", request.current_package_id).maybeSingle();
+      currentPackage = data ?? null;
+    }
+    packageSection = (
+      <div className="flex flex-col gap-3">
+        <PackageReadiness
+          requestId={requestId}
+          readiness={readiness}
+          canCreate={request.status === "content_development" || request.status === "changes_requested"}
+        />
+        {currentPackage ? <ContentPackagePreview contentPackage={currentPackage} /> : null}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -144,6 +167,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       {contentPlanSection}
       {articleSection}
       {channelSection}
+      {packageSection}
     </div>
   );
 }
