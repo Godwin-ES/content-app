@@ -1,10 +1,22 @@
+import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { requireCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getContentRequest } from "@/lib/repositories/requests";
 import { listSupportingMaterials } from "@/lib/repositories/materials";
 import { listResearchSources, listSourceEvidence, getLatestSourceDecision, listSourceConflicts } from "@/lib/repositories/sources";
-import { Badge } from "@/components/ui/badge";
+import { listContentArtifacts, listArtifactVersions } from "@/lib/repositories/content";
+import { getLatestEvaluation } from "@/lib/repositories/evaluations";
+import { getPackageReadiness } from "@/lib/packages/service";
+import { getLatestReview } from "@/lib/repositories/approvals";
+import { getPublishingQueue } from "@/lib/publishing/service";
+import { listActivityEvents } from "@/lib/repositories/activity";
+import { deriveNextAction, type WorkspaceSnapshot } from "@/lib/workspace/next-action";
+
+import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import { RequestStepper } from "@/components/requests/request-stepper";
+import { RequestWorkspace } from "@/components/requests/request-workspace";
 import { SupportingMaterialUpload } from "@/components/requests/supporting-material-upload";
 import { ResearchProgress } from "@/components/research/research-progress";
 import { ResearchFailureList } from "@/components/research/research-failure-list";
@@ -15,19 +27,15 @@ import { ChannelWorkspace } from "@/components/channels/channel-workspace";
 import { PackageReadiness } from "@/components/approvals/package-readiness";
 import { ContentPackagePreview } from "@/components/approvals/content-package-preview";
 import { SubmissionPanel } from "@/components/approvals/submission-panel";
-import { listContentArtifacts, listArtifactVersions } from "@/lib/repositories/content";
-import { getLatestEvaluation } from "@/lib/repositories/evaluations";
-import { getPackageReadiness } from "@/lib/packages/service";
-import { getLatestReview } from "@/lib/repositories/approvals";
-import { getPublishingQueue } from "@/lib/publishing/service";
 import { QueueControls } from "@/components/publishing/queue-controls";
 import { PublishingList } from "@/components/publishing/publishing-list";
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
 
 /**
- * Minimal placeholder for the request workspace. Task 19 replaces this with
- * the full Overview/Research/Articles/Channels/Approval/Publishing/Activity
- * workspace; this stands in now so the intake flow (Task 5) has somewhere to
- * land instead of a dead link.
+ * Request workspace (SYSTEM-DESIGN-NEXTJS.md §34.3): Overview / Research /
+ * Articles / Channels / Approval / Publishing / Activity tabs, a single
+ * derived next-action stepper, and explicit empty states rather than a
+ * flat page of conditionally-appearing sections.
  */
 export default async function RequestWorkspacePage({ params }: { params: Promise<{ requestId: string }> }) {
   const { requestId } = await params;
@@ -37,10 +45,20 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
 
   if (!request) notFound();
 
-  const materials = await listSupportingMaterials(supabase, requestId);
-  const sources = await listResearchSources(supabase, requestId);
+  const [materials, sources, activityEvents] = await Promise.all([
+    listSupportingMaterials(supabase, requestId),
+    listResearchSources(supabase, requestId),
+    listActivityEvents(supabase, requestId),
+  ]);
 
-  let sourceReviewSection = null;
+  const sourceCounts = {
+    usable: sources.filter((s) => s.retrieval_status === "usable").length,
+    pending: sources.filter((s) => s.retrieval_status === "pending").length,
+    failed: sources.filter((s) => s.retrieval_status === "failed").length,
+    unusable: sources.filter((s) => s.retrieval_status === "unusable").length,
+  };
+
+  let sourceReviewSection: ReactNode = null;
   if (request.status === "source_review") {
     const [evidenceEntries, decisionEntries, conflicts] = await Promise.all([
       Promise.all(sources.map(async (s) => [s.id, await listSourceEvidence(supabase, s.id)] as const)),
@@ -58,141 +76,210 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
     );
   }
 
-  let contentPlanSection = null;
-  if (request.status === "content_development" || request.current_plan_id) {
-    const { data: plan } = await supabase
-      .from("content_plans")
-      .select()
-      .eq("request_id", requestId)
-      .order("version_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    contentPlanSection = (
+  const { data: plan } = await supabase
+    .from("content_plans")
+    .select()
+    .eq("request_id", requestId)
+    .order("version_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const artifacts = await listContentArtifacts(supabase, requestId);
+  const articleArtifacts = artifacts.filter((a) => a.kind === "article");
+  const channelArtifacts = artifacts.filter((a) => a.kind !== "article");
+
+  const articleVersionEntries = await Promise.all(
+    articleArtifacts.map(async (a) => {
+      if (!a.current_version_id) return [a.id, null] as const;
+      const { data } = await supabase.from("artifact_versions").select().eq("id", a.current_version_id).single();
+      return [a.id, data ?? null] as const;
+    })
+  );
+  const articleVersionsByArtifact = Object.fromEntries(articleVersionEntries);
+  const articleEvaluationEntries = await Promise.all(
+    articleArtifacts.map(async (a) => {
+      const version = articleVersionsByArtifact[a.id];
+      if (!version) return [a.id, null] as const;
+      return [a.id, await getLatestEvaluation(supabase, version.id)] as const;
+    })
+  );
+  const articleEvaluationsByArtifact = Object.fromEntries(articleEvaluationEntries);
+  const articleAllVersionsEntries = await Promise.all(
+    articleArtifacts.map(async (a) => [a.id, await listArtifactVersions(supabase, a.id)] as const)
+  );
+
+  const channelVersionEntries = await Promise.all(
+    channelArtifacts.map(async (a) => {
+      if (!a.current_version_id) return [a.id, null] as const;
+      const { data } = await supabase.from("artifact_versions").select().eq("id", a.current_version_id).single();
+      return [a.id, data ?? null] as const;
+    })
+  );
+  const channelVersionsByArtifact = Object.fromEntries(channelVersionEntries);
+  const channelEvaluationEntries = await Promise.all(
+    channelArtifacts.map(async (a) => {
+      const version = channelVersionsByArtifact[a.id];
+      if (!version) return [a.id, null] as const;
+      return [a.id, await getLatestEvaluation(supabase, version.id)] as const;
+    })
+  );
+  const channelEvaluationsByArtifact = Object.fromEntries(channelEvaluationEntries);
+
+  let currentPackage = null;
+  if (request.current_package_id) {
+    const { data } = await supabase.from("content_packages").select().eq("id", request.current_package_id).maybeSingle();
+    currentPackage = data ?? null;
+  }
+
+  const readiness = request.selected_article_version_id ? await getPackageReadiness(supabase, requestId) : null;
+  const latestReview = request.status === "pending_approval" ? await getLatestReview(supabase, requestId) : null;
+  const queue = request.current_package_id ? await getPublishingQueue(supabase, requestId) : null;
+
+  const snapshot: WorkspaceSnapshot = {
+    status: request.status,
+    sources: sourceCounts,
+    hasContentPlan: Boolean(plan),
+    articles: {
+      total: articleArtifacts.length,
+      anyGenerationFailed: articleArtifacts.some((a) => !a.current_version_id),
+      anyPassingEvaluation: Object.values(articleEvaluationsByArtifact).some((e) => e?.overall_status === "pass"),
+      anyNeedsRevisionOrUnevaluated:
+        articleArtifacts.length > 0 && !Object.values(articleEvaluationsByArtifact).some((e) => e?.overall_status === "pass"),
+    },
+    hasSelectedArticle: Boolean(request.selected_article_version_id),
+    channels: {
+      total: channelArtifacts.length,
+      anyMissing: channelArtifacts.length < 3 || channelArtifacts.some((a) => !a.current_version_id),
+      anyNotPassing: channelArtifacts.some((a) => {
+        const evaluation = channelEvaluationsByArtifact[a.id];
+        return !a.current_version_id || evaluation?.overall_status !== "pass";
+      }),
+    },
+    packageReady: readiness?.ready ?? false,
+    hasCurrentPackage: Boolean(request.current_package_id),
+    hasActiveQueueItems: queue ? queue.entries.some((e) => e.item.status !== "cancelled") : false,
+  };
+  const nextAction = deriveNextAction(snapshot);
+
+  const overviewContent = (
+    <>
+      <RequestStepper nextAction={nextAction} />
+      <SupportingMaterialUpload requestId={requestId} initialMaterials={materials} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <EmptyState
+          title="Sources"
+          description={`${sourceCounts.usable} usable, ${sourceCounts.pending} pending, ${sourceCounts.failed + sourceCounts.unusable} unusable/failed.`}
+        />
+        <EmptyState
+          title="Content plan"
+          description={plan ? `Version ${plan.version_number}: ${plan.title}` : "No content plan yet."}
+        />
+        <EmptyState
+          title="Articles"
+          description={
+            articleArtifacts.length === 0
+              ? "No article options generated yet."
+              : `${articleArtifacts.length} option(s), ${request.selected_article_version_id ? "one selected" : "none selected yet"}.`
+          }
+        />
+        <EmptyState
+          title="Channels"
+          description={channelArtifacts.length === 0 ? "No channel assets generated yet." : `${channelArtifacts.length} of 3 channels generated.`}
+        />
+      </div>
+    </>
+  );
+
+  const researchContent = (
+    <>
+      <ResearchProgress requestId={requestId} status={request.status} />
+      {sources.length === 0 ? (
+        <EmptyState title="No sources yet" description="Add supporting material or source URLs to begin research." />
+      ) : (
+        sourceReviewSection ?? <ResearchFailureList sources={sources} />
+      )}
+    </>
+  );
+
+  const articlesContent = (
+    <>
       <ContentPlanEditor requestId={requestId} plan={plan} canGenerate={request.status === "content_development"} />
-    );
-  }
+      {plan ? (
+        <ArticleComparison
+          requestId={requestId}
+          articleArtifacts={articleArtifacts}
+          currentVersionsByArtifact={articleVersionsByArtifact}
+          evaluationsByArtifact={articleEvaluationsByArtifact}
+          versionsByArtifact={Object.fromEntries(articleAllVersionsEntries)}
+          selectedArticleVersionId={request.selected_article_version_id}
+          canGenerate={request.status === "content_development"}
+        />
+      ) : (
+        <EmptyState title="No content plan yet" description="Generate a content plan above before writing article options." />
+      )}
+    </>
+  );
 
-  let articleSection = null;
-  if (request.current_plan_id) {
-    const artifacts = await listContentArtifacts(supabase, requestId);
-    const articleArtifacts = artifacts.filter((a) => a.kind === "article");
-    const versionEntries = await Promise.all(
-      articleArtifacts.map(async (a) => {
-        if (!a.current_version_id) return [a.id, null] as const;
-        const { data } = await supabase.from("artifact_versions").select().eq("id", a.current_version_id).single();
-        return [a.id, data ?? null] as const;
-      })
-    );
-    const versionsByArtifact = Object.fromEntries(versionEntries);
-    const evaluationEntries = await Promise.all(
-      articleArtifacts.map(async (a) => {
-        const version = versionsByArtifact[a.id];
-        if (!version) return [a.id, null] as const;
-        return [a.id, await getLatestEvaluation(supabase, version.id)] as const;
-      })
-    );
-    const allVersionsEntries = await Promise.all(
-      articleArtifacts.map(async (a) => [a.id, await listArtifactVersions(supabase, a.id)] as const)
-    );
-    articleSection = (
-      <ArticleComparison
-        requestId={requestId}
-        articleArtifacts={articleArtifacts}
-        currentVersionsByArtifact={versionsByArtifact}
-        evaluationsByArtifact={Object.fromEntries(evaluationEntries)}
-        versionsByArtifact={Object.fromEntries(allVersionsEntries)}
-        selectedArticleVersionId={request.selected_article_version_id}
-        canGenerate={request.status === "content_development"}
-      />
-    );
-  }
+  const channelsContent = request.selected_article_version_id ? (
+    <ChannelWorkspace
+      requestId={requestId}
+      channelArtifacts={channelArtifacts}
+      currentVersionsByArtifact={channelVersionsByArtifact}
+      evaluationsByArtifact={channelEvaluationsByArtifact}
+      canGenerate={request.status === "content_development"}
+    />
+  ) : (
+    <EmptyState title="Select an article first" description="Channel adaptation works from the selected article option." />
+  );
 
-  let channelSection = null;
-  if (request.selected_article_version_id) {
-    const artifacts = await listContentArtifacts(supabase, requestId);
-    const channelArtifacts = artifacts.filter((a) => a.kind !== "article");
-    const versionEntries = await Promise.all(
-      channelArtifacts.map(async (a) => {
-        if (!a.current_version_id) return [a.id, null] as const;
-        const { data } = await supabase.from("artifact_versions").select().eq("id", a.current_version_id).single();
-        return [a.id, data ?? null] as const;
-      })
-    );
-    const versionsByArtifact = Object.fromEntries(versionEntries);
-    const evaluationEntries = await Promise.all(
-      channelArtifacts.map(async (a) => {
-        const version = versionsByArtifact[a.id];
-        if (!version) return [a.id, null] as const;
-        return [a.id, await getLatestEvaluation(supabase, version.id)] as const;
-      })
-    );
-    channelSection = (
-      <ChannelWorkspace
-        requestId={requestId}
-        channelArtifacts={channelArtifacts}
-        currentVersionsByArtifact={versionsByArtifact}
-        evaluationsByArtifact={Object.fromEntries(evaluationEntries)}
-        canGenerate={request.status === "content_development"}
-      />
-    );
-  }
-
-  let packageSection = null;
-  if (request.selected_article_version_id) {
-    const readiness = await getPackageReadiness(supabase, requestId);
-    let currentPackage = null;
-    if (request.current_package_id) {
-      const { data } = await supabase.from("content_packages").select().eq("id", request.current_package_id).maybeSingle();
-      currentPackage = data ?? null;
-    }
-    const latestReview = request.status === "pending_approval" ? await getLatestReview(supabase, requestId) : null;
-    packageSection = (
-      <div className="flex flex-col gap-3">
+  const approvalContent = request.selected_article_version_id ? (
+    <>
+      {readiness ? (
         <PackageReadiness
           requestId={requestId}
           readiness={readiness}
           canCreate={request.status === "content_development" || request.status === "changes_requested"}
         />
-        {currentPackage ? <ContentPackagePreview contentPackage={currentPackage} /> : null}
-        <SubmissionPanel
-          requestId={requestId}
-          requestStatus={request.status}
-          hasCurrentPackage={Boolean(request.current_package_id)}
-          pendingReviewId={latestReview?.id ?? null}
-        />
-      </div>
-    );
-  }
+      ) : null}
+      {currentPackage ? <ContentPackagePreview contentPackage={currentPackage} /> : null}
+      <SubmissionPanel
+        requestId={requestId}
+        requestStatus={request.status}
+        hasCurrentPackage={Boolean(request.current_package_id)}
+        pendingReviewId={latestReview?.id ?? null}
+      />
+    </>
+  ) : (
+    <EmptyState title="Not ready for approval yet" description="Select an article and generate channel assets first." />
+  );
 
-  let publishingSection = null;
-  if (request.current_package_id) {
-    const queue = await getPublishingQueue(supabase, requestId);
-    publishingSection = (
-      <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-medium">Publishing Queue</h3>
-        {request.status === "approved" ? <QueueControls requestId={requestId} queueableChannels={queue.queueableChannels} /> : null}
-        <PublishingList entries={queue.entries} />
-      </div>
-    );
-  }
+  const publishingContent = queue ? (
+    <>
+      {request.status === "approved" ? <QueueControls requestId={requestId} queueableChannels={queue.queueableChannels} /> : null}
+      <PublishingList entries={queue.entries} />
+    </>
+  ) : (
+    <EmptyState title="No approved package yet" description="Publishing becomes available once a package is approved." />
+  );
+
+  const activityContent = <ActivityTimeline events={activityEvents} />;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-semibold">{request.topic}</h1>
-        <Badge variant="outline">{request.status}</Badge>
+        <StatusBadge status={request.status} />
       </div>
-      <p className="text-sm text-muted-foreground">
-        The full research and review workspace for this request is under construction.
-      </p>
-      <SupportingMaterialUpload requestId={requestId} initialMaterials={materials} />
-      <ResearchProgress requestId={requestId} status={request.status} />
-      {sourceReviewSection ?? <ResearchFailureList sources={sources} />}
-      {contentPlanSection}
-      {articleSection}
-      {channelSection}
-      {packageSection}
-      {publishingSection}
+
+      <RequestWorkspace
+        overview={overviewContent}
+        research={researchContent}
+        articles={articlesContent}
+        channels={channelsContent}
+        approval={approvalContent}
+        publishing={publishingContent}
+        activity={activityContent}
+      />
     </div>
   );
 }
