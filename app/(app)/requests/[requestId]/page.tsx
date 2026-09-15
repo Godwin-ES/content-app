@@ -14,9 +14,11 @@ import { ArticleComparison } from "@/components/articles/article-comparison";
 import { ChannelWorkspace } from "@/components/channels/channel-workspace";
 import { PackageReadiness } from "@/components/approvals/package-readiness";
 import { ContentPackagePreview } from "@/components/approvals/content-package-preview";
+import { SubmissionPanel } from "@/components/approvals/submission-panel";
 import { listContentArtifacts, listArtifactVersions } from "@/lib/repositories/content";
 import { getLatestEvaluation } from "@/lib/repositories/evaluations";
 import { getPackageReadiness } from "@/lib/packages/service";
+import { getLatestReview } from "@/lib/repositories/approvals";
 
 /**
  * Minimal placeholder for the request workspace. Task 19 replaces this with
@@ -140,6 +142,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       const { data } = await supabase.from("content_packages").select().eq("id", request.current_package_id).maybeSingle();
       currentPackage = data ?? null;
     }
+    const latestReview = request.status === "pending_approval" ? await getLatestReview(supabase, requestId) : null;
     packageSection = (
       <div className="flex flex-col gap-3">
         <PackageReadiness
@@ -148,6 +151,12 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
           canCreate={request.status === "content_development" || request.status === "changes_requested"}
         />
         {currentPackage ? <ContentPackagePreview contentPackage={currentPackage} /> : null}
+        <SubmissionPanel
+          requestId={requestId}
+          requestStatus={request.status}
+          hasCurrentPackage={Boolean(request.current_package_id)}
+          pendingReviewId={latestReview?.id ?? null}
+        />
       </div>
     );
   }

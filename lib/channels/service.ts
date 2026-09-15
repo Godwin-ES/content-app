@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { DomainError, getErrorMessage } from "@/lib/domain/errors";
+import { assertContentEditable } from "@/lib/domain/request-guards";
 import { hashCanonicalJson } from "@/lib/domain/hashing";
 import type { AIProvider } from "@/lib/ai/types";
 import { adaptLinkedIn, adaptX, adaptNewsletter, evaluateChannel as evaluateChannelAI } from "@/lib/ai/service";
@@ -168,6 +169,7 @@ export async function generateChannelAssets(
   requestId: string
 ): Promise<ChannelResult[]> {
   const request = await getRequestOrThrow(supabase, requestId);
+  assertContentEditable(request);
   const { article, versionId } = await getSelectedArticle(supabase, request);
 
   const results = await Promise.all(
@@ -202,6 +204,7 @@ export async function regenerateChannelAsset(
   }
 
   const request = await getRequestOrThrow(supabase, artifact.request_id);
+  assertContentEditable(request);
   const { article, versionId } = await getSelectedArticle(supabase, request);
 
   return generateOneChannel(supabase, ai, modelId, request, article, versionId, artifact.kind as ChannelKind);
@@ -312,6 +315,7 @@ export async function saveManualChannelRevision(
   }
 
   const request = await getRequestOrThrow(supabase, artifact.request_id);
+  assertContentEditable(request);
 
   const contentHash = hashCanonicalJson(JSON.parse(JSON.stringify(updatedContent)));
   const version = await createArtifactVersion(supabase, {

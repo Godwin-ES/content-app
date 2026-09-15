@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { DomainError } from "@/lib/domain/errors";
 import { hashCanonicalJson } from "@/lib/domain/hashing";
+import { assertContentEditable } from "@/lib/domain/request-guards";
 import { getLatestEvaluation } from "@/lib/repositories/evaluations";
 import { listSourceConflicts } from "@/lib/repositories/sources";
 import { throwFromRpcError } from "@/lib/supabase/rpc";
@@ -191,6 +192,7 @@ export async function createContentPackage(
   requestId: string
 ): Promise<ContentPackageRow> {
   const candidate = await loadPackageCandidate(supabase, requestId);
+  assertContentEditable(candidate.request);
   const checks = computeReadinessChecks(candidate);
   const firstFailure = checks.find((c) => !c.ok);
   if (firstFailure) {

@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { DomainError, getErrorMessage } from "@/lib/domain/errors";
+import { assertContentEditable } from "@/lib/domain/request-guards";
 import { hashCanonicalJson } from "@/lib/domain/hashing";
 import type { AIProvider } from "@/lib/ai/types";
 import { generateArticle, evaluateArticle as evaluateArticleAI, reviseArticle as reviseArticleAI } from "@/lib/ai/service";
@@ -203,6 +204,7 @@ export async function generateArticleOptions(
   requestId: string
 ): Promise<ArticleOptionResult[]> {
   const request = await getRequestOrThrow(supabase, requestId);
+  assertContentEditable(request);
   if (!request.current_plan_id || !request.current_source_set_id) {
     throw new DomainError("INVALID_STATE", "article_generation", "This request has no confirmed content plan yet.");
   }
@@ -256,6 +258,7 @@ export async function regenerateArticleOption(
   }
 
   const request = await getRequestOrThrow(supabase, artifact.request_id);
+  assertContentEditable(request);
   if (!request.current_plan_id) {
     throw new DomainError("INVALID_STATE", "article_generation", "This request has no confirmed content plan.");
   }
@@ -411,6 +414,7 @@ export async function autoReviseArticle(
   articleVersionId: string
 ): Promise<{ versionId: string; evaluationId: string }> {
   const { version, artifact, request, evidencePackets, validEvidenceIds } = await loadArticleContext(supabase, articleVersionId);
+  assertContentEditable(request);
 
   const automaticRevisionCount = await countAutomaticRevisions(supabase, artifact.id);
   const latestEvaluation = await getLatestEvaluation(supabase, articleVersionId);
@@ -473,6 +477,7 @@ export async function saveManualArticleRevision(
   if (error || !artifact) throw error ?? new DomainError("NOT_FOUND", "article_revision", "Artifact not found.");
 
   const request = await getRequestOrThrow(supabase, artifact.request_id);
+  assertContentEditable(request);
   const { validEvidenceIds } = await getEvidenceContextForRequest(supabase, request);
   validateClaimEvidence(updatedContent.claims, validEvidenceIds);
 
@@ -538,6 +543,7 @@ export async function applyTargetedRevision(
   actorId: string
 ): Promise<ArtifactVersionRow> {
   const { version, artifact, request, validEvidenceIds } = await loadArticleContext(supabase, articleVersionId);
+  assertContentEditable(request);
   validateClaimEvidence(proposedContent.claims, validEvidenceIds);
 
   const contentHash = hashCanonicalJson(JSON.parse(JSON.stringify(proposedContent)));
