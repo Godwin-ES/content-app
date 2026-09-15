@@ -14,7 +14,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check": "pnpm lint && pnpm typecheck && pnpm test"
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "seed:test-users": "tsx scripts/seed-test-users.ts",
+    "reset:test-data": "tsx scripts/reset-test-data.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
