@@ -17,9 +17,14 @@ export async function AppShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
           <span className="text-sm font-semibold tracking-wide text-neutral-900">{APP_NAME}</span>
           {user?.role === "content_manager" ? (
-            <Link href="/dashboard" className="text-sm text-neutral-600 hover:text-neutral-900">
-              Dashboard
-            </Link>
+            <>
+              <Link href="/dashboard" className="text-sm text-neutral-600 hover:text-neutral-900">
+                Dashboard
+              </Link>
+              <Link href="/publishing" className="text-sm text-neutral-600 hover:text-neutral-900">
+                Publishing Queue
+              </Link>
+            </>
           ) : null}
           {user?.role === "reviewer" ? (
             <Link href="/reviews" className="text-sm text-neutral-600 hover:text-neutral-900">

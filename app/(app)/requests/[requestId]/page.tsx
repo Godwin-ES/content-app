@@ -19,6 +19,9 @@ import { listContentArtifacts, listArtifactVersions } from "@/lib/repositories/c
 import { getLatestEvaluation } from "@/lib/repositories/evaluations";
 import { getPackageReadiness } from "@/lib/packages/service";
 import { getLatestReview } from "@/lib/repositories/approvals";
+import { getPublishingQueue } from "@/lib/publishing/service";
+import { QueueControls } from "@/components/publishing/queue-controls";
+import { PublishingList } from "@/components/publishing/publishing-list";
 
 /**
  * Minimal placeholder for the request workspace. Task 19 replaces this with
@@ -161,6 +164,18 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
     );
   }
 
+  let publishingSection = null;
+  if (request.current_package_id) {
+    const queue = await getPublishingQueue(supabase, requestId);
+    publishingSection = (
+      <div className="flex flex-col gap-3">
+        <h3 className="text-sm font-medium">Publishing Queue</h3>
+        {request.status === "approved" ? <QueueControls requestId={requestId} queueableChannels={queue.queueableChannels} /> : null}
+        <PublishingList entries={queue.entries} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -177,6 +192,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       {articleSection}
       {channelSection}
       {packageSection}
+      {publishingSection}
     </div>
   );
 }
