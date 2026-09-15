@@ -248,6 +248,11 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
         hasCurrentPackage={Boolean(request.current_package_id)}
         pendingReviewId={latestReview?.id ?? null}
       />
+      {currentPackage ? (
+        <a href={`/requests/${requestId}/sample-pack`} className="w-fit text-sm underline" target="_blank" rel="noreferrer">
+          Open printable sample pack
+        </a>
+      ) : null}
     </>
   ) : (
     <EmptyState title="Not ready for approval yet" description="Select an article and generate channel assets first." />
