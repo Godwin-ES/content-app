@@ -1,0 +1,39 @@
+{
+  "key": "thin_evidence",
+  "label": "Thin evidence",
+  "description": "Only one short, hedged piece of evidence supports an otherwise ambitious content plan — tests whether the model restrains scope/certainty instead of filling gaps from background knowledge.",
+  "audience": "Small business owners",
+  "objective": "Explain whether AI receptionists are worth adopting",
+  "tone": "Friendly, direct",
+  "cta": "Try a free trial",
+  "plan": {
+    "insufficientEvidence": false,
+    "insufficientEvidenceReason": null,
+    "primaryKeyword": "ai receptionist for small business",
+    "secondaryKeywords": ["virtual receptionist"],
+    "searchIntent": "commercial investigation",
+    "angle": "practical",
+    "title": "Is an AI Receptionist Worth It for Your Small Business?",
+    "sections": [
+      { "heading": "What an AI receptionist does", "level": "h2", "purpose": "explain the concept", "hasFactualClaims": false, "evidenceIds": [] },
+      { "heading": "What one small business experienced", "level": "h2", "purpose": "share a single data point", "hasFactualClaims": true, "evidenceIds": ["S1:E1"] },
+      { "heading": "Should you try one?", "level": "h2", "purpose": "practical guidance", "hasFactualClaims": false, "evidenceIds": [] }
+    ],
+    "ctaDirection": "Invite a free trial",
+    "links": ["https://example.com/thin-a"],
+    "knownLimitations": "Only one small-business case study is available; broader claims about typical results are not supported."
+  },
+  "evidencePackets": [
+    {
+      "sourceLabel": "S1",
+      "publisher": "Local Business Weekly",
+      "url": "https://example.com/thin-a",
+      "evidenceKey": "E1",
+      "excerpt": "One salon owner said the AI receptionist \"seemed to help\" answer calls during busy hours, though she didn't track exact numbers.",
+      "conservativeSummary": "One business owner gave an informal, unquantified positive impression of an AI receptionist during busy periods.",
+      "supports": ["one anecdotal positive impression"],
+      "doesNotEstablish": ["single anonymous anecdote", "no measurement", "not representative"]
+    }
+  ],
+  "validEvidenceIds": ["S1:E1"]
+}

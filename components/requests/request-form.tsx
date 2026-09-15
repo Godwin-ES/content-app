@@ -8,14 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ResolvedDefaultsCard } from "@/components/requests/resolved-defaults-card";
+import { ModelSelector } from "@/components/test-mode/model-selector";
+import type { AIModelChoice } from "@/lib/domain/types";
 
-export function RequestForm() {
+export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boolean }) {
   const [state, formAction, pending] = useActionState(createContentRequestAction, null);
   const [optionalOpen, setOptionalOpen] = useState(false);
   const [audience, setAudience] = useState("");
   const [objective, setObjective] = useState("");
   const [tone, setTone] = useState("");
   const [cta, setCta] = useState("");
+  const [aiModelChoice, setAiModelChoice] = useState<AIModelChoice>("gemini");
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -34,6 +37,13 @@ export function RequestForm() {
       </div>
 
       <ResolvedDefaultsCard audience={audience} objective={objective} tone={tone} cta={cta} />
+
+      {testModeEnabled ? (
+        <div className="rounded-lg border border-dashed p-4">
+          <ModelSelector id="ai-model-choice" value={aiModelChoice} onChange={setAiModelChoice} label="Test mode: AI model for this request" />
+          <input type="hidden" name="aiModelChoice" value={aiModelChoice} />
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-4">
         <Button

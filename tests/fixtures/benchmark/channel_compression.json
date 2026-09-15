@@ -1,0 +1,38 @@
+{
+  "key": "channel_compression",
+  "label": "Channel compression and certainty preservation",
+  "description": "The article's own claim is already hedged ('some teams reported'). Used to check whether adapting it into LinkedIn/X/newsletter form preserves that hedge instead of compressing it into a stronger, unsupported claim.",
+  "audience": "HR leaders",
+  "objective": "Educate readers on responsible adoption of AI recruiting agents",
+  "tone": "Professional, pragmatic",
+  "cta": "Book a demo of our recruiting platform",
+  "plan": {
+    "insufficientEvidence": false,
+    "insufficientEvidenceReason": null,
+    "primaryKeyword": "ai agents in recruiting",
+    "secondaryKeywords": [],
+    "searchIntent": "informational",
+    "angle": "practical",
+    "title": "AI Agents in Recruiting: A Practical Look",
+    "sections": [
+      { "heading": "Reported workload impact", "level": "h2", "purpose": "share a hedged observed outcome", "hasFactualClaims": true, "evidenceIds": ["S1:E1"] },
+      { "heading": "Adopting responsibly", "level": "h2", "purpose": "practical guidance", "hasFactualClaims": false, "evidenceIds": [] }
+    ],
+    "ctaDirection": "Invite the reader to see the platform in action",
+    "links": ["https://example.com/channel-a"],
+    "knownLimitations": null
+  },
+  "evidencePackets": [
+    {
+      "sourceLabel": "S1",
+      "publisher": "HR Tech Journal",
+      "url": "https://example.com/channel-a",
+      "evidenceKey": "E1",
+      "excerpt": "Some teams reported reduced administrative workload after adopting AI recruiting agents, though results varied and were not independently measured.",
+      "conservativeSummary": "Some teams reported reduced administrative workload after adopting AI recruiting agents; results varied and were not independently measured.",
+      "supports": ["some teams reported reduced administrative workload"],
+      "doesNotEstablish": ["self-reported, varied results, not independently measured"]
+    }
+  ],
+  "validEvidenceIds": ["S1:E1"]
+}

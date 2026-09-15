@@ -1,6 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendDiscordMessage } from "@/lib/notifications/discord";
+import { getInjectedFailureMode } from "@/lib/test-support/failure-injection";
 
 type NotificationChannel = "content_manager" | "reviewer" | "system_errors";
 
@@ -23,7 +24,11 @@ async function notify(params: {
   let status: "sent" | "failed" | "skipped" = "skipped";
   let error: string | null = null;
 
-  if (params.webhookUrl) {
+  const injectedMode = await getInjectedFailureMode();
+  if (injectedMode === "notification_failure") {
+    status = "failed";
+    error = "Injected failure: notification_failure";
+  } else if (params.webhookUrl) {
     try {
       await sendDiscordMessage(params.webhookUrl, params.message);
       status = "sent";

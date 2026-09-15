@@ -24,6 +24,11 @@ export async function AppShell({ children }: { children: ReactNode }) {
               <Link href="/publishing" className="text-sm text-neutral-600 hover:text-neutral-900">
                 Publishing Queue
               </Link>
+              {process.env.ENABLE_AI_TEST_MODE === "true" ? (
+                <Link href="/test-benchmark" className="text-sm text-neutral-600 hover:text-neutral-900">
+                  Test &amp; Benchmark
+                </Link>
+              ) : null}
             </>
           ) : null}
           {user?.role === "reviewer" ? (

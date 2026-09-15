@@ -15,6 +15,7 @@ import {
   reopenRejectedRequest as reopenRejectedRequestRepo,
 } from "@/lib/repositories/approvals";
 import { getSourceSetSources } from "@/lib/repositories/sources";
+import { assertNoInjectedPersistenceFailure } from "@/lib/test-support/failure-injection";
 
 type ApprovalReviewRow = Database["public"]["Tables"]["approval_reviews"]["Row"];
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
@@ -39,6 +40,7 @@ export async function submitForApproval(supabase: SupabaseClient<Database>, requ
   if (!request.current_package_id) {
     throw new DomainError("INVALID_STATE", "approval", "This request has no package to submit.");
   }
+  await assertNoInjectedPersistenceFailure("approval_persistence_failure", "approval");
   const review = await submitPackageForReview(supabase, requestId, request.current_package_id);
   await bestEffort(() => notifyReviewerSubmission({ requestId, topic: request.topic }));
   return review;
@@ -58,6 +60,7 @@ export async function decideApproval(
   supabase: SupabaseClient<Database>,
   params: { reviewId: string; packageId: string; decision: "approved" | "changes_requested" | "rejected"; comment: string | null }
 ): Promise<ApprovalReviewRow> {
+  await assertNoInjectedPersistenceFailure("approval_persistence_failure", "approval");
   const review = await decidePackageReview(supabase, params);
   const request = await getRequestOrThrow(supabase, review.request_id);
   await bestEffort(() =>

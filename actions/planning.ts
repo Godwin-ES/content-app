@@ -20,7 +20,7 @@ export async function generateContentPlanAction(requestId: string): Promise<Acti
     if (error || !request) throw error;
 
     const modelChoice = resolveAIModelForRequest(request);
-    const ai = getAIProvider(modelChoice);
+    const ai = await getAIProvider(modelChoice);
     const modelId = getModelIdFor(modelChoice);
 
     const plan = await generateContentPlan(supabase, ai, modelId, requestId);

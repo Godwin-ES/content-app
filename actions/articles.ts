@@ -33,7 +33,7 @@ async function providerForArticleVersion(supabase: SupabaseClient<Database>, art
   if (error || !request) throw error;
 
   const modelChoice = resolveAIModelForRequest(request);
-  return { ai: getAIProvider(modelChoice), modelId: getModelIdFor(modelChoice) };
+  return { ai: await getAIProvider(modelChoice), modelId: getModelIdFor(modelChoice) };
 }
 
 export async function generateArticleOptionsAction(requestId: string): Promise<ActionResult<ArticleOptionResult[]>> {
@@ -46,7 +46,7 @@ export async function generateArticleOptionsAction(requestId: string): Promise<A
     if (error || !request) throw error;
 
     const modelChoice = resolveAIModelForRequest(request);
-    const ai = getAIProvider(modelChoice);
+    const ai = await getAIProvider(modelChoice);
     const modelId = getModelIdFor(modelChoice);
 
     const results = await generateArticleOptions(supabase, ai, modelId, requestId);
@@ -70,7 +70,7 @@ export async function retryArticleOptionAction(artifactId: string): Promise<Acti
     if (error || !request) throw error;
 
     const modelChoice = resolveAIModelForRequest(request);
-    const ai = getAIProvider(modelChoice);
+    const ai = await getAIProvider(modelChoice);
     const modelId = getModelIdFor(modelChoice);
 
     const result = await regenerateArticleOption(supabase, ai, modelId, artifactId);
@@ -95,7 +95,7 @@ export async function evaluateArticleAction(articleVersionId: string): Promise<A
     if (error || !request) throw error;
 
     const modelChoice = resolveAIModelForRequest(request);
-    const ai = getAIProvider(modelChoice);
+    const ai = await getAIProvider(modelChoice);
     const modelId = getModelIdFor(modelChoice);
 
     const evaluation = await evaluateArticleVersion(supabase, ai, modelId, articleVersionId);

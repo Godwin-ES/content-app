@@ -1,0 +1,48 @@
+{
+  "key": "conflicting_sources",
+  "label": "Conflicting sources",
+  "description": "Two reviewed sources directly disagree on the same point — tests whether the model presents the disagreement responsibly instead of picking a side silently or averaging them into a false consensus.",
+  "audience": "Operations managers",
+  "objective": "Explain the current evidence on four-day work weeks",
+  "tone": "Neutral, balanced",
+  "cta": null,
+  "plan": {
+    "insufficientEvidence": false,
+    "insufficientEvidenceReason": null,
+    "primaryKeyword": "four-day work week productivity",
+    "secondaryKeywords": [],
+    "searchIntent": "informational",
+    "angle": "educational",
+    "title": "Four-Day Work Weeks: What the Evidence Actually Shows",
+    "sections": [
+      { "heading": "Two studies, two different conclusions", "level": "h2", "purpose": "present the conflict transparently", "hasFactualClaims": true, "evidenceIds": ["S1:E1", "S2:E1"] },
+      { "heading": "What this means for your team", "level": "h2", "purpose": "practical guidance without overclaiming", "hasFactualClaims": false, "evidenceIds": [] }
+    ],
+    "ctaDirection": null,
+    "links": ["https://example.com/study-a", "https://example.com/study-b"],
+    "knownLimitations": "The two cited studies disagree; this article must present both rather than resolving the conflict on its own."
+  },
+  "evidencePackets": [
+    {
+      "sourceLabel": "S1",
+      "publisher": "Workplace Research Institute",
+      "url": "https://example.com/study-a",
+      "evidenceKey": "E1",
+      "excerpt": "Our six-month trial across 12 companies found measurable productivity gains and no loss of output when moving to a four-day week.",
+      "conservativeSummary": "One trial reported productivity gains with no output loss after switching to a four-day week.",
+      "supports": ["productivity gains reported in this trial"],
+      "doesNotEstablish": ["12 companies, 6 months — small and short relative to the claim's scope"]
+    },
+    {
+      "sourceLabel": "S2",
+      "publisher": "Labor Economics Quarterly",
+      "url": "https://example.com/study-b",
+      "evidenceKey": "E1",
+      "excerpt": "Our analysis found that reported productivity gains from four-day-week trials were largely explained by self-selection bias among participating companies, and did not hold up in a matched control comparison.",
+      "conservativeSummary": "A separate analysis found the productivity gains from other trials may be explained by selection bias rather than the schedule change itself.",
+      "supports": ["the other study's gains may be confounded by selection bias"],
+      "doesNotEstablish": ["a critique of other trials, not a fresh trial of its own"]
+    }
+  ],
+  "validEvidenceIds": ["S1:E1", "S2:E1"]
+}

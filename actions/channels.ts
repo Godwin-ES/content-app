@@ -28,7 +28,7 @@ export async function generateChannelsAction(requestId: string): Promise<ActionR
     if (error || !request) throw error;
 
     const modelChoice = resolveAIModelForRequest(request);
-    const ai = getAIProvider(modelChoice);
+    const ai = await getAIProvider(modelChoice);
     const modelId = getModelIdFor(modelChoice);
 
     const results = await generateChannelAssets(supabase, ai, modelId, requestId);
@@ -52,7 +52,7 @@ export async function retryChannelAction(artifactId: string): Promise<ActionResu
     if (error || !request) throw error;
 
     const modelChoice = resolveAIModelForRequest(request);
-    const ai = getAIProvider(modelChoice);
+    const ai = await getAIProvider(modelChoice);
     const modelId = getModelIdFor(modelChoice);
 
     const result = await regenerateChannelAsset(supabase, ai, modelId, artifactId);
@@ -77,7 +77,7 @@ export async function evaluateChannelAction(channelVersionId: string): Promise<A
     if (error || !request) throw error;
 
     const modelChoice = resolveAIModelForRequest(request);
-    const ai = getAIProvider(modelChoice);
+    const ai = await getAIProvider(modelChoice);
     const modelId = getModelIdFor(modelChoice);
 
     const evaluation = await evaluateChannelVersion(supabase, ai, modelId, channelVersionId);

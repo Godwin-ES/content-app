@@ -32,8 +32,8 @@ export async function startResearchAction(requestId: string): Promise<ActionResu
     }
 
     const modelChoice = resolveAIModelForRequest(request);
-    const ai = getAIProvider(modelChoice);
-    const research = getResearchProvider();
+    const ai = await getAIProvider(modelChoice);
+    const research = await getResearchProvider();
     const modelId = getModelIdFor(modelChoice);
 
     const result = await runResearchPipeline(supabase, ai, research, modelId, requestId);
@@ -57,8 +57,8 @@ export async function retrySourceAction(sourceId: string): Promise<ActionResult<
     if (!request) throw new DomainError("NOT_FOUND", "retry_source", "Request not found.");
 
     const modelChoice = resolveAIModelForRequest(request);
-    const ai = getAIProvider(modelChoice);
-    const research = getResearchProvider();
+    const ai = await getAIProvider(modelChoice);
+    const research = await getResearchProvider();
     const modelId = getModelIdFor(modelChoice);
 
     await retryResearchSource(supabase, ai, research, modelId, sourceId);

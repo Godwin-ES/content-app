@@ -6,6 +6,8 @@ import type { AIProvider } from "@/lib/ai/types";
 import { AnthropicAIProvider } from "@/lib/ai/providers/anthropic";
 import { GoogleAIProvider } from "@/lib/ai/providers/google";
 import { FakeAIProvider } from "@/lib/ai/providers/fake";
+import { getInjectedFailureMode } from "@/lib/test-support/failure-injection";
+import { applyAIFailureInjection } from "@/lib/test-support/injected-providers";
 
 let fakeProviderSingleton: FakeAIProvider | null = null;
 
@@ -30,12 +32,16 @@ function getFakeProvider(): FakeAIProvider {
  * (SYSTEM-DESIGN-NEXTJS.md §12.1); callers never pass a raw provider model
  * string here, only the enumerated AIModelChoice.
  */
-export function getAIProvider(model: AIModelChoice): AIProvider {
-  if (process.env.USE_FAKE_PROVIDERS === "true") {
-    return getFakeProvider();
-  }
-  const providerName = providerForModel(model);
-  return providerName === "google" ? new GoogleAIProvider() : new AnthropicAIProvider();
+export async function getAIProvider(model: AIModelChoice): Promise<AIProvider> {
+  const base =
+    process.env.USE_FAKE_PROVIDERS === "true"
+      ? getFakeProvider()
+      : providerForModel(model) === "google"
+        ? new GoogleAIProvider()
+        : new AnthropicAIProvider();
+
+  const failureMode = await getInjectedFailureMode();
+  return applyAIFailureInjection(base, failureMode);
 }
 
 /**
