@@ -30,14 +30,9 @@ export function UserMenu({ displayName, email }: UserMenuProps) {
         </span>
         <span className="hidden font-medium sm:inline">{displayName}</span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="min-w-64 w-max">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>
-            <div className="flex flex-col">
-              <span className="font-medium">{displayName}</span>
-              <span className="text-xs font-normal text-muted-foreground">{email}</span>
-            </div>
-          </DropdownMenuLabel>
+          <DropdownMenuLabel className="whitespace-nowrap text-xs font-normal text-muted-foreground">{email}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => void signOut()}>Sign out</DropdownMenuItem>
         </DropdownMenuGroup>

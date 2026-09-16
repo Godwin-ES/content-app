@@ -72,10 +72,10 @@ async function main() {
     admin,
     requireEnv("TEST_CONTENT_MANAGER_EMAIL"),
     requireEnv("TEST_CONTENT_MANAGER_PASSWORD"),
-    "Test Content Manager",
+    "Charles Morris",
     "content_manager"
   );
-  await ensureUser(admin, requireEnv("TEST_REVIEWER_EMAIL"), requireEnv("TEST_REVIEWER_PASSWORD"), "Test Reviewer", "reviewer");
+  await ensureUser(admin, requireEnv("TEST_REVIEWER_EMAIL"), requireEnv("TEST_REVIEWER_PASSWORD"), "Carl Richards", "reviewer");
 
   console.log("Done.");
 }
