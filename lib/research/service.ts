@@ -113,6 +113,24 @@ async function retrieveAndAnalyze(
     ? await updateResearchSource(supabase, existingSourceId, { ...basePatch, retrieval_status: "usable" })
     : await createResearchSource(supabase, { ...basePatch, retrieval_status: "usable" });
 
+  return analyzeAndStoreEvidence(supabase, ai, modelId, request, sourceRow, page.markdown, researchQuestions);
+}
+
+/**
+ * Shared AI-analysis + evidence-persistence tail (SYSTEM-DESIGN-NEXTJS.md
+ * §9.4, §11): once a source has real text — whether retrieved from a URL
+ * or already extracted from an uploaded file — the rest of the journey
+ * (analyze, store evidence, or mark unusable) is identical.
+ */
+async function analyzeAndStoreEvidence(
+  supabase: SupabaseClient<Database>,
+  ai: AIProvider,
+  modelId: string,
+  request: ContentRequestRow,
+  sourceRow: ResearchSourceRow,
+  rawText: string,
+  researchQuestions: string[]
+): Promise<ResearchSourceRow> {
   const analysisRun = await createOperationRun(supabase, {
     request_id: request.id,
     operation_type: "source_analysis",
@@ -126,7 +144,7 @@ async function retrieveAndAnalyze(
       topic: request.topic,
       researchQuestions,
       sourceLabel: sourceRow.id,
-      rawText: page.markdown,
+      rawText,
     });
     await updateOperationRun(supabase, analysisRun.id, { status: "succeeded", finished_at: new Date().toISOString() });
 
@@ -311,6 +329,9 @@ export async function retryResearchSource(
 ): Promise<ResearchSourceRow> {
   const existing = await getResearchSource(supabase, sourceId);
   if (!existing) throw new DomainError("NOT_FOUND", "research_retry", "Source not found.");
+  if (existing.origin === "uploaded_material") {
+    throw new DomainError("VALIDATION_ERROR", "research_retry", "Use analyzeUploadedMaterialSource for an uploaded-material source.");
+  }
 
   const request = await getRequestOrThrow(supabase, existing.request_id);
 
@@ -327,10 +348,96 @@ export async function retryResearchSource(
     existing.id
   );
 
+  await transitionToSourceReviewIfNeeded(supabase, request, result);
+
+  return result;
+}
+
+async function transitionToSourceReviewIfNeeded(
+  supabase: SupabaseClient<Database>,
+  request: ContentRequestRow,
+  result: ResearchSourceRow
+): Promise<void> {
   if (result.retrieval_status === "usable" && request.status === "draft") {
     const admin = createSupabaseAdminClient();
     await admin.from("content_requests").update({ status: "source_review" }).eq("id", request.id);
   }
+}
 
+/**
+ * Adds one supplementary URL as a `pending` source — no retrieval happens
+ * yet (SYSTEM-DESIGN-NEXTJS.md §10, Phase 2 of the post-Task-22 UX pass).
+ * Lets a Content Manager queue up a URL to research individually, either
+ * before the first "Start research" run or after it, without forcing an
+ * immediate retrieval attempt.
+ */
+export async function addPendingSourceUrl(
+  supabase: SupabaseClient<Database>,
+  requestId: string,
+  url: string
+): Promise<ResearchSourceRow> {
+  const canonicalUrl = canonicalizeUrl(url);
+
+  const { data: existingSources, error } = await supabase
+    .from("research_sources")
+    .select("id")
+    .eq("request_id", requestId)
+    .eq("canonical_url", canonicalUrl);
+  if (error) throw error;
+  if ((existingSources ?? []).length > 0) {
+    throw new DomainError("VALIDATION_ERROR", "add_source_url", "This URL has already been added to this request.");
+  }
+
+  return createResearchSource(supabase, {
+    request_id: requestId,
+    origin: "user_url",
+    original_url: url,
+    canonical_url: canonicalUrl,
+    retrieval_status: "pending",
+  });
+}
+
+/**
+ * Runs the same AI evidence analysis a retrieved URL gets, but for a
+ * supporting material whose text was already extracted at upload time
+ * (SYSTEM-DESIGN-NEXTJS.md §11) — no retrieval step, since there is
+ * nothing to fetch.
+ */
+export async function analyzeUploadedMaterialSource(
+  supabase: SupabaseClient<Database>,
+  ai: AIProvider,
+  modelId: string,
+  sourceId: string
+): Promise<ResearchSourceRow> {
+  const existing = await getResearchSource(supabase, sourceId);
+  if (!existing) throw new DomainError("NOT_FOUND", "material_analysis", "Source not found.");
+  if (existing.origin !== "uploaded_material" || !existing.supporting_material_id) {
+    throw new DomainError("VALIDATION_ERROR", "material_analysis", "This source is not backed by an uploaded material.");
+  }
+
+  const request = await getRequestOrThrow(supabase, existing.request_id);
+
+  const { data: material, error } = await supabase
+    .from("supporting_materials")
+    .select("extracted_text, extraction_status")
+    .eq("id", existing.supporting_material_id)
+    .single();
+  if (error || !material) throw error ?? new DomainError("NOT_FOUND", "material_analysis", "Supporting material not found.");
+  if (material.extraction_status !== "ready" || !material.extracted_text) {
+    throw new DomainError("VALIDATION_ERROR", "material_analysis", "This material's text could not be extracted, so it cannot be analyzed.");
+  }
+
+  // analyzeAndStoreEvidence's success path returns its sourceRow argument
+  // as-is (retrieveAndAnalyze's caller already flips a URL source to
+  // `usable` before calling it) — a material source has no such prior
+  // step, so it must be marked `usable` here first, or a successful
+  // analysis would silently leave the row `pending` forever.
+  const usableSource = await updateResearchSource(supabase, existing.id, {
+    retrieval_status: "usable",
+    extracted_text: material.extracted_text,
+  });
+
+  const result = await analyzeAndStoreEvidence(supabase, ai, modelId, request, usableSource, material.extracted_text, []);
+  await transitionToSourceReviewIfNeeded(supabase, request, result);
   return result;
 }

@@ -20,6 +20,7 @@ export function buildSourceAnalyzerPrompt(input: SourceAnalyzerInput): { system:
     "Read one retrieved web page and extract evidence items that are clearly present in its text.",
     "If the page is mostly navigation, cookie notices, a login wall, or other boilerplate with no substantive content relevant to the topic, set isUsable to false and return no evidence items.",
     "Each evidence item must include a conservative summary plus what it supports and what it does not establish. Do not infer beyond the literal text.",
+    "Every evidence item's evidenceKey must be a short, descriptive, human-readable slug (lowercase_with_underscores, 2-4 words) that summarizes what that specific piece of evidence is about — e.g. \"benefits_time_to_hire\" or \"example_company_x_rollout\". Never use a generic sequential label like \"E1\", \"E2\", \"item_3\", or a bare number — a reader who has never seen the source must be able to guess roughly what the evidence says just from its key.",
     "",
     SHARED_GROUNDING_RULES,
   ].join("\n");

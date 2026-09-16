@@ -14,6 +14,8 @@ type SupportingMaterialRow = Database["public"]["Tables"]["supporting_materials"
 interface SupportingMaterialUploadProps {
   requestId: string;
   initialMaterials: SupportingMaterialRow[];
+  locked?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }
 
 const STATUS_LABEL: Record<SupportingMaterialRow["extraction_status"], string> = {
@@ -22,22 +24,34 @@ const STATUS_LABEL: Record<SupportingMaterialRow["extraction_status"], string> =
   failed: "Failed",
 };
 
-export function SupportingMaterialUpload({ requestId, initialMaterials }: SupportingMaterialUploadProps) {
+/**
+ * The "Add file" trigger for the Research tab's unified source list. A
+ * material that extracts successfully immediately becomes a `pending`
+ * source (lib/materials/service.ts) and shows up there instead — so this
+ * panel only ever lists materials still processing or that failed to
+ * extract, never a "Ready" one (that would just be the same file shown
+ * twice, once here and once as its source card).
+ */
+export function SupportingMaterialUpload({ requestId, initialMaterials, locked = false, onBusyChange }: SupportingMaterialUploadProps) {
   const [materials, setMaterials] = useState(initialMaterials);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
+  const pendingOrFailed = materials.filter((m) => m.extraction_status !== "ready");
+
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     setError(null);
+    onBusyChange?.(true);
 
     startTransition(async () => {
       const formData = new FormData();
       formData.set("file", file);
       const result = await uploadSupportingMaterialAction(requestId, formData);
+      onBusyChange?.(false);
       if (result.ok) {
         setMaterials((prev) => [...prev, result.data]);
         router.refresh();
@@ -50,8 +64,10 @@ export function SupportingMaterialUpload({ requestId, initialMaterials }: Suppor
 
   function handleRemove(materialId: string) {
     setError(null);
+    onBusyChange?.(true);
     startTransition(async () => {
       const result = await deleteSupportingMaterialAction(materialId);
+      onBusyChange?.(false);
       if (result.ok) {
         setMaterials((prev) => prev.filter((m) => m.id !== materialId));
         router.refresh();
@@ -61,28 +77,23 @@ export function SupportingMaterialUpload({ requestId, initialMaterials }: Suppor
     });
   }
 
+  const disabled = isPending || locked;
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Supporting material</h3>
-        <label
-          className={cn(
-            buttonVariants({ variant: "outline", size: "sm" }),
-            "cursor-pointer",
-            isPending && "pointer-events-none opacity-50"
-          )}
-        >
-          {isPending ? "Uploading..." : "Add file"}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.docx,.md,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain"
-            className="hidden"
-            onChange={handleFileChange}
-            disabled={isPending}
-          />
-        </label>
-      </div>
+      <label
+        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit cursor-pointer", disabled && "pointer-events-none opacity-50")}
+      >
+        {isPending ? "Uploading..." : "Add file"}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.docx,.md,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain"
+          className="hidden"
+          onChange={handleFileChange}
+          disabled={disabled}
+        />
+      </label>
 
       {error ? (
         <Alert variant="destructive">
@@ -90,11 +101,9 @@ export function SupportingMaterialUpload({ requestId, initialMaterials }: Suppor
         </Alert>
       ) : null}
 
-      {materials.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No supporting material uploaded yet.</p>
-      ) : (
+      {pendingOrFailed.length > 0 ? (
         <ul className="flex flex-col divide-y rounded-lg border">
-          {materials.map((material) => (
+          {pendingOrFailed.map((material) => (
             <li key={material.id} className="flex items-center justify-between gap-3 p-3 text-sm">
               <div className="flex flex-col gap-1">
                 <span className="font-medium">{material.filename}</span>
@@ -108,19 +117,13 @@ export function SupportingMaterialUpload({ requestId, initialMaterials }: Suppor
                   <span className="text-xs text-destructive">{material.extraction_error}</span>
                 ) : null}
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={isPending}
-                onClick={() => handleRemove(material.id)}
-              >
+              <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={() => handleRemove(material.id)}>
                 Remove
               </Button>
             </li>
           ))}
         </ul>
-      )}
+      ) : null}
     </div>
   );
 }

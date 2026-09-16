@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireContentManager } from "@/lib/auth/guards";
 import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai/provider";
 import { getResearchProvider } from "@/lib/research/provider";
-import { runResearchPipeline, retryResearchSource } from "@/lib/research/service";
+import { runResearchPipeline, retryResearchSource, addPendingSourceUrl, analyzeUploadedMaterialSource } from "@/lib/research/service";
 import { toLoggedActionError } from "@/lib/notifications/action-error";
 import { DomainError, type ActionResult } from "@/lib/domain/errors";
 
@@ -44,27 +44,50 @@ export async function startResearchAction(requestId: string): Promise<ActionResu
   }
 }
 
-export async function retrySourceAction(sourceId: string): Promise<ActionResult<null>> {
+/**
+ * Runs retrieval+analysis (a URL source) or just analysis (a material
+ * source) for one existing source — whether it's a first attempt on a
+ * `pending` source or a retry on a `failed` one, the underlying work is
+ * the same; only the button label the caller shows differs.
+ */
+export async function startSourceAction(sourceId: string): Promise<ActionResult<null>> {
   const supabase = await createSupabaseServerClient();
 
   try {
     await requireContentManager(supabase);
 
-    const { data: source } = await supabase.from("research_sources").select("request_id").eq("id", sourceId).single();
-    if (!source) throw new DomainError("NOT_FOUND", "retry_source", "Source not found.");
+    const { data: source } = await supabase.from("research_sources").select("request_id, origin").eq("id", sourceId).single();
+    if (!source) throw new DomainError("NOT_FOUND", "start_source", "Source not found.");
 
     const { data: request } = await supabase.from("content_requests").select().eq("id", source.request_id).single();
-    if (!request) throw new DomainError("NOT_FOUND", "retry_source", "Request not found.");
+    if (!request) throw new DomainError("NOT_FOUND", "start_source", "Request not found.");
 
     const modelChoice = resolveAIModelForRequest(request);
     const ai = await getAIProvider(modelChoice);
-    const research = await getResearchProvider();
     const modelId = getModelIdFor(modelChoice);
 
-    await retryResearchSource(supabase, ai, research, modelId, sourceId);
+    if (source.origin === "uploaded_material") {
+      await analyzeUploadedMaterialSource(supabase, ai, modelId, sourceId);
+    } else {
+      const research = await getResearchProvider();
+      await retryResearchSource(supabase, ai, research, modelId, sourceId);
+    }
     return { ok: true, data: null };
   } catch (error) {
-    const actionError = await toLoggedActionError(error, "retry_source");
+    const actionError = await toLoggedActionError(error, "start_source");
+    return { ok: false, error: actionError };
+  }
+}
+
+export async function addSourceUrlAction(requestId: string, url: string): Promise<ActionResult<null>> {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    await requireContentManager(supabase);
+    await addPendingSourceUrl(supabase, requestId, url);
+    return { ok: true, data: null };
+  } catch (error) {
+    const actionError = await toLoggedActionError(error, "add_source_url", { requestId });
     return { ok: false, error: actionError };
   }
 }

@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { requireCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -17,10 +16,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RequestStepper } from "@/components/requests/request-stepper";
 import { RequestWorkspace } from "@/components/requests/request-workspace";
-import { SupportingMaterialUpload } from "@/components/requests/supporting-material-upload";
-import { ResearchProgress } from "@/components/research/research-progress";
-import { ResearchFailureList } from "@/components/research/research-failure-list";
-import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
+import { ResearchTab } from "@/components/research/research-tab";
 import { ContentPlanEditor } from "@/components/articles/content-plan-editor";
 import { ArticleComparison } from "@/components/articles/article-comparison";
 import { ChannelWorkspace } from "@/components/channels/channel-workspace";
@@ -58,23 +54,13 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
     unusable: sources.filter((s) => s.retrieval_status === "unusable").length,
   };
 
-  let sourceReviewSection: ReactNode = null;
-  if (request.status === "source_review") {
-    const [evidenceEntries, decisionEntries, conflicts] = await Promise.all([
-      Promise.all(sources.map(async (s) => [s.id, await listSourceEvidence(supabase, s.id)] as const)),
-      Promise.all(sources.map(async (s) => [s.id, await getLatestSourceDecision(supabase, s.id)] as const)),
-      listSourceConflicts(supabase, requestId),
-    ]);
-    sourceReviewSection = (
-      <SourceReviewWorkspace
-        requestId={requestId}
-        sources={sources}
-        evidenceBySource={Object.fromEntries(evidenceEntries)}
-        decisionsBySource={Object.fromEntries(decisionEntries)}
-        conflicts={conflicts}
-      />
-    );
-  }
+  const [evidenceEntries, decisionEntries, conflicts] = await Promise.all([
+    Promise.all(sources.map(async (s) => [s.id, await listSourceEvidence(supabase, s.id)] as const)),
+    Promise.all(sources.map(async (s) => [s.id, await getLatestSourceDecision(supabase, s.id)] as const)),
+    listSourceConflicts(supabase, requestId),
+  ]);
+  const evidenceBySource = Object.fromEntries(evidenceEntries);
+  const decisionsBySource = Object.fromEntries(decisionEntries);
 
   const { data: plan } = await supabase
     .from("content_plans")
@@ -164,7 +150,6 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   const overviewContent = (
     <>
       <RequestStepper nextAction={nextAction} />
-      <SupportingMaterialUpload requestId={requestId} initialMaterials={materials} />
       <div className="grid gap-3 sm:grid-cols-2">
         <EmptyState
           title="Sources"
@@ -191,14 +176,15 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   );
 
   const researchContent = (
-    <>
-      <ResearchProgress requestId={requestId} status={request.status} />
-      {sources.length === 0 ? (
-        <EmptyState title="No sources yet" description="Add supporting material or source URLs to begin research." />
-      ) : (
-        sourceReviewSection ?? <ResearchFailureList sources={sources} />
-      )}
-    </>
+    <ResearchTab
+      requestId={requestId}
+      status={request.status}
+      sources={sources}
+      evidenceBySource={evidenceBySource}
+      decisionsBySource={decisionsBySource}
+      conflicts={conflicts}
+      materials={materials}
+    />
   );
 
   const articlesContent = (

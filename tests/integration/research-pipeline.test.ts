@@ -10,8 +10,8 @@ import {
 } from "@/tests/helpers/supabase-test-clients";
 import { FakeAIProvider } from "@/lib/ai/providers/fake";
 import { FakeResearchProvider } from "@/lib/research/providers/fake";
-import { runResearchPipeline, retryResearchSource } from "@/lib/research/service";
-import { listResearchSources, listSourceEvidence } from "@/lib/repositories/sources";
+import { runResearchPipeline, retryResearchSource, addPendingSourceUrl, analyzeUploadedMaterialSource } from "@/lib/research/service";
+import { listResearchSources, listSourceEvidence, deleteResearchSource, createResearchSource } from "@/lib/repositories/sources";
 
 const RESEARCH_PLAN = {
   primaryKeyword: "ai agents in recruiting",
@@ -219,5 +219,80 @@ describe.skipIf(!hasCredentials)("research pipeline (hosted Supabase integration
 
     const sourcesAfter = await listResearchSources(owner.client, request.id);
     expect(sourcesAfter).toHaveLength(1);
+  });
+
+  it("adds a URL as a pending source with no retrieval attempt, and rejects a duplicate canonical URL", async () => {
+    const request = await newRequest();
+
+    const source = await addPendingSourceUrl(owner.client, request.id, "https://example.com/manual?utm_source=x");
+    expect(source.retrieval_status).toBe("pending");
+    expect(source.origin).toBe("user_url");
+    expect(source.canonical_url).toBe("https://example.com/manual");
+
+    await expect(addPendingSourceUrl(owner.client, request.id, "https://example.com/manual?utm_source=y")).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
+  });
+
+  it("removes a pending source, but refuses to remove one that has already been attempted", async () => {
+    const request = await newRequest();
+    const pending = await addPendingSourceUrl(owner.client, request.id, "https://example.com/removable");
+    await deleteResearchSource(owner.client, pending.id);
+    expect(await listResearchSources(owner.client, request.id)).toHaveLength(0);
+
+    const ai = new FakeAIProvider([usableAnalysis()]);
+    const research = new FakeResearchProvider();
+    research.setRetrieval("https://example.com/attempted", {
+      status: "usable",
+      page: {
+        originalUrl: "https://example.com/attempted",
+        canonicalUrl: "https://example.com/attempted",
+        title: "Attempted",
+        publisher: "Example",
+        author: null,
+        publishedAt: null,
+        markdown: "Some teams reported reduced administrative workload.",
+        retrievedAt: new Date().toISOString(),
+      },
+    });
+    const attempted = await addPendingSourceUrl(owner.client, request.id, "https://example.com/attempted");
+    await retryResearchSource(owner.client, ai, research, "fake-model", attempted.id);
+
+    await expect(deleteResearchSource(owner.client, attempted.id)).rejects.toMatchObject({ code: "INVALID_STATE" });
+  });
+
+  it("analyzes an uploaded-material source and correctly marks it usable with evidence (regression: previously stayed pending forever on success)", async () => {
+    const request = await newRequest();
+    const { data: material } = await admin
+      .from("supporting_materials")
+      .insert({
+        request_id: request.id,
+        filename: "internal-notes.txt",
+        mime_type: "text/plain",
+        storage_path: `test/${request.id}/internal-notes.txt`,
+        size_bytes: 42,
+        extraction_status: "ready",
+        extracted_text: "Some teams reported reduced administrative workload.",
+        classification: "internal",
+        created_by: owner.userId,
+      })
+      .select()
+      .single();
+
+    const pendingMaterialSource = await createResearchSource(admin, {
+      request_id: request.id,
+      origin: "uploaded_material",
+      title: "internal-notes.txt",
+      supporting_material_id: material!.id,
+      retrieval_status: "pending",
+    });
+
+    const ai = new FakeAIProvider([usableAnalysis("material_evidence")]);
+    const result = await analyzeUploadedMaterialSource(owner.client, ai, "fake-model", pendingMaterialSource.id);
+
+    expect(result.retrieval_status).toBe("usable");
+    const evidence = await listSourceEvidence(owner.client, pendingMaterialSource.id);
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0].evidence_key).toBe("material_evidence");
   });
 });

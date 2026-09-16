@@ -6,7 +6,11 @@ import {
   recordSourceDecision,
   resolveSourceConflict,
   confirmSourceSet,
+  deleteResearchSource,
+  getResearchSource,
 } from "@/lib/repositories/sources";
+import { deleteSupportingMaterial } from "@/lib/repositories/materials";
+import { DomainError } from "@/lib/domain/errors";
 import { toLoggedActionError } from "@/lib/notifications/action-error";
 import type { ActionResult } from "@/lib/domain/errors";
 
@@ -53,6 +57,32 @@ export async function confirmSourceSetAction(requestId: string): Promise<ActionR
     return { ok: true, data: { versionNumber: sourceSet.version_number } };
   } catch (error) {
     const actionError = await toLoggedActionError(error, "confirm_source_set", { requestId });
+    return { ok: false, error: actionError };
+  }
+}
+
+/**
+ * A material-backed source is removed through the material itself
+ * (deleteSupportingMaterial also cleans up the storage file, and re-checks
+ * that nothing has been researched yet) — deleting only the source row
+ * here would leave the uploaded file and its database row behind forever.
+ */
+export async function deleteSourceAction(sourceId: string): Promise<ActionResult<null>> {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    await requireContentManager(supabase);
+    const source = await getResearchSource(supabase, sourceId);
+    if (!source) throw new DomainError("NOT_FOUND", "delete_source", "Source not found.");
+
+    if (source.origin === "uploaded_material" && source.supporting_material_id) {
+      await deleteSupportingMaterial(supabase, source.supporting_material_id);
+    } else {
+      await deleteResearchSource(supabase, sourceId);
+    }
+    return { ok: true, data: null };
+  } catch (error) {
+    const actionError = await toLoggedActionError(error, "delete_source", { sourceId });
     return { ok: false, error: actionError };
   }
 }

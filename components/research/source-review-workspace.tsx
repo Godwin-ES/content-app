@@ -20,6 +20,8 @@ interface SourceReviewWorkspaceProps {
   evidenceBySource: Record<string, SourceEvidenceRow[]>;
   decisionsBySource: Record<string, "accepted" | "excluded" | null>;
   conflicts: SourceConflictRow[];
+  locked?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }
 
 /**
@@ -34,6 +36,8 @@ export function SourceReviewWorkspace({
   evidenceBySource,
   decisionsBySource,
   conflicts,
+  locked = false,
+  onBusyChange,
 }: SourceReviewWorkspaceProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -90,6 +94,8 @@ export function SourceReviewWorkspace({
             evidence={evidenceBySource[source.id] ?? []}
             decision={decisionsBySource[source.id] ?? null}
             hasConflict={conflictedSourceIds.has(source.id)}
+            locked={locked}
+            onBusyChange={onBusyChange}
           />
         ))}
       </div>
@@ -110,7 +116,7 @@ export function SourceReviewWorkspace({
         </Alert>
       ) : null}
 
-      <Button type="button" onClick={confirm} disabled={!ready || isPending} className="w-fit">
+      <Button type="button" onClick={confirm} disabled={!ready || isPending || locked} className="w-fit">
         {isPending ? "Confirming..." : "Confirm Source Set"}
       </Button>
     </div>

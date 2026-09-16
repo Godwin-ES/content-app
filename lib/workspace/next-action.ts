@@ -49,67 +49,71 @@ function action(key: NextActionKey, label: string, description: string): NextAct
 export function deriveNextAction(snapshot: WorkspaceSnapshot): NextAction {
   switch (snapshot.status) {
     case "draft":
-      return action("add_sources", "Add source material", "Provide source URLs or supporting material to begin research.");
+      return action(
+        "add_sources",
+        "Research: Start content research",
+        "Start research on this topic using any supplied URLs/materials, plus a general web search."
+      );
 
     case "source_review": {
       if (snapshot.sources.pending > 0) {
-        return action("wait_for_research", "Research in progress", "Retrieval and analysis are still running.");
+        return action("wait_for_research", "Research: In progress", "Retrieval and analysis are still running.");
       }
       if (snapshot.sources.usable === 0) {
         return action(
           "resolve_no_usable_sources",
-          "Resolve source retrieval",
-          "No usable sources yet — retry failed sources or add more."
+          "Research: Resolve source retrieval",
+          "No usable sources yet — retry a failed source or add another."
         );
       }
-      return action("review_sources", "Review sources", "Decide which retrieved sources to include before planning content.");
+      return action("review_sources", "Research: Review sources", "Decide which retrieved sources to include before planning content.");
     }
 
     case "content_development": {
       if (!snapshot.hasContentPlan) {
-        return action("generate_content_plan", "Generate content plan", "Create an evidence-backed outline before writing articles.");
+        return action("generate_content_plan", "Articles: Generate content plan", "Create an evidence-backed outline before writing articles.");
       }
       if (snapshot.articles.total === 0) {
-        return action("generate_articles", "Generate articles", "Generate three article options from the content plan.");
+        return action("generate_articles", "Articles: Generate articles", "Generate three article options from the content plan.");
       }
       if (snapshot.articles.anyGenerationFailed) {
-        return action("resolve_article_generation_failure", "Retry failed article option", "One or more article options failed to generate.");
+        return action("resolve_article_generation_failure", "Articles: Retry failed option", "One or more article options failed to generate.");
       }
       if (!snapshot.hasSelectedArticle) {
         if (snapshot.articles.anyPassingEvaluation) {
-          return action("select_article", "Select an article", "Choose which evaluated article option to move forward with.");
+          return action("select_article", "Articles: Select an article", "Choose which evaluated article option to move forward with.");
         }
-        return action("resolve_article_evaluation", "Resolve evaluation", "Evaluate or revise an article option before selecting one.");
+        return action("resolve_article_evaluation", "Articles: Resolve evaluation", "Evaluate or revise an article option before selecting one.");
       }
       if (snapshot.channels.total === 0 || snapshot.channels.anyMissing) {
-        return action("generate_channels", "Generate channel assets", "Adapt the selected article for LinkedIn, X, and the newsletter.");
+        return action("generate_channels", "Channels: Generate channel assets", "Adapt the selected article for LinkedIn, X, and the newsletter.");
       }
       if (snapshot.channels.anyNotPassing) {
-        return action("resolve_channel_issue", "Resolve channel evaluation", "One or more channel assets need evaluation or revision.");
+        return action("resolve_channel_issue", "Channels: Resolve evaluation", "One or more channel assets need evaluation or revision.");
       }
       if (!snapshot.hasCurrentPackage) {
         if (snapshot.packageReady) {
-          return action("create_package", "Create package", "Everything is ready — create the package for approval.");
+          return action("create_package", "Approval: Create package", "Everything is ready — create the package for approval.");
         }
-        return action("resolve_channel_issue", "Resolve remaining readiness issues", "Check the package readiness checklist for what remains.");
+        return action("resolve_channel_issue", "Channels: Resolve remaining readiness issues", "Check the package readiness checklist for what remains.");
       }
-      return action("submit_for_approval", "Submit for approval", "Send the current package to the Reviewer.");
+      return action("submit_for_approval", "Approval: Submit for approval", "Send the current package to the Reviewer.");
     }
 
     case "pending_approval":
-      return action("await_review", "Awaiting review", "The package is read-only while the Reviewer decides.");
+      return action("await_review", "Approval: Awaiting review", "The package is read-only while the Reviewer decides.");
 
     case "changes_requested":
-      return action("review_requested_changes", "Review requested changes", "The Reviewer asked for changes before resubmission.");
+      return action("review_requested_changes", "Approval: Review requested changes", "The Reviewer asked for changes before resubmission.");
 
     case "approved":
       if (!snapshot.hasActiveQueueItems) {
-        return action("queue_approved_content", "Queue approved content", "Queue or schedule the approved package's channels.");
+        return action("queue_approved_content", "Publishing: Queue approved content", "Queue or schedule the approved package's channels.");
       }
       return action("none", "Nothing pending", "This request has no outstanding action right now.");
 
     case "rejected":
-      return action("reopen_rejected", "Reopen for content development", "Explicitly reopen this request to make further changes.");
+      return action("reopen_rejected", "Approval: Reopen for content development", "Explicitly reopen this request to make further changes.");
 
     default:
       return action("none", "Nothing pending", "This request has no outstanding action right now.");

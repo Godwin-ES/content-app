@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { DomainError } from "@/lib/domain/errors";
 import { extractMaterialText, SUPPORTED_MATERIAL_MIME_TYPES, type SupportedMaterialMimeType } from "@/lib/materials/extract";
+import { createResearchSource } from "@/lib/repositories/sources";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_MATERIALS_PER_REQUEST = 5;
@@ -116,6 +117,21 @@ export async function uploadSupportingMaterial(
     .select()
     .single();
   if (updateError || !updated) throw updateError ?? new Error("Failed to update material record");
+
+  // A material with real extracted text becomes a `pending` source, the
+  // same starting point a manually-added URL gets — so both show up
+  // uniformly in the Research tab's one source list, each with its own
+  // "Start Research" trigger, rather than materials sitting in a separate,
+  // never-actually-analyzed list (SYSTEM-DESIGN-NEXTJS.md §11).
+  if (updated.extraction_status === "ready" && updated.extracted_text) {
+    await createResearchSource(supabase, {
+      request_id: params.requestId,
+      origin: "uploaded_material",
+      title: params.filename,
+      supporting_material_id: updated.id,
+      retrieval_status: "pending",
+    });
+  }
 
   return updated;
 }

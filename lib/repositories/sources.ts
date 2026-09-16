@@ -54,6 +54,25 @@ export async function listResearchSources(
   return data ?? [];
 }
 
+/**
+ * Removes a source outright — only ever allowed while it is still
+ * `pending` (nothing has been attempted yet), so a Content Manager can
+ * change their mind about a URL/material before it costs a real retrieval
+ * or AI call. Anything past that point is governed by Retry, never
+ * deletion (SYSTEM-DESIGN-NEXTJS.md §10, Phase 2 of the post-Task-22 UX
+ * pass).
+ */
+export async function deleteResearchSource(supabase: SupabaseClient<Database>, sourceId: string): Promise<void> {
+  const source = await getResearchSource(supabase, sourceId);
+  if (!source) throw new DomainError("NOT_FOUND", "delete_source", "Source not found.");
+  if (source.retrieval_status !== "pending") {
+    throw new DomainError("INVALID_STATE", "delete_source", "Only a source that has not been researched yet can be removed.");
+  }
+
+  const { error } = await supabase.from("research_sources").delete().eq("id", sourceId);
+  if (error) throw error;
+}
+
 export async function createSourceEvidence(
   supabase: SupabaseClient<Database>,
   params: Omit<SourceEvidenceInsert, "supports" | "limitations"> & { supports: string[]; limitations: string[] }

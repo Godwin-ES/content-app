@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { recordSourceDecisionAction } from "@/actions/sources";
+import { recordSourceDecisionAction, deleteSourceAction } from "@/actions/sources";
+import { startSourceAction } from "@/actions/research";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -24,6 +25,12 @@ interface SourceCardProps {
   evidence: SourceEvidenceRow[];
   decision: "accepted" | "excluded" | null;
   hasConflict: boolean;
+  /** Hides Accept/Exclude — used once the source set is already confirmed, where a decision can no longer be changed. */
+  showDecisionControls?: boolean;
+  /** True while any other research operation on this page is in flight, so two can never race over the same request. */
+  locked?: boolean;
+  /** Reports when this card's own action starts/ends, so the parent can lock every other control on the tab while it runs. */
+  onBusyChange?: (busy: boolean) => void;
 }
 
 /**
@@ -31,8 +38,22 @@ interface SourceCardProps {
  * score — the Content Manager inspects origin, freshness, and evidence
  * directly and makes an explicit accept/exclude call. A user-supplied
  * source starts with no decision, exactly like a researched one.
+ *
+ * Shows every retrieval_status in place — including the failure reason and
+ * a Start Research/Retry action — rather than only ever surfacing that
+ * once the source set has already been confirmed (Phase 2 of the
+ * post-Task-22 UX pass): a Content Manager needs exactly this information
+ * to decide whether a failed source is worth retrying before confirming.
  */
-export function SourceCard({ source, evidence, decision, hasConflict }: SourceCardProps) {
+export function SourceCard({
+  source,
+  evidence,
+  decision,
+  hasConflict,
+  showDecisionControls = true,
+  locked = false,
+  onBusyChange,
+}: SourceCardProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -46,21 +67,47 @@ export function SourceCard({ source, evidence, decision, hasConflict }: SourceCa
     setError(null);
     startTransition(async () => {
       const result = await recordSourceDecisionAction(source.id, next, null);
-      if (result.ok) {
-        router.refresh();
-      } else {
-        setError(result.error.message);
-      }
+      if (result.ok) router.refresh();
+      else setError(result.error.message);
     });
   }
+
+  function start() {
+    setError(null);
+    onBusyChange?.(true);
+    startTransition(async () => {
+      const result = await startSourceAction(source.id);
+      onBusyChange?.(false);
+      if (result.ok) router.refresh();
+      else setError(result.error.message);
+    });
+  }
+
+  function remove() {
+    setError(null);
+    onBusyChange?.(true);
+    startTransition(async () => {
+      const result = await deleteSourceAction(source.id);
+      onBusyChange?.(false);
+      if (result.ok) router.refresh();
+      else setError(result.error.message);
+    });
+  }
+
+  const disabled = isPending || locked;
+  const displayTitle = source.title ?? source.original_url ?? "Untitled";
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <a href={source.original_url ?? undefined} target="_blank" rel="noreferrer" className="truncate font-medium hover:underline">
-            {source.title ?? source.original_url}
-          </a>
+          {source.original_url ? (
+            <a href={source.original_url} target="_blank" rel="noreferrer" className="truncate font-medium hover:underline">
+              {displayTitle}
+            </a>
+          ) : (
+            <span className="truncate font-medium">{displayTitle}</span>
+          )}
           <span className="truncate text-xs text-muted-foreground">
             {source.publisher ?? "Unknown publisher"} · {ORIGIN_LABEL[source.origin]}
             {source.published_at ? (
@@ -75,10 +122,17 @@ export function SourceCard({ source, evidence, decision, hasConflict }: SourceCa
           {decision ? <Badge variant={decision === "accepted" ? "default" : "secondary"}>{decision}</Badge> : null}
           {hasConflict ? <Badge variant="destructive">Conflict</Badge> : null}
           {publishedYearsAgo !== null && publishedYearsAgo >= 2 ? <Badge variant="outline">Freshness warning</Badge> : null}
+          <Badge variant={source.retrieval_status === "pending" ? "secondary" : source.retrieval_status === "failed" ? "destructive" : "outline"}>
+            {source.retrieval_status}
+          </Badge>
         </div>
       </div>
 
-      <SourceEvidenceDrawer evidence={evidence} />
+      {source.retrieval_status === "failed" && source.retrieval_error ? (
+        <p className="text-xs text-destructive">{source.retrieval_error}</p>
+      ) : null}
+
+      {isUsable ? <SourceEvidenceDrawer evidence={evidence} /> : null}
 
       {error ? (
         <Alert variant="destructive">
@@ -86,27 +140,43 @@ export function SourceCard({ source, evidence, decision, hasConflict }: SourceCa
         </Alert>
       ) : null}
 
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant={decision === "accepted" ? "default" : "outline"}
-          disabled={!isUsable || isPending}
-          onClick={() => decide("accepted")}
-        >
-          Accept
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={decision === "excluded" ? "default" : "outline"}
-          disabled={isPending}
-          onClick={() => decide("excluded")}
-        >
-          Exclude
-        </Button>
+      <div className="flex flex-wrap gap-2">
+        {source.retrieval_status === "pending" || source.retrieval_status === "failed" ? (
+          <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={start}>
+            {isPending ? "Working..." : source.retrieval_status === "pending" ? "Start Research" : "Retry"}
+          </Button>
+        ) : null}
+        {source.retrieval_status === "pending" ? (
+          <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={remove}>
+            Remove
+          </Button>
+        ) : null}
+        {showDecisionControls ? (
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant={decision === "accepted" ? "default" : "outline"}
+              disabled={!isUsable || disabled}
+              onClick={() => decide("accepted")}
+            >
+              Accept
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={decision === "excluded" ? "default" : "outline"}
+              disabled={disabled}
+              onClick={() => decide("excluded")}
+            >
+              Exclude
+            </Button>
+          </>
+        ) : null}
       </div>
-      {!isUsable ? <p className="text-xs text-muted-foreground">This source cannot be accepted until it retrieves successfully.</p> : null}
+      {showDecisionControls && !isUsable && source.retrieval_status !== "pending" && source.retrieval_status !== "failed" ? (
+        <p className="text-xs text-muted-foreground">This source cannot be accepted until it retrieves successfully.</p>
+      ) : null}
     </div>
   );
 }
