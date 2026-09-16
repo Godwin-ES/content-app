@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { LocalDateTime } from "@/components/shared/local-date-time";
 import type { Database } from "@/lib/supabase/database.types";
 
 type PublishingEventRow = Database["public"]["Tables"]["publishing_events"]["Row"];
@@ -32,7 +33,7 @@ export function PublishingEventHistory({ events }: { events: PublishingEventRow[
         <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
           {events.map((event) => (
             <li key={event.id}>
-              {EVENT_LABEL[event.event_type] ?? event.event_type} · {new Date(event.created_at).toLocaleString()}
+              {EVENT_LABEL[event.event_type] ?? event.event_type} · <LocalDateTime value={event.created_at} />
               {event.reason ? ` — "${event.reason}"` : ""}
             </li>
           ))}

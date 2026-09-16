@@ -520,6 +520,7 @@ export type Database = {
           supplied_cta: string | null
           supplied_objective: string | null
           supplied_primary_keyword: string | null
+          supplied_sources_only: boolean
           supplied_tone: string | null
           test_model_choice: string | null
           topic: string
@@ -546,6 +547,7 @@ export type Database = {
           supplied_cta?: string | null
           supplied_objective?: string | null
           supplied_primary_keyword?: string | null
+          supplied_sources_only?: boolean
           supplied_tone?: string | null
           test_model_choice?: string | null
           topic: string
@@ -572,6 +574,7 @@ export type Database = {
           supplied_cta?: string | null
           supplied_objective?: string | null
           supplied_primary_keyword?: string | null
+          supplied_sources_only?: boolean
           supplied_tone?: string | null
           test_model_choice?: string | null
           topic?: string
@@ -1541,6 +1544,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      delete_draft_request: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       package_request_id: { Args: { p_package_id: string }; Returns: string }
       queue_item_request_id: {
         Args: { p_queue_item_id: string }
@@ -1569,6 +1576,7 @@ export type Database = {
           supplied_cta: string | null
           supplied_objective: string | null
           supplied_primary_keyword: string | null
+          supplied_sources_only: boolean
           supplied_tone: string | null
           test_model_choice: string | null
           topic: string

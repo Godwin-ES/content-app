@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { rescheduleQueueItemAction, cancelQueueItemAction } from "@/actions/publishing";
+import { LocalDateTime } from "@/components/shared/local-date-time";
 import { validateSchedule } from "@/lib/publishing/validate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,7 +68,13 @@ function QueueItemRow({ entry }: { entry: PublishingQueueEntry }) {
         <Badge variant={STATUS_VARIANT[item.status] ?? "outline"}>{item.status}</Badge>
       </div>
       <p className="text-xs text-muted-foreground">
-        {item.scheduled_at ? `Scheduled for ${new Date(item.scheduled_at).toLocaleString()} (${item.timezone})` : "Queued immediately"}
+        {item.scheduled_at ? (
+          <>
+            Scheduled for <LocalDateTime value={item.scheduled_at} /> ({item.timezone})
+          </>
+        ) : (
+          "Queued immediately"
+        )}
       </p>
 
       {error ? (

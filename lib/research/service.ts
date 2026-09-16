@@ -219,14 +219,19 @@ export async function runResearchPipeline(
     await admin.from("content_requests").update({ resolved_primary_keyword: plan.primaryKeyword }).eq("id", requestId);
   }
 
-  const searchResultsByQuery = await mapWithConcurrency(plan.searchQueries, SEARCH_CONCURRENCY, async (query) => {
-    try {
-      return await research.search(query, MAX_SEARCH_RESULTS_PER_QUERY);
-    } catch {
-      // A single failed search query is non-fatal; continue with the rest.
-      return [];
-    }
-  });
+  // "Only use supplied materials" (Phase 1 intake option): skip AI-generated
+  // web search entirely rather than merely excluding its results, since the
+  // whole point is to never issue an external search for this request.
+  const searchResultsByQuery = request.supplied_sources_only
+    ? []
+    : await mapWithConcurrency(plan.searchQueries, SEARCH_CONCURRENCY, async (query) => {
+        try {
+          return await research.search(query, MAX_SEARCH_RESULTS_PER_QUERY);
+        } catch {
+          // A single failed search query is non-fatal; continue with the rest.
+          return [];
+        }
+      });
   const candidates: Array<SearchResultItem & { origin: "researched" | "user_url" }> = searchResultsByQuery
     .flat()
     .map((r) => ({ ...r, origin: "researched" as const }));

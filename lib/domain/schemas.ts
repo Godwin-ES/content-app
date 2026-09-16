@@ -27,6 +27,7 @@ export const contentRequestInputSchema = z.object({
     )
     .optional(),
   publicationDate: z.string().trim().min(1).optional(),
+  suppliedSourcesOnly: z.boolean().optional(),
 });
 
 export type ContentRequestInputParsed = z.infer<typeof contentRequestInputSchema>;

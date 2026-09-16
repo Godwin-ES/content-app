@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MarkdownBody } from "@/components/shared/markdown-body";
 import type { ArticleOutput } from "@/lib/ai/schemas/article";
 
 interface ArticleEditorProps {
@@ -61,8 +62,8 @@ export function ArticleEditor({ artifactId, content }: ArticleEditorProps) {
             Edit
           </Button>
         </div>
-        <p className="text-sm text-muted-foreground">{content.metaDescription}</p>
-        <div className="whitespace-pre-wrap rounded-md border p-4 text-sm">{content.bodyMarkdown}</div>
+        <p className="text-sm">{content.metaDescription}</p>
+        <MarkdownBody className="rounded-md border p-4">{content.bodyMarkdown}</MarkdownBody>
       </div>
     );
   }

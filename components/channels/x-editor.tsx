@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MarkdownBody } from "@/components/shared/markdown-body";
 import { Badge } from "@/components/ui/badge";
 import type { XPost } from "@/lib/ai/schemas/channel";
 
@@ -64,7 +65,7 @@ export function XEditor({ artifactId, content }: XEditorProps) {
             Edit
           </Button>
         </div>
-        <div className="whitespace-pre-wrap rounded-md border p-4 text-sm">{content.body}</div>
+        <MarkdownBody className="rounded-md border p-4">{content.body}</MarkdownBody>
         {content.hashtags.length > 0 ? (
           <div className="flex gap-1">
             {content.hashtags.map((tag) => (

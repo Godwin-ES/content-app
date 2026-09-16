@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownBody } from "@/components/shared/markdown-body";
 import { Label } from "@/components/ui/label";
 import type { AIModelChoice } from "@/lib/domain/types";
 import type { BenchmarkRunResult } from "@/lib/benchmark/service";
@@ -67,7 +68,7 @@ export function BenchmarkTable({ entries }: { entries: BenchmarkEntry[] }) {
                   {article.insufficientEvidence ? (
                     <Badge variant="secondary">Declared insufficient evidence: {article.insufficientEvidenceReason}</Badge>
                   ) : null}
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{article.bodyMarkdown}</p>
+                  <MarkdownBody className="mt-1 text-muted-foreground">{article.bodyMarkdown}</MarkdownBody>
                 </div>
 
                 <div>
@@ -123,7 +124,7 @@ export function BenchmarkTable({ entries }: { entries: BenchmarkEntry[] }) {
               <p className="text-xs font-medium uppercase text-muted-foreground">LinkedIn adaptation</p>
               <StepBadge ok={result.linkedinPost.ok} />
               {linkedin ? (
-                <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{linkedin.body}</p>
+                <MarkdownBody className="mt-1 text-muted-foreground">{linkedin.body}</MarkdownBody>
               ) : (
                 <p className="text-sm text-destructive">{result.linkedinPost.error}</p>
               )}

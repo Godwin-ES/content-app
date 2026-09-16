@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MarkdownBody } from "@/components/shared/markdown-body";
 import type { Newsletter } from "@/lib/ai/schemas/channel";
 
 interface NewsletterEditorProps {
@@ -71,10 +72,10 @@ export function NewsletterEditor({ artifactId, content }: NewsletterEditorProps)
         </div>
         <div className="rounded-md border p-4">
           <p className="font-medium">{content.subject}</p>
-          <p className="mt-2 text-sm text-muted-foreground">{content.introduction}</p>
-          <div className="mt-3 whitespace-pre-wrap text-sm">{content.bodyMarkdown}</div>
+          <p className="mt-2 text-sm">{content.introduction}</p>
+          <MarkdownBody className="mt-3">{content.bodyMarkdown}</MarkdownBody>
           <p className="mt-3 text-sm font-medium">{content.callToAction}</p>
-          <p className="mt-2 text-sm text-muted-foreground">{content.signoff}</p>
+          <p className="mt-2 text-sm">{content.signoff}</p>
         </div>
       </div>
     );

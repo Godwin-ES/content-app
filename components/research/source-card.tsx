@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SourceEvidenceDrawer } from "@/components/research/source-evidence-drawer";
+import { LocalDateTime } from "@/components/shared/local-date-time";
 import type { Database } from "@/lib/supabase/database.types";
 
 type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"];
@@ -62,7 +63,12 @@ export function SourceCard({ source, evidence, decision, hasConflict }: SourceCa
           </a>
           <span className="truncate text-xs text-muted-foreground">
             {source.publisher ?? "Unknown publisher"} · {ORIGIN_LABEL[source.origin]}
-            {source.published_at ? ` · ${source.published_at}` : ""}
+            {source.published_at ? (
+              <>
+                {" · "}
+                <LocalDateTime value={source.published_at} dateOnly />
+              </>
+            ) : null}
           </span>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">

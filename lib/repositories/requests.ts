@@ -55,6 +55,7 @@ export async function createContentRequest(
       additional_instructions: input.additionalInstructions ?? null,
       source_urls: (input.sourceUrls ?? []) as Json,
       publication_date: input.publicationDate ?? null,
+      supplied_sources_only: input.suppliedSourcesOnly ?? false,
       test_model_choice: testModelChoice,
       status: "draft",
     })
@@ -114,4 +115,28 @@ export async function getContentRequest(
   const { data, error } = await supabase.from("content_requests").select().eq("id", requestId).maybeSingle();
   if (error) throw error;
   return data;
+}
+
+/**
+ * Deletes a request outright — only ever allowed in `draft`, before
+ * anything has been generated. `delete_draft_request` re-checks ownership
+ * and status server-side and cascades every child row; the one thing a
+ * database cascade can't reach is the actual file bytes in Storage, so
+ * those are removed first, explicitly, the same way a single supporting
+ * material's own delete action already does.
+ */
+export async function deleteDraftRequest(supabase: SupabaseClient<Database>, requestId: string): Promise<void> {
+  const { data: materials, error: materialsError } = await supabase
+    .from("supporting_materials")
+    .select("storage_path")
+    .eq("request_id", requestId);
+  if (materialsError) throw materialsError;
+
+  const storagePaths = (materials ?? []).map((m) => m.storage_path).filter((p): p is string => Boolean(p));
+  if (storagePaths.length > 0) {
+    await supabase.storage.from("content-support").remove(storagePaths);
+  }
+
+  const { error } = await supabase.rpc("delete_draft_request", { p_request_id: requestId });
+  if (error) throw error;
 }

@@ -1,4 +1,6 @@
 import { Badge } from "@/components/ui/badge";
+import { LocalDateTime } from "@/components/shared/local-date-time";
+import { MarkdownBody } from "@/components/shared/markdown-body";
 import type { Database } from "@/lib/supabase/database.types";
 import type { PackageSnapshot } from "@/lib/packages/service";
 
@@ -20,29 +22,31 @@ export function ContentPackagePreview({ contentPackage }: ContentPackagePreviewP
     <div className="flex flex-col gap-4 rounded-lg border p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Package v{contentPackage.version_number}</h3>
-        <Badge variant="outline">{new Date(contentPackage.created_at).toLocaleString()}</Badge>
+        <Badge variant="outline">
+          <LocalDateTime value={contentPackage.created_at} />
+        </Badge>
       </div>
 
       <div>
         <p className="text-xs font-medium uppercase text-muted-foreground">Article</p>
         <p className="font-medium">{snapshot.article.title}</p>
-        <p className="text-sm text-muted-foreground">{snapshot.article.metaDescription}</p>
+        <p className="text-sm">{snapshot.article.metaDescription}</p>
       </div>
 
       <div>
         <p className="text-xs font-medium uppercase text-muted-foreground">LinkedIn</p>
-        <p className="whitespace-pre-wrap text-sm">{snapshot.linkedin.body}</p>
+        <MarkdownBody>{snapshot.linkedin.body}</MarkdownBody>
       </div>
 
       <div>
         <p className="text-xs font-medium uppercase text-muted-foreground">X</p>
-        <p className="whitespace-pre-wrap text-sm">{snapshot.x.body}</p>
+        <MarkdownBody>{snapshot.x.body}</MarkdownBody>
       </div>
 
       <div>
         <p className="text-xs font-medium uppercase text-muted-foreground">Newsletter</p>
         <p className="font-medium">{snapshot.newsletter.subject}</p>
-        <p className="whitespace-pre-wrap text-sm text-muted-foreground">{snapshot.newsletter.bodyMarkdown}</p>
+        <MarkdownBody className="text-muted-foreground">{snapshot.newsletter.bodyMarkdown}</MarkdownBody>
       </div>
     </div>
   );

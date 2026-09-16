@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { LocalDateTime } from "@/components/shared/local-date-time";
+import { DeleteDraftButton } from "@/components/dashboard/delete-draft-button";
 import type { Database } from "@/lib/supabase/database.types";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
@@ -42,22 +44,19 @@ export function RequestList({ requests }: RequestListProps) {
   return (
     <div className="flex flex-col divide-y rounded-lg border">
       {requests.map((request) => (
-        <Link
-          key={request.id}
-          href={`/requests/${request.id}`}
-          className="flex flex-col gap-1 p-4 hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div className="flex flex-col gap-1">
+        <div key={request.id} className="flex flex-col gap-1 p-4 hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between">
+          <Link href={`/requests/${request.id}`} className="flex flex-1 flex-col gap-1">
             <span className="font-medium">{request.topic}</span>
             <span className="text-xs text-muted-foreground">
-              Updated {new Date(request.updated_at).toLocaleString()}
+              Updated <LocalDateTime value={request.updated_at} />
             </span>
-          </div>
+          </Link>
           <div className="flex items-center gap-3">
             <Badge variant="outline">{STATUS_LABELS[request.status]}</Badge>
             <span className="text-sm text-muted-foreground">{NEXT_ACTION[request.status]}</span>
+            {request.status === "draft" ? <DeleteDraftButton requestId={request.id} /> : null}
           </div>
-        </Link>
+        </div>
       ))}
     </div>
   );

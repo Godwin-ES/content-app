@@ -5,22 +5,22 @@ interface ResolvedDefaultsCardProps {
   audience: string;
   objective: string;
   tone: string;
-  cta: string;
 }
 
 /**
  * Shows the visible defaults that will be used for any optional field left
  * blank (SYSTEM-DESIGN-NEXTJS.md §7.3). Updates live as the Content Manager
  * fills in optional fields, so it is always clear what is supplied versus
- * resolved.
+ * resolved. CTA and primary keyword are always AI-derived now (Phase 1
+ * intake trim) — no supplied value is possible for either any more.
  */
-export function ResolvedDefaultsCard({ audience, objective, tone, cta }: ResolvedDefaultsCardProps) {
+export function ResolvedDefaultsCard({ audience, objective, tone }: ResolvedDefaultsCardProps) {
   const rows = [
     { label: "Audience", value: audience || DEFAULT_REQUEST_SETTINGS.audience },
     { label: "Objective", value: objective || DEFAULT_REQUEST_SETTINGS.objective },
     { label: "Tone", value: tone || DEFAULT_REQUEST_SETTINGS.tone },
-    { label: "CTA", value: cta || "None unless specified" },
-    { label: "Primary keyword", value: "Will be derived during research" },
+    { label: "CTA", value: "Proposed by the AI to fit the article" },
+    { label: "Primary keyword", value: "Derived during research" },
   ];
 
   return (

@@ -60,6 +60,8 @@ export interface ContentRequestInput {
   sourceUrls?: string[];
   additionalInstructions?: string;
   publicationDate?: string;
+  /** Skip AI-generated web search entirely; research only the supplied sources. */
+  suppliedSourcesOnly?: boolean;
 }
 
 export interface ResolvedRequestSettings {

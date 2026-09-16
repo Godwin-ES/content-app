@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MarkdownBody } from "@/components/shared/markdown-body";
 import type { ArticleOutput } from "@/lib/ai/schemas/article";
 
 interface TargetedRevisionPanelProps {
@@ -81,11 +82,11 @@ export function TargetedRevisionPanel({ articleVersionId, currentContent }: Targ
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-md border p-2 text-xs">
               <p className="mb-1 font-medium">Current</p>
-              <p className="whitespace-pre-wrap text-muted-foreground">{currentContent.bodyMarkdown}</p>
+              <MarkdownBody className="text-muted-foreground">{currentContent.bodyMarkdown}</MarkdownBody>
             </div>
             <div className="rounded-md border border-primary p-2 text-xs">
               <p className="mb-1 font-medium">Proposed</p>
-              <p className="whitespace-pre-wrap text-muted-foreground">{proposal.bodyMarkdown}</p>
+              <MarkdownBody className="text-muted-foreground">{proposal.bodyMarkdown}</MarkdownBody>
             </div>
           </div>
           <div className="flex gap-2">

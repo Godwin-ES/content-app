@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { EvaluationSummary } from "@/components/articles/evaluation-summary";
 import { EvaluationDrawer } from "@/components/articles/evaluation-drawer";
+import { LocalDateTime } from "@/components/shared/local-date-time";
 import type { PackageReviewContext } from "@/lib/approvals/service";
 
 interface ReviewEvidencePanelProps {
@@ -59,7 +60,9 @@ export function ReviewEvidencePanel({ context }: ReviewEvidencePanelProps) {
               <li key={review.id} className="text-sm">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">{DECISION_LABEL[review.status] ?? review.status}</Badge>
-                  <span className="text-xs text-muted-foreground">{new Date(review.submitted_at).toLocaleString()}</span>
+                  <span className="text-xs text-muted-foreground">
+                    <LocalDateTime value={review.submitted_at} />
+                  </span>
                 </div>
                 {review.comment ? <p className="mt-1 text-muted-foreground">&ldquo;{review.comment}&rdquo;</p> : null}
               </li>

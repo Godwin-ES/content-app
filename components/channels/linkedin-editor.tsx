@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MarkdownBody } from "@/components/shared/markdown-body";
 import type { LinkedinPost } from "@/lib/ai/schemas/channel";
 
 interface LinkedinEditorProps {
@@ -55,7 +56,7 @@ export function LinkedinEditor({ artifactId, content }: LinkedinEditorProps) {
             Edit
           </Button>
         </div>
-        <div className="whitespace-pre-wrap rounded-md border p-4 text-sm">{content.body}</div>
+        <MarkdownBody className="rounded-md border p-4">{content.body}</MarkdownBody>
       </div>
     );
   }

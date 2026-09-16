@@ -1,4 +1,5 @@
 import type { SamplePack } from "@/lib/sample-pack/service";
+import { MarkdownBody } from "@/components/shared/markdown-body";
 
 /**
  * Printable sample-pack view (SYSTEM-DESIGN-NEXTJS.md, Task 21 Step 2): a
@@ -18,22 +19,10 @@ export function SamplePackView({ pack }: { pack: SamplePack }) {
       <section>
         <h2 className="mb-2 text-lg font-medium">Request &amp; resolved assumptions</h2>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-          <dt className="text-muted-foreground">Audience (supplied)</dt>
-          <dd>{pack.assumptions.suppliedAudience ?? "— (used default)"}</dd>
-          <dt className="text-muted-foreground">Audience (resolved)</dt>
-          <dd>{pack.assumptions.resolvedAudience}</dd>
-          <dt className="text-muted-foreground">Objective (supplied)</dt>
-          <dd>{pack.assumptions.suppliedObjective ?? "— (used default)"}</dd>
-          <dt className="text-muted-foreground">Objective (resolved)</dt>
-          <dd>{pack.assumptions.resolvedObjective}</dd>
-          <dt className="text-muted-foreground">Tone (supplied)</dt>
-          <dd>{pack.assumptions.suppliedTone ?? "— (used default)"}</dd>
-          <dt className="text-muted-foreground">Tone (resolved)</dt>
-          <dd>{pack.assumptions.resolvedTone}</dd>
-          <dt className="text-muted-foreground">CTA (supplied)</dt>
-          <dd>{pack.assumptions.suppliedCta ?? "— (used default)"}</dd>
-          <dt className="text-muted-foreground">CTA (resolved)</dt>
-          <dd>{pack.assumptions.resolvedCta ?? "None"}</dd>
+          <AssumptionRow label="Audience" supplied={pack.assumptions.suppliedAudience} resolved={pack.assumptions.resolvedAudience} />
+          <AssumptionRow label="Objective" supplied={pack.assumptions.suppliedObjective} resolved={pack.assumptions.resolvedObjective} />
+          <AssumptionRow label="Tone" supplied={pack.assumptions.suppliedTone} resolved={pack.assumptions.resolvedTone} />
+          <AssumptionRow label="CTA" supplied={pack.assumptions.suppliedCta} resolved={pack.assumptions.resolvedCta ?? "None"} />
         </dl>
       </section>
 
@@ -52,20 +41,20 @@ export function SamplePackView({ pack }: { pack: SamplePack }) {
         <h2 className="mb-2 text-lg font-medium">Article</h2>
         <p className="text-xs uppercase text-muted-foreground">Evaluation: {pack.evaluationSummary.article}</p>
         <h3 className="mt-2 font-medium">{pack.article.title}</h3>
-        <p className="text-sm text-muted-foreground">{pack.article.metaDescription}</p>
-        <div className="mt-2 whitespace-pre-wrap text-sm">{pack.article.bodyMarkdown}</div>
+        <p className="text-sm">{pack.article.metaDescription}</p>
+        <MarkdownBody className="mt-2">{pack.article.bodyMarkdown}</MarkdownBody>
       </section>
 
       <section>
         <h2 className="mb-2 text-lg font-medium">LinkedIn</h2>
         <p className="text-xs uppercase text-muted-foreground">Evaluation: {pack.evaluationSummary.linkedin}</p>
-        <div className="mt-2 whitespace-pre-wrap text-sm">{pack.linkedin.body}</div>
+        <MarkdownBody className="mt-2">{pack.linkedin.body}</MarkdownBody>
       </section>
 
       <section>
         <h2 className="mb-2 text-lg font-medium">X</h2>
         <p className="text-xs uppercase text-muted-foreground">Evaluation: {pack.evaluationSummary.x}</p>
-        <div className="mt-2 whitespace-pre-wrap text-sm">{pack.x.body}</div>
+        <MarkdownBody className="mt-2">{pack.x.body}</MarkdownBody>
         {pack.x.hashtags.length > 0 ? <p className="mt-1 text-sm text-muted-foreground">{pack.x.hashtags.join(" ")}</p> : null}
       </section>
 
@@ -73,11 +62,28 @@ export function SamplePackView({ pack }: { pack: SamplePack }) {
         <h2 className="mb-2 text-lg font-medium">Newsletter</h2>
         <p className="text-xs uppercase text-muted-foreground">Evaluation: {pack.evaluationSummary.newsletter}</p>
         <h3 className="mt-2 font-medium">{pack.newsletter.subject}</h3>
-        <p className="text-sm text-muted-foreground">{pack.newsletter.introduction}</p>
-        <div className="mt-2 whitespace-pre-wrap text-sm">{pack.newsletter.bodyMarkdown}</div>
+        <p className="text-sm">{pack.newsletter.introduction}</p>
+        <MarkdownBody className="mt-2">{pack.newsletter.bodyMarkdown}</MarkdownBody>
         <p className="mt-2 text-sm font-medium">{pack.newsletter.callToAction}</p>
-        <p className="text-sm text-muted-foreground">{pack.newsletter.signoff}</p>
+        <p className="text-sm">{pack.newsletter.signoff}</p>
       </section>
     </article>
+  );
+}
+
+/**
+ * One row per field instead of a separate supplied/resolved pair — still
+ * satisfies "the UI must show which values were supplied and which were
+ * resolved from defaults" (SYSTEM-DESIGN-NEXTJS.md §7.3), just without
+ * showing both when only one actually applies.
+ */
+function AssumptionRow({ label, supplied, resolved }: { label: string; supplied: string | null; resolved: string }) {
+  return (
+    <>
+      <dt className="text-muted-foreground">
+        {label} ({supplied ? "supplied" : "default"})
+      </dt>
+      <dd>{supplied ?? resolved}</dd>
+    </>
   );
 }

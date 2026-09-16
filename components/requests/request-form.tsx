@@ -17,7 +17,6 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
   const [audience, setAudience] = useState("");
   const [objective, setObjective] = useState("");
   const [tone, setTone] = useState("");
-  const [cta, setCta] = useState("");
   const [aiModelChoice, setAiModelChoice] = useState<AIModelChoice>("gemini");
 
   return (
@@ -36,7 +35,7 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
         </p>
       </div>
 
-      <ResolvedDefaultsCard audience={audience} objective={objective} tone={tone} cta={cta} />
+      <ResolvedDefaultsCard audience={audience} objective={objective} tone={tone} />
 
       {testModeEnabled ? (
         <div className="rounded-lg border border-dashed p-4">
@@ -71,14 +70,6 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
               <Input id="tone" name="tone" value={tone} onChange={(e) => setTone(e.target.value)} />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="cta">Call to action</Label>
-              <Input id="cta" name="cta" value={cta} onChange={(e) => setCta(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="primaryKeyword">Primary keyword</Label>
-              <Input id="primaryKeyword" name="primaryKeyword" placeholder="Derived during research if left blank" />
-            </div>
-            <div className="flex flex-col gap-2">
               <Label htmlFor="publicationDate">Target publication date</Label>
               <Input id="publicationDate" name="publicationDate" type="date" />
             </div>
@@ -86,9 +77,11 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
               <Label htmlFor="sourceUrls">Source URLs</Label>
               <Textarea id="sourceUrls" name="sourceUrls" rows={2} placeholder="One URL per line" />
             </div>
-            <div className="flex flex-col gap-2 sm:col-span-2">
-              <Label htmlFor="additionalInstructions">Additional instructions</Label>
-              <Textarea id="additionalInstructions" name="additionalInstructions" rows={3} />
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <input type="checkbox" id="suppliedSourcesOnly" name="suppliedSourcesOnly" className="size-4" />
+              <Label htmlFor="suppliedSourcesOnly" className="font-normal">
+                Only use supplied materials/URLs — skip general web research
+              </Label>
             </div>
           </div>
         ) : null}

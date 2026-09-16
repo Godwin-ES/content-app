@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { LocalDateTime } from "@/components/shared/local-date-time";
 import type { ReviewerQueue, ReviewQueueCard } from "@/lib/approvals/service";
 
 interface ReviewQueueProps {
@@ -21,7 +22,7 @@ function QueueCardList({ cards, emptyMessage }: { cards: ReviewQueueCard[]; empt
               <Badge variant="outline">Package v{card.packageVersion}</Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Submitted by {card.submitterName} · {card.sourceCount} source(s) · {new Date(card.submittedAt).toLocaleString()}
+              Submitted by {card.submitterName} · {card.sourceCount} source(s) · <LocalDateTime value={card.submittedAt} />
             </p>
             {card.comment ? <p className="text-sm text-muted-foreground">&ldquo;{card.comment}&rdquo;</p> : null}
           </Link>
