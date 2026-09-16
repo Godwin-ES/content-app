@@ -71,7 +71,7 @@ export function deriveNextAction(snapshot: WorkspaceSnapshot): NextAction {
 
     case "content_development": {
       if (!snapshot.hasContentPlan) {
-        return action("generate_content_plan", "Articles: Generate content plan", "Create an evidence-backed outline before writing articles.");
+        return action("generate_content_plan", "Plan: Generate content plan", "Create an evidence-backed outline before writing articles.");
       }
       if (snapshot.articles.total === 0) {
         return action("generate_articles", "Articles: Generate articles", "Generate three article options from the content plan.");

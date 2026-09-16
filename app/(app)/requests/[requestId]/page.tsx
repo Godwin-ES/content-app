@@ -5,6 +5,7 @@ import { getContentRequest } from "@/lib/repositories/requests";
 import { listSupportingMaterials } from "@/lib/repositories/materials";
 import { listResearchSources, listSourceEvidence, getLatestSourceDecision, listSourceConflicts } from "@/lib/repositories/sources";
 import { listContentArtifacts, listArtifactVersions } from "@/lib/repositories/content";
+import { listContentPlanVersions } from "@/lib/planning/service";
 import { getLatestEvaluation } from "@/lib/repositories/evaluations";
 import { getPackageReadiness } from "@/lib/packages/service";
 import { getLatestReview } from "@/lib/repositories/approvals";
@@ -17,7 +18,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { RequestStepper } from "@/components/requests/request-stepper";
 import { RequestWorkspace } from "@/components/requests/request-workspace";
 import { ResearchTab } from "@/components/research/research-tab";
-import { ContentPlanEditor } from "@/components/articles/content-plan-editor";
+import { PlanTab } from "@/components/articles/plan-tab";
 import { ArticleComparison } from "@/components/articles/article-comparison";
 import { ChannelWorkspace } from "@/components/channels/channel-workspace";
 import { PackageReadiness } from "@/components/approvals/package-readiness";
@@ -62,13 +63,8 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   const evidenceBySource = Object.fromEntries(evidenceEntries);
   const decisionsBySource = Object.fromEntries(decisionEntries);
 
-  const { data: plan } = await supabase
-    .from("content_plans")
-    .select()
-    .eq("request_id", requestId)
-    .order("version_number", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const planVersions = await listContentPlanVersions(supabase, requestId);
+  const plan = planVersions[0] ?? null;
 
   const artifacts = await listContentArtifacts(supabase, requestId);
   const articleArtifacts = artifacts.filter((a) => a.kind === "article");
@@ -187,9 +183,10 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
     />
   );
 
+  const planContent = <PlanTab requestId={requestId} plan={plan} versions={planVersions} canGenerate={request.status === "content_development"} />;
+
   const articlesContent = (
     <>
-      <ContentPlanEditor requestId={requestId} plan={plan} canGenerate={request.status === "content_development"} />
       {plan ? (
         <ArticleComparison
           requestId={requestId}
@@ -201,7 +198,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
           canGenerate={request.status === "content_development"}
         />
       ) : (
-        <EmptyState title="No content plan yet" description="Generate a content plan above before writing article options." />
+        <EmptyState title="No content plan yet" description="Generate a content plan in the Plan tab before writing article options." />
       )}
     </>
   );
@@ -265,6 +262,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       <RequestWorkspace
         overview={overviewContent}
         research={researchContent}
+        plan={planContent}
         articles={articlesContent}
         channels={channelsContent}
         approval={approvalContent}

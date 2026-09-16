@@ -9,7 +9,14 @@ import {
   hasSupabaseCredentials,
 } from "@/tests/helpers/supabase-test-clients";
 import { FakeAIProvider } from "@/lib/ai/providers/fake";
-import { generateContentPlan, saveManualContentPlan } from "@/lib/planning/service";
+import {
+  generateContentPlan,
+  saveManualContentPlan,
+  listContentPlanVersions,
+  regeneratePlanSectionPreview,
+  regenerateWholePlanDraft,
+  revertToPlanVersion,
+} from "@/lib/planning/service";
 
 const VALID_PLAN = {
   insufficientEvidence: false,
@@ -148,5 +155,65 @@ describe.skipIf(!hasCredentials)("content planning (hosted Supabase integration)
 
     const { data: v1Reloaded } = await admin.from("content_plans").select("title").eq("id", v1.id).single();
     expect(v1Reloaded?.title).toBe("AI Agents in Recruiting");
+  });
+
+  it("lists every plan version newest-first", async () => {
+    const request = await requestWithConfirmedSourceSet();
+    const ai = new FakeAIProvider([VALID_PLAN]);
+    const v1 = await generateContentPlan(owner.client, ai, "fake-model", request.id);
+    const v2 = await saveManualContentPlan(
+      owner.client,
+      request.id,
+      { ...VALID_PLAN, title: "Updated title" },
+      owner.userId
+    );
+
+    const versions = await listContentPlanVersions(owner.client, request.id);
+    expect(versions.map((v) => v.id)).toEqual([v2.id, v1.id]);
+  });
+
+  it("regenerates one section as a preview only, never persisting anything", async () => {
+    const request = await requestWithConfirmedSourceSet();
+    const regeneratedSection = { heading: "New Introduction", level: "h2" as const, purpose: "revised intro", hasFactualClaims: true, evidenceIds: ["S1:E1"] };
+    const ai = new FakeAIProvider([regeneratedSection]);
+
+    const section = await regeneratePlanSectionPreview(
+      ai,
+      "fake-model",
+      owner.client,
+      request.id,
+      { title: VALID_PLAN.title, angle: VALID_PLAN.angle, sections: VALID_PLAN.sections },
+      0,
+      "Make it punchier"
+    );
+
+    expect(section.heading).toBe("New Introduction");
+    const { data: plans } = await admin.from("content_plans").select().eq("request_id", request.id);
+    expect(plans).toHaveLength(0);
+  });
+
+  it("regenerates the whole plan as a draft only, never persisting anything", async () => {
+    const request = await requestWithConfirmedSourceSet();
+    const ai = new FakeAIProvider([{ ...VALID_PLAN, title: "Fresh Draft Title" }]);
+
+    const draft = await regenerateWholePlanDraft(owner.client, ai, "fake-model", request.id, "Try a different angle");
+
+    expect(draft.title).toBe("Fresh Draft Title");
+    const { data: plans } = await admin.from("content_plans").select().eq("request_id", request.id);
+    expect(plans).toHaveLength(0);
+  });
+
+  it("reverts to an old version by creating a new version with that version's content", async () => {
+    const request = await requestWithConfirmedSourceSet();
+    const ai = new FakeAIProvider([VALID_PLAN]);
+    const v1 = await generateContentPlan(owner.client, ai, "fake-model", request.id);
+    await saveManualContentPlan(owner.client, request.id, { ...VALID_PLAN, title: "Changed title" }, owner.userId);
+
+    const reverted = await revertToPlanVersion(owner.client, request.id, v1.id, owner.userId);
+
+    expect(reverted.version_number).toBe(3);
+    expect(reverted.title).toBe(v1.title);
+    const versions = await listContentPlanVersions(owner.client, request.id);
+    expect(versions).toHaveLength(3);
   });
 });

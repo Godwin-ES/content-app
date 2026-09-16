@@ -1,7 +1,7 @@
 import type { AIProvider } from "@/lib/ai/types";
 import { researchPlanSchema, type ResearchPlan } from "@/lib/ai/schemas/research-plan";
 import { sourceAnalysisSchema, type SourceAnalysis } from "@/lib/ai/schemas/source-analysis";
-import { contentPlanSchema, type ContentPlan } from "@/lib/ai/schemas/content-plan";
+import { contentPlanSchema, contentPlanSectionSchema, type ContentPlan, type ContentPlanSection } from "@/lib/ai/schemas/content-plan";
 import { articleSchema, type ArticleOutput } from "@/lib/ai/schemas/article";
 import { evaluationSchema, type Evaluation } from "@/lib/ai/schemas/evaluation";
 import { linkedinPostSchema, xPostSchema, newsletterSchema, channelEvaluationSchema } from "@/lib/ai/schemas/channel";
@@ -9,6 +9,7 @@ import type { LinkedinPost, XPost, Newsletter, ChannelEvaluation } from "@/lib/a
 import { buildResearchPlannerPrompt, type ResearchPlannerInput } from "@/lib/ai/prompts/research-planner";
 import { buildSourceAnalyzerPrompt, type SourceAnalyzerInput } from "@/lib/ai/prompts/source-analyzer";
 import { buildContentPlannerPrompt, type ContentPlannerInput } from "@/lib/ai/prompts/content-planner";
+import { buildPlanSectionRegeneratePrompt, type PlanSectionRegeneratorInput } from "@/lib/ai/prompts/plan-section-regenerator";
 import { buildArticleWriterPrompt, type ArticleWriterInput } from "@/lib/ai/prompts/article-writer";
 import { buildArticleEvaluatorPrompt, type ArticleEvaluatorInput } from "@/lib/ai/prompts/article-evaluator";
 import { buildArticleReviserPrompt, type ArticleReviserInput } from "@/lib/ai/prompts/article-reviser";
@@ -51,6 +52,15 @@ export async function createContentPlan(
 ): Promise<ContentPlan> {
   const { system, user } = buildContentPlannerPrompt(input);
   return provider.generateStructured({ modelId, system, user, schema: contentPlanSchema });
+}
+
+export async function regeneratePlanSection(
+  provider: AIProvider,
+  modelId: string,
+  input: PlanSectionRegeneratorInput
+): Promise<ContentPlanSection> {
+  const { system, user } = buildPlanSectionRegeneratePrompt(input);
+  return provider.generateStructured({ modelId, system, user, schema: contentPlanSectionSchema });
 }
 
 export async function generateArticle(

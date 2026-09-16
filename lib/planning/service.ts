@@ -4,7 +4,7 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import { DomainError } from "@/lib/domain/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AIProvider } from "@/lib/ai/types";
-import { createContentPlan as createContentPlanAI } from "@/lib/ai/service";
+import { createContentPlan as createContentPlanAI, regeneratePlanSection as regeneratePlanSectionAI } from "@/lib/ai/service";
 import type { ContentPlan, ContentPlanSection } from "@/lib/ai/schemas/content-plan";
 import { getEvidenceContextForRequest } from "@/lib/grounding/evidence-context";
 import { listSourceConflicts } from "@/lib/repositories/sources";
@@ -124,16 +124,16 @@ async function persistPlanVersion(
  * from the confirmed source set, and resolved conflicts — never excluded
  * raw source content.
  */
-export async function generateContentPlan(
+async function buildPlanDraft(
   supabase: SupabaseClient<Database>,
   ai: AIProvider,
   modelId: string,
-  requestId: string
-): Promise<ContentPlanRow> {
-  const request = await getRequestOrThrow(supabase, requestId);
+  request: ContentRequestRow,
+  additionalInstruction: string | null
+): Promise<{ plan: ManualContentPlanInput; validEvidenceIds: Set<string> }> {
   const { packets: evidencePackets, validEvidenceIds } = await getEvidenceContextForRequest(supabase, request);
 
-  const conflicts = await listSourceConflicts(supabase, requestId);
+  const conflicts = await listSourceConflicts(supabase, request.id);
   const resolvedConflicts = conflicts
     .filter((c) => c.resolution)
     .map((c) => `${c.description} -> resolution: ${c.resolution}${c.resolution_note ? ` (${c.resolution_note})` : ""}`);
@@ -147,9 +147,43 @@ export async function generateContentPlan(
     primaryKeyword: request.resolved_primary_keyword,
     evidencePackets,
     resolvedConflicts,
+    additionalInstruction,
   });
 
   validateContentPlan(plan, validEvidenceIds);
+
+  return {
+    plan: {
+      title: plan.title,
+      primaryKeyword: plan.primaryKeyword,
+      secondaryKeywords: plan.secondaryKeywords,
+      searchIntent: plan.searchIntent,
+      angle: plan.angle,
+      sections: plan.sections,
+      ctaDirection: plan.ctaDirection,
+      links: plan.links,
+      knownLimitations: plan.knownLimitations,
+    },
+    validEvidenceIds,
+  };
+}
+
+/**
+ * The very first plan generation persists immediately — there is no prior
+ * version for a draft/Save-Version cycle to make sense against yet.
+ * Regenerating an existing plan instead goes through
+ * regenerateWholePlanDraft, which returns a draft for the caller to review
+ * and save deliberately, the same as a section regeneration.
+ */
+export async function generateContentPlan(
+  supabase: SupabaseClient<Database>,
+  ai: AIProvider,
+  modelId: string,
+  requestId: string,
+  additionalInstruction: string | null = null
+): Promise<ContentPlanRow> {
+  const request = await getRequestOrThrow(supabase, requestId);
+  const { plan } = await buildPlanDraft(supabase, ai, modelId, request, additionalInstruction);
 
   return persistPlanVersion(
     supabase,
@@ -199,4 +233,107 @@ export async function saveManualContentPlan(
   validateContentPlan(updates, validEvidenceIds);
 
   return persistPlanVersion(supabase, requestId, request.current_source_set_id!, updates, actorId);
+}
+
+/**
+ * Regenerates the whole plan as a draft only — like a section
+ * regeneration, this never persists; the caller reviews it and saves via
+ * saveManualContentPlan (Save Version) when ready.
+ */
+export async function regenerateWholePlanDraft(
+  supabase: SupabaseClient<Database>,
+  ai: AIProvider,
+  modelId: string,
+  requestId: string,
+  additionalInstruction: string | null
+): Promise<ManualContentPlanInput> {
+  const request = await getRequestOrThrow(supabase, requestId);
+  const { plan } = await buildPlanDraft(supabase, ai, modelId, request, additionalInstruction);
+  return plan;
+}
+
+/**
+ * Every past plan version, newest first (Phase 3 of the post-Task-22 UX
+ * pass) — these were always persisted immutably, just never surfaced
+ * beyond the single latest one.
+ */
+export async function listContentPlanVersions(supabase: SupabaseClient<Database>, requestId: string): Promise<ContentPlanRow[]> {
+  const { data, error } = await supabase
+    .from("content_plans")
+    .select()
+    .eq("request_id", requestId)
+    .order("version_number", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/**
+ * Regenerates exactly one section, based on whatever draft the caller is
+ * currently holding (which may include other not-yet-saved edits) —
+ * mirrors week-3's RegenerateSectionDialog: this never persists anything,
+ * it only returns a proposal for the caller to fold into its own draft and
+ * later save as one new version via saveManualContentPlan.
+ */
+export async function regeneratePlanSectionPreview(
+  ai: AIProvider,
+  modelId: string,
+  supabase: SupabaseClient<Database>,
+  requestId: string,
+  currentDraft: { title: string; angle: string; sections: ContentPlanSection[] },
+  sectionIndex: number,
+  instruction: string | null
+): Promise<ContentPlanSection> {
+  const targetSection = currentDraft.sections[sectionIndex];
+  if (!targetSection) throw new DomainError("NOT_FOUND", "plan_section_regenerate", "Section not found in the current draft.");
+
+  const request = await getRequestOrThrow(supabase, requestId);
+  const { packets: evidencePackets } = await getEvidenceContextForRequest(supabase, request);
+  const otherSections = currentDraft.sections.filter((_, i) => i !== sectionIndex);
+
+  return regeneratePlanSectionAI(ai, modelId, {
+    topic: request.topic,
+    audience: request.resolved_audience,
+    objective: request.resolved_objective,
+    tone: request.resolved_tone,
+    planTitle: currentDraft.title,
+    planAngle: currentDraft.angle,
+    otherSections,
+    targetSection,
+    instruction,
+    evidencePackets,
+  });
+}
+
+/**
+ * Reverting to an old version creates a new version with that version's
+ * content, rather than mutating history (SYSTEM-DESIGN-NEXTJS.md §14's
+ * immutability rule applies just as much to "going back" as to any other
+ * edit) — re-validated against the current source set, since evidence IDs
+ * that were valid when the old version was created might not be any more.
+ */
+export async function revertToPlanVersion(
+  supabase: SupabaseClient<Database>,
+  requestId: string,
+  versionId: string,
+  actorId: string
+): Promise<ContentPlanRow> {
+  const { data: old, error } = await supabase.from("content_plans").select().eq("id", versionId).eq("request_id", requestId).single();
+  if (error || !old) throw error ?? new DomainError("NOT_FOUND", "plan_revert", "That plan version was not found.");
+
+  return saveManualContentPlan(
+    supabase,
+    requestId,
+    {
+      title: old.title,
+      primaryKeyword: old.primary_keyword ?? "",
+      secondaryKeywords: (old.secondary_keywords as string[] | null) ?? [],
+      searchIntent: old.search_intent ?? "",
+      angle: old.angle ?? "",
+      sections: old.sections as unknown as ContentPlanSection[],
+      ctaDirection: old.cta_direction,
+      links: (old.links as string[] | null) ?? [],
+      knownLimitations: old.known_limitations,
+    },
+    actorId
+  );
 }

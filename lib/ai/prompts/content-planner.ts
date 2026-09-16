@@ -9,6 +9,8 @@ export interface ContentPlannerInput {
   primaryKeyword: string | null;
   evidencePackets: EvidencePacketInput[];
   resolvedConflicts: string[];
+  /** An explicit Content Manager instruction for this regeneration (e.g. "focus more on cost savings"), still bound by the grounding rules below. */
+  additionalInstruction?: string | null;
 }
 
 const SEO_RULES = [
@@ -47,6 +49,9 @@ export function buildContentPlannerPrompt(input: ContentPlannerInput): { system:
     input.primaryKeyword ? `Primary keyword: ${input.primaryKeyword}` : null,
     input.resolvedConflicts.length > 0
       ? `Human decisions about conflicting sources (follow these exactly):\n${input.resolvedConflicts.map((c) => `- ${c}`).join("\n")}`
+      : null,
+    input.additionalInstruction
+      ? `Additional instruction from the Content Manager for this regeneration (still subject to the grounding rules above):\n${input.additionalInstruction}`
       : null,
     "Reviewed evidence:",
     formatEvidencePackets(input.evidencePackets),
