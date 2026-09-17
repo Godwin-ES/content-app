@@ -11,7 +11,8 @@ import { getLatestReview } from "@/lib/repositories/approvals";
 import { getPublishingQueue } from "@/lib/publishing/service";
 import { listActivityEvents } from "@/lib/repositories/activity";
 import { filterDisplayedActivity } from "@/lib/activity/display";
-import { deriveNextAction, type WorkspaceSnapshot } from "@/lib/workspace/next-action";
+import { deriveNextAction } from "@/lib/workspace/next-action";
+import { buildWorkspaceSnapshot } from "@/lib/workspace/snapshot";
 import { articlesStaleAgainstPlan, channelsStaleAgainstArticle } from "@/lib/workspace/staleness";
 
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -29,6 +30,7 @@ import { QueueControls } from "@/components/publishing/queue-controls";
 import { PublishingList } from "@/components/publishing/publishing-list";
 import { ActivityHistory } from "@/components/activity/activity-history";
 import { StaleNotice } from "@/components/shared/stale-notice";
+import { AutoModePanel } from "@/components/requests/auto-mode-panel";
 
 /**
  * Request workspace (SYSTEM-DESIGN-NEXTJS.md §34.3): Overview / Research /
@@ -121,35 +123,25 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   const latestReview = request.status === "pending_approval" ? await getLatestReview(supabase, requestId) : null;
   const queue = request.current_package_id ? await getPublishingQueue(supabase, requestId) : null;
 
-  const snapshot: WorkspaceSnapshot = {
-    status: request.status,
-    sources: sourceCounts,
+  // Built through the shared helper so this page, the dashboard, and auto
+  // mode all describe the same request identically.
+  const snapshot = buildWorkspaceSnapshot({
+    request,
+    sources,
     hasContentPlan: Boolean(plan),
-    articles: {
-      total: articleArtifacts.length,
-      anyGenerationFailed: articleArtifacts.some((a) => !a.current_version_id),
-      anyPassingEvaluation: Object.values(articleEvaluationsByArtifact).some((e) => e?.overall_status === "pass"),
-      anyNeedsRevisionOrUnevaluated:
-        articleArtifacts.length > 0 && !Object.values(articleEvaluationsByArtifact).some((e) => e?.overall_status === "pass"),
-    },
-    hasSelectedArticle: Boolean(request.selected_article_version_id),
-    channels: {
-      total: channelArtifacts.length,
-      anyMissing: channelArtifacts.length < 3 || channelArtifacts.some((a) => !a.current_version_id),
-      anyNotPassing: channelArtifacts.some((a) => {
-        const evaluation = channelEvaluationsByArtifact[a.id];
-        return !a.current_version_id || evaluation?.overall_status !== "pass";
-      }),
-    },
+    articleArtifacts,
+    articleEvaluations: articleEvaluationsByArtifact,
+    channelArtifacts,
+    channelEvaluations: channelEvaluationsByArtifact,
     packageReady: readiness?.ready ?? false,
-    hasCurrentPackage: Boolean(request.current_package_id),
     hasActiveQueueItems: queue ? queue.entries.some((e) => e.item.status !== "cancelled") : false,
-  };
+  });
   const nextAction = deriveNextAction(snapshot);
 
   const overviewContent = (
     <>
       <RequestStepper nextAction={nextAction} />
+      <AutoModePanel requestId={requestId} canRun={request.status === "draft" || request.status === "source_review" || request.status === "content_development"} />
       <div className="grid gap-3 sm:grid-cols-2">
         <EmptyState
           title="Sources"

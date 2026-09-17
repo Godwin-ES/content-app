@@ -4,14 +4,6 @@ import { z } from "zod";
 import { DomainError, getErrorMessage } from "@/lib/domain/errors";
 import type { AIProvider, GenerateStructuredInput } from "@/lib/ai/types";
 
-/**
- * Set explicitly rather than inherited. Left unset, Gemini applies whatever
- * its own per-model default happens to be — a number we neither chose nor
- * can see, which can change under us between model versions. Matched to the
- * Anthropic adapter so a request that fits one provider fits the other.
- */
-const MAX_OUTPUT_TOKENS = 8192;
-
 function toJsonSchema(schema: z.ZodType): unknown {
   const jsonSchema = z.toJSONSchema(schema, { target: "draft-7" }) as Record<string, unknown>;
   delete jsonSchema.$schema;
@@ -40,7 +32,6 @@ export class GoogleAIProvider implements AIProvider {
             systemInstruction: system,
             responseMimeType: "application/json",
             responseJsonSchema: toJsonSchema(schema),
-            maxOutputTokens: MAX_OUTPUT_TOKENS,
           },
         });
       } catch (error) {
@@ -55,12 +46,18 @@ export class GoogleAIProvider implements AIProvider {
       // is reached, so a truncated response can parse cleanly and still be
       // missing most of its content — the failure is silent unless the
       // finish reason is checked.
+      // Deliberately no maxOutputTokens: Gemini counts its own thinking
+      // against that budget, so a ceiling sized for a different provider
+      // starves the answer — the model spends the allowance reasoning and
+      // stops before writing anything. Capping it at the Anthropic adapter's
+      // 8192 did exactly that to every content plan. The plan's own section
+      // bound is what limits how much is asked for; this only reports when
+      // the model's own ceiling is reached.
       if (response.candidates?.[0]?.finishReason === "MAX_TOKENS") {
         throw new DomainError(
           "OUTPUT_TRUNCATED",
           "ai_provider",
-          `The model stopped at its ${MAX_OUTPUT_TOKENS}-token output limit before finishing. ` +
-            "Retrying would produce the same result — the request needs to ask for less."
+          "The model reached its output limit before finishing. Retrying would produce the same result — the request needs to ask for less."
         );
       }
 

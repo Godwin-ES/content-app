@@ -127,6 +127,13 @@ export const PIPELINE_STAGES = ["Research", "Plan", "Articles", "Channels", "App
 
 export type PipelineStage = (typeof PIPELINE_STAGES)[number];
 
+/**
+ * Stages auto mode can be told to stop after. Publishing is absent by
+ * design: the package is the furthest anything automatic goes, and what
+ * happens past it is a person's decision.
+ */
+export const AUTO_MODE_STAGES = PIPELINE_STAGES.filter((stage) => stage !== "Publishing");
+
 const STAGE_FOR_ACTION: Record<NextActionKey, PipelineStage> = {
   add_sources: "Research",
   wait_for_research: "Research",
