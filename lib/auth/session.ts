@@ -2,6 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadCurrentUser, type CurrentUser } from "@/lib/auth/current-user";
+import type { UserRole } from "@/lib/domain/types";
 
 /**
  * Next.js request-scoped wrappers around loadCurrentUser(), for Server
@@ -33,5 +34,21 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 export async function requireCurrentUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  return user;
+}
+
+/**
+ * Page-level role gate. Someone with the wrong role is sent to `/`, which
+ * already owns the role -> landing-page mapping, rather than to a dead end —
+ * so a Reviewer who follows a link to a Content Manager page lands on their
+ * own queue instead of an empty page built around someone else's data.
+ *
+ * This is a routing convenience, not the security boundary: every action and
+ * RPC re-checks the role server-side (guards.ts, plus RLS) regardless of
+ * which page the request came from.
+ */
+export async function requireRole(role: UserRole): Promise<CurrentUser> {
+  const user = await requireCurrentUser();
+  if (user.role !== role) redirect("/");
   return user;
 }

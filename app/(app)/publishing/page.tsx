@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireCurrentUser } from "@/lib/auth/session";
+import { requireRole } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getGlobalPublishingQueue } from "@/lib/publishing/service";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
  * claims an external platform actually received the content.
  */
 export default async function PublishingQueuePage() {
-  const user = await requireCurrentUser();
+  const user = await requireRole("content_manager");
   if (user.role !== "content_manager") notFound();
 
   const supabase = await createSupabaseServerClient();

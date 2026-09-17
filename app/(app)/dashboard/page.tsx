@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireCurrentUser } from "@/lib/auth/session";
+import { requireRole } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getContentManagerDashboard } from "@/lib/repositories/requests";
 import { ActionSummary } from "@/components/dashboard/action-summary";
@@ -7,7 +7,7 @@ import { RequestList } from "@/components/dashboard/request-list";
 import { buttonVariants } from "@/components/ui/button";
 
 export default async function DashboardPage() {
-  const user = await requireCurrentUser();
+  const user = await requireRole("content_manager");
   const supabase = await createSupabaseServerClient();
   const dashboard = await getContentManagerDashboard(supabase, user.userId);
 

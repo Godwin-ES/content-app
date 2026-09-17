@@ -28,7 +28,12 @@ export async function signIn(
     };
   }
 
-  redirect("/dashboard");
+  // Route through `/`, which already owns the role -> landing-page mapping.
+  // Redirecting straight to /dashboard sent Reviewers to the Content
+  // Manager's dashboard on every sign-in: that page only requires *a*
+  // session, not the content_manager role, so they landed on an empty
+  // request list with a "New content request" button they cannot use.
+  redirect("/");
 }
 
 export async function signOut(): Promise<void> {

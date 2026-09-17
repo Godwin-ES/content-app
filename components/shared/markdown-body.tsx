@@ -24,7 +24,20 @@ export function MarkdownBody({ children, className }: MarkdownBodyProps) {
         className
       )}
     >
-      <ReactMarkdown>{children}</ReactMarkdown>
+      <ReactMarkdown
+        components={{
+          // Every link in generated copy points at a cited source, so it
+          // opens in a new tab — following one inline would otherwise throw
+          // away an in-progress review or a draft with unsaved edits.
+          a: ({ href, children: linkText }) => (
+            <a href={href} target="_blank" rel="noreferrer noopener">
+              {linkText}
+            </a>
+          ),
+        }}
+      >
+        {children}
+      </ReactMarkdown>
     </div>
   );
 }

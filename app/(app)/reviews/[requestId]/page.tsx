@@ -1,5 +1,4 @@
-import { notFound } from "next/navigation";
-import { requireCurrentUser } from "@/lib/auth/session";
+import { requireRole } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getPackageReview } from "@/lib/approvals/service";
 import { ContentPackagePreview } from "@/components/approvals/content-package-preview";
@@ -16,8 +15,7 @@ import { Badge } from "@/components/ui/badge";
  */
 export default async function PackageReviewPage({ params }: { params: Promise<{ requestId: string }> }) {
   const { requestId } = await params;
-  const user = await requireCurrentUser();
-  if (user.role !== "reviewer") notFound();
+  await requireRole("reviewer");
 
   const supabase = await createSupabaseServerClient();
   const context = await getPackageReview(supabase, requestId);

@@ -1,12 +1,10 @@
-import { notFound } from "next/navigation";
-import { requireCurrentUser } from "@/lib/auth/session";
+import { requireRole } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getReviewerQueue } from "@/lib/approvals/service";
 import { ReviewQueue } from "@/components/approvals/review-queue";
 
 export default async function ReviewsPage() {
-  const user = await requireCurrentUser();
-  if (user.role !== "reviewer") notFound();
+  await requireRole("reviewer");
 
   const supabase = await createSupabaseServerClient();
   const queue = await getReviewerQueue(supabase);

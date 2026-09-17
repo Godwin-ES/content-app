@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EvaluationSummary } from "@/components/articles/evaluation-summary";
 import { EvaluationDrawer } from "@/components/articles/evaluation-drawer";
@@ -29,8 +30,25 @@ export function ReviewEvidencePanel({ context }: ReviewEvidencePanelProps) {
         <ul className="flex flex-col gap-2">
           {context.sources.map((source) => (
             <li key={source.id} className="text-sm">
-              <p className="font-medium">{source.title ?? source.original_url}</p>
-              <p className="text-xs text-muted-foreground">{source.original_url}</p>
+              {source.original_url ? (
+                <a
+                  href={source.original_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group block rounded-md focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                  <span className="flex items-center gap-1.5 font-medium group-hover:underline">
+                    {source.title ?? source.original_url}
+                    <ExternalLink aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+                  </span>
+                  <span className="block truncate text-xs text-muted-foreground group-hover:underline">{source.original_url}</span>
+                </a>
+              ) : (
+                <>
+                  <p className="font-medium">{source.title ?? "Untitled source"}</p>
+                  <p className="text-xs text-muted-foreground">Uploaded material</p>
+                </>
+              )}
             </li>
           ))}
         </ul>
