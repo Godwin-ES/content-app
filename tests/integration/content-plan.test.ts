@@ -26,8 +26,11 @@ const VALID_PLAN = {
   searchIntent: "informational",
   angle: "practical",
   title: "AI Agents in Recruiting",
+  // Three is the documented minimum for a plan (MIN_PLAN_SECTIONS): fewer
+  // than that is not an article, and the schema now says so.
   sections: [
     { heading: "Introduction", level: "h2" as const, purpose: "intro", hasFactualClaims: true, evidenceIds: ["S1:E1"] },
+    { heading: "How AI agents are used", level: "h2" as const, purpose: "main body", hasFactualClaims: true, evidenceIds: ["S1:E1"] },
     { heading: "Conclusion", level: "h2" as const, purpose: "wrap up", hasFactualClaims: false, evidenceIds: [] },
   ],
   ctaDirection: null,

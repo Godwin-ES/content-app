@@ -20,7 +20,17 @@ export class FakeAIProvider implements AIProvider {
 
   async generateStructured<T>({ schema }: GenerateStructuredInput<T>): Promise<T> {
     if (this.queue.length === 0) {
-      throw new DomainError("VALIDATION_ERROR", "ai_provider", "FakeAIProvider has no queued response for this call.");
+      // Reached from the running app, not a test, whenever
+      // USE_FAKE_PROVIDERS=true: every AI call is routed to this stub, and
+      // nothing has queued a response for it. The message says so, because
+      // "no queued response" on its own reads like an application fault
+      // rather than a setting that needs changing.
+      throw new DomainError(
+        "VALIDATION_ERROR",
+        "ai_provider",
+        "No AI provider is configured: USE_FAKE_PROVIDERS is enabled, which routes every AI call to the test stub. " +
+          "Set USE_FAKE_PROVIDERS=false in .env.local and restart the dev server to use a real model."
+      );
     }
     const next = this.queue.shift();
     const parsed = schema.safeParse(next);

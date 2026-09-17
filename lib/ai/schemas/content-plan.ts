@@ -15,6 +15,22 @@ export const contentPlanSectionSchema = z.object({
   evidenceIds: z.array(z.string()).default([]),
 });
 
+/**
+ * A plan's section count is what decides how much the Article Writer is then
+ * obliged to produce in one response, since it must return one entry per
+ * planned section. Nothing bounded it before: the planner is told to let
+ * depth reflect the evidence, so with a rich source set it planned 24
+ * sections, and the writer — having no permission to consolidate — ran into
+ * the provider's output ceiling and was cut off mid-sentence.
+ *
+ * Enforced here rather than only asked for in the prompt, so an
+ * over-long plan fails loudly at generation instead of silently producing a
+ * half-written article two steps later. Manual plan edits validate through
+ * validateContentPlan() instead, so an existing longer plan stays editable.
+ */
+export const MAX_PLAN_SECTIONS = 16;
+export const MIN_PLAN_SECTIONS = 3;
+
 export const contentPlanSchema = z.object({
   insufficientEvidence: z.boolean().default(false),
   insufficientEvidenceReason: z.string().nullable().default(null),
@@ -23,7 +39,7 @@ export const contentPlanSchema = z.object({
   searchIntent: z.string().min(1),
   angle: z.string().min(1),
   title: z.string().min(1),
-  sections: z.array(contentPlanSectionSchema).default([]),
+  sections: z.array(contentPlanSectionSchema).min(MIN_PLAN_SECTIONS).max(MAX_PLAN_SECTIONS),
   ctaDirection: z.string().nullable().default(null),
   links: z.array(z.string()).default([]),
   knownLimitations: z.string().nullable().default(null),

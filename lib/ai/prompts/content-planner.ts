@@ -1,4 +1,5 @@
 import { SHARED_GROUNDING_RULES, formatEvidencePackets, type EvidencePacketInput } from "@/lib/ai/prompts/shared-grounding";
+import { MAX_PLAN_SECTIONS } from "@/lib/ai/schemas/content-plan";
 
 export interface ContentPlannerInput {
   topic: string;
@@ -17,9 +18,10 @@ const SEO_RULES = [
   "The title must contain the primary keyword WORD FOR WORD as an unbroken phrase — not rephrased, and with no words inserted into the middle of it. Leading with the exact phrase followed by a colon and a subtitle is the easiest way to do this naturally.",
   "Choose a primary keyword that can actually sit in a title unbroken: a short noun phrase a reader would search for, not a sentence.",
   "Use exactly one H1 (the title); use H2 section headers and H3 subheaders where needed.",
+  `Plan 6 to 10 main (H2) sections, each with at most 2 to 3 H3 subsections where the evidence genuinely supports that much depth. Never plan more than ${MAX_PLAN_SECTIONS} sections in total, counting H2 and H3 together. A writer has to produce every planned section in a single response, so an over-long plan is one that cannot actually be written.`,
   "Use relevant secondary keywords in section headers and body where natural.",
   "Plan 2 to 3 relevant internal or external links.",
-  "Let the depth of each section reflect the strength of the available evidence.",
+  "Let the depth of each section — how much is written inside it, not how many sections there are — reflect the strength of the available evidence.",
 ].join("\n- ");
 
 /**

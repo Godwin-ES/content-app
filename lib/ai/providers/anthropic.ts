@@ -55,6 +55,20 @@ export class AnthropicAIProvider implements AIProvider {
         throw new DomainError("VALIDATION_ERROR", "ai_provider", `Claude request failed: ${getErrorMessage(error)}`);
       }
 
+      // A response cut off at the ceiling arrives as a truncated tool input,
+      // which then fails schema validation — and VALIDATION_ERROR is exactly
+      // what triggers the retry below, so the identical oversized request
+      // gets made a second time and fails identically. Naming the real cause
+      // here both explains the failure and keeps it out of the retry path.
+      if (response.stop_reason === "max_tokens") {
+        throw new DomainError(
+          "OUTPUT_TRUNCATED",
+          "ai_provider",
+          `The model stopped at its ${MAX_OUTPUT_TOKENS}-token output limit before finishing. ` +
+            "Retrying would produce the same result — the request needs to ask for less."
+        );
+      }
+
       const toolUse = response.content.find((block) => block.type === "tool_use");
       if (!toolUse) {
         throw new DomainError("VALIDATION_ERROR", "ai_provider", "Model response did not include a structured result.");
