@@ -1,5 +1,7 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
+
 interface LocalDateTimeProps {
   value: string;
   className?: string;
@@ -17,26 +19,35 @@ interface LocalDateTimeProps {
  * behavior — every viewer sees the same format regardless of their own
  * browser locale.
  *
- * Still rendered client-side (the server has no reliable notion of the
- * visiting browser's timezone for the time-of-day portion), so the
- * server/client text mismatch is expected and suppressed the documented
- * React way rather than deferred through a useEffect, which would need a
- * setState-in-effect the lint rules flag.
+ * Server and hydration renders format in UTC so both produce byte-identical
+ * text; only once hydration has finished does it re-format in the viewer's
+ * own timezone. An earlier version instead rendered the raw ISO string on
+ * the server and relied on `suppressHydrationWarning` to paper over the
+ * difference — but that attribute tells React to *skip* patching the text,
+ * so the raw `2026-09-15T18:33:21.349785+00:00` stayed on screen for good
+ * and the formatting never actually applied anywhere.
  */
+const subscribe = () => () => {};
+const getHydratedSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 export function LocalDateTime({ value, className, dateOnly = false }: LocalDateTimeProps) {
-  const display = typeof window === "undefined" ? value : formatLocalDateTime(value, dateOnly);
+  const hydrated = useSyncExternalStore(subscribe, getHydratedSnapshot, getServerSnapshot);
 
   return (
-    <time dateTime={value} className={className} suppressHydrationWarning>
-      {display}
+    <time dateTime={value} className={className}>
+      {formatLocalDateTime(value, dateOnly, hydrated ? undefined : "UTC")}
     </time>
   );
 }
 
-function formatLocalDateTime(value: string, dateOnly: boolean): string {
+export function formatLocalDateTime(value: string, dateOnly: boolean, timeZone?: string): string {
   const date = new Date(value);
-  const datePart = date.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+  if (Number.isNaN(date.getTime())) return value;
+
+  const datePart = date.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone });
   if (dateOnly) return datePart;
-  const timePart = date.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true });
+
+  const timePart = date.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZone });
   return `${timePart} ${datePart}`;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { signOut } from "@/actions/auth";
 import {
   DropdownMenu,
@@ -14,25 +15,35 @@ import {
 interface UserMenuProps {
   displayName: string;
   email: string;
+  role: "content_manager" | "reviewer";
 }
 
+const ROLE_LABEL: Record<UserMenuProps["role"], string> = {
+  content_manager: "Content Manager",
+  reviewer: "Reviewer",
+};
+
 /**
- * Identity + sign-out (Phase 1 of the post-Task-22 UX pass). `signOut()`
- * already existed as a working server action with nothing in the UI
- * calling it — this is that missing wiring, not new sign-out logic.
+ * Identity + sign-out. The trigger carries the active role as well as the
+ * name — with two accounts in play, which role you are currently signed in
+ * as is the thing you most need to see at a glance.
  */
-export function UserMenu({ displayName, email }: UserMenuProps) {
+export function UserMenu({ displayName, email, role }: UserMenuProps) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="ml-auto flex items-center gap-2 rounded-md px-2 py-1 text-sm text-neutral-700 hover:bg-neutral-100">
-        <span className="flex size-7 items-center justify-center rounded-full bg-neutral-900 text-xs font-medium text-white">
+      <DropdownMenuTrigger className="ml-auto flex shrink-0 items-center gap-2.5 rounded-lg py-1 pl-1 pr-2 text-left transition-colors hover:bg-secondary">
+        <span className="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
           {displayName.slice(0, 1).toUpperCase()}
         </span>
-        <span className="hidden font-medium sm:inline">{displayName}</span>
+        <span className="hidden leading-tight sm:flex sm:flex-col">
+          <span className="text-sm font-medium">{displayName}</span>
+          <span className="text-xs text-muted-foreground">{ROLE_LABEL[role]}</span>
+        </span>
+        <ChevronDown aria-hidden className="size-4 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-64 w-max">
+      <DropdownMenuContent align="end" className="w-max min-w-64">
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="whitespace-nowrap text-xs font-normal text-muted-foreground">{email}</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs font-normal whitespace-nowrap text-muted-foreground">{email}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => void signOut()}>Sign out</DropdownMenuItem>
         </DropdownMenuGroup>

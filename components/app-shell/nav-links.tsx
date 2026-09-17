@@ -8,6 +8,11 @@ interface NavLinksProps {
   links: { href: string; label: string }[];
 }
 
+/**
+ * Primary nav with an unmistakable current-section state: the active link
+ * is a filled pill, not merely a slightly darker text colour (which read
+ * as "nothing is highlighted" at a glance).
+ */
 export function NavLinks({ links }: NavLinksProps) {
   const pathname = usePathname();
 
@@ -21,8 +26,10 @@ export function NavLinks({ links }: NavLinksProps) {
             href={link.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "text-sm transition-colors",
-              active ? "font-medium text-neutral-900" : "text-neutral-600 hover:text-neutral-900"
+              "rounded-lg px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
+              active
+                ? "bg-secondary font-semibold text-foreground shadow-xs"
+                : "font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
             )}
           >
             {link.label}

@@ -2,6 +2,7 @@
 
 import { Suspense, useActionState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { signIn } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +43,13 @@ function LoginForm() {
         </Alert>
       ) : null}
       <Button type="submit" disabled={pending} className="mt-2">
-        {pending ? "Signing in..." : "Sign in"}
+        {pending ? (
+          <>
+            <Loader2 className="size-4 animate-spin" /> Signing in...
+          </>
+        ) : (
+          "Sign in"
+        )}
       </Button>
     </form>
   );
@@ -50,11 +57,20 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/30 p-4">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted/30 p-4">
+      <div className="flex items-center gap-2.5">
+        <span
+          aria-hidden
+          className="flex size-9 items-center justify-center rounded-lg bg-primary text-base font-bold text-primary-foreground"
+        >
+          K
+        </span>
+        <span className="text-lg font-semibold tracking-tight">{APP_NAME}</span>
+      </div>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">{APP_NAME}</CardTitle>
-          <CardDescription>Sign in to continue to your workspace.</CardDescription>
+          <CardTitle className="text-xl">Sign in</CardTitle>
+          <CardDescription>Continue to your workspace.</CardDescription>
         </CardHeader>
         <CardContent>
           <LoginForm />
