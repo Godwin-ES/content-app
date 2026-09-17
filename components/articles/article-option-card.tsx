@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { retryArticleOptionAction, evaluateArticleAction, selectArticleAction } from "@/actions/articles";
+import { retryArticleOptionAction, evaluateArticleAction, selectArticleAction, autoReviseArticleAction } from "@/actions/articles";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -54,6 +54,11 @@ export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluat
   // rather than silently left pointing at a superseded article.
   const canSelect = evaluation?.overall_status === "pass" && !isSelected;
   const anotherOptionSelected = !isSelected && Boolean(selectedArticleVersionId);
+  const needsRevision = evaluation?.overall_status === "revise";
+  // The one automatic revision §18 allows is only offered while it is
+  // actually available; after that the per-section Regenerate is the route.
+  const autoReviseUsed = versions.some((v) => v.change_type === "automatic_revision");
+  const canAutoRevise = needsRevision && !autoReviseUsed;
   const locked = isPending || busyCount > 0;
   const handleBusyChange = (busy: boolean) => setBusyCount((c) => Math.max(0, c + (busy ? 1 : -1)));
 
@@ -71,6 +76,16 @@ export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluat
     setError(null);
     startTransition(async () => {
       const result = await evaluateArticleAction(currentVersion.id);
+      if (result.ok) router.refresh();
+      else setError(result.error.message);
+    });
+  }
+
+  function autoRevise() {
+    if (!currentVersion) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await autoReviseArticleAction(currentVersion.id);
       if (result.ok) router.refresh();
       else setError(result.error.message);
     });
@@ -108,6 +123,16 @@ export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluat
         <p className="text-sm text-muted-foreground">Generation failed for this option.</p>
       )}
 
+      {hasVersion && !isSelected && evaluation && evaluation.overall_status !== "pass" ? (
+        <p className="text-sm text-muted-foreground">
+          This option has to be revised before it can be selected
+          {canAutoRevise ? " — Auto-revise applies the evaluation's instructions to the sections it flagged, then re-evaluates." : "."}
+        </p>
+      ) : null}
+      {hasVersion && !evaluation ? (
+        <p className="text-sm text-muted-foreground">Evaluate this option before it can be selected.</p>
+      ) : null}
+
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -138,6 +163,17 @@ export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluat
                 "Evaluate"
               )}
             </Button>
+            {canAutoRevise ? (
+              <Button type="button" size="sm" variant="outline" disabled={locked} onClick={autoRevise} className="w-fit">
+                {isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" /> Revising...
+                  </>
+                ) : (
+                  "Auto-revise"
+                )}
+              </Button>
+            ) : null}
             {canSelect ? (
               <Button type="button" size="sm" disabled={locked || !canSelectAny} onClick={select} className="w-fit">
                 {isPending ? (
@@ -160,7 +196,8 @@ export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluat
           artifactId={artifact.id}
           articleVersionId={currentVersion.id}
           content={content}
-          defaultInstruction={evaluation?.revision_instructions ?? null}
+          revisionInstructions={evaluation?.revision_instructions ?? null}
+          sectionsNeedingRevision={(evaluation?.sections_needing_revision as string[] | null) ?? []}
           locked={locked}
           onBusyChange={handleBusyChange}
         />

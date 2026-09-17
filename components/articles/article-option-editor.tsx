@@ -16,8 +16,10 @@ interface ArticleOptionEditorProps {
   artifactId: string;
   articleVersionId: string;
   content: ArticleOutput;
-  /** The latest evaluation's own revision note, if any — prefilled as the default Regenerate instruction (what "Auto-revise" used to apply automatically). */
-  defaultInstruction: string | null;
+  /** The latest evaluation's revision note, if any. */
+  revisionInstructions: string | null;
+  /** Headings the evaluation asked for changes to — only those sections get the note prefilled. */
+  sectionsNeedingRevision: string[];
   locked: boolean;
   onBusyChange: (busy: boolean) => void;
 }
@@ -30,7 +32,7 @@ interface ArticleOptionEditorProps {
  * persists until "Save Version" — manual edits and AI regenerations both
  * just update this local draft first.
  */
-export function ArticleOptionEditor({ artifactId, articleVersionId, content, defaultInstruction, locked, onBusyChange }: ArticleOptionEditorProps) {
+export function ArticleOptionEditor({ artifactId, articleVersionId, content, revisionInstructions, sectionsNeedingRevision, locked, onBusyChange }: ArticleOptionEditorProps) {
   // A pre-sections article stored only `bodyMarkdown`, so its sections are
   // derived once on mount and become real the moment a version is saved.
   const [draft, setDraft] = useState<ArticleOutput>(() => ({ ...content, sections: articleSections(content) }));
@@ -91,7 +93,12 @@ export function ArticleOptionEditor({ artifactId, articleVersionId, content, def
             articleVersionId={articleVersionId}
             section={section}
             index={index}
-            defaultInstruction={defaultInstruction}
+            // Prefilled only where the evaluation actually asked for a
+            // change: the note describes specific sections, so offering it
+            // on every section invited it to be applied to prose nobody
+            // had complained about.
+            defaultInstruction={sectionsNeedingRevision.includes(section.heading) ? revisionInstructions : null}
+            flaggedForRevision={sectionsNeedingRevision.includes(section.heading)}
             locked={busy}
             onChange={updateSection}
             onRegenerated={(proposal) => {

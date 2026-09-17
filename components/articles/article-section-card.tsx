@@ -16,6 +16,8 @@ interface ArticleSectionCardProps {
   section: ArticleSection;
   index: number;
   defaultInstruction: string | null;
+  /** The evaluation asked for changes to this section. */
+  flaggedForRevision?: boolean;
   locked?: boolean;
   onChange: (index: number, section: ArticleSection) => void;
   onRegenerated: (proposal: ArticleOutput) => void;
@@ -35,6 +37,7 @@ export function ArticleSectionCard({
   section,
   index,
   defaultInstruction,
+  flaggedForRevision = false,
   locked = false,
   onChange,
   onRegenerated,
@@ -64,6 +67,11 @@ export function ArticleSectionCard({
         <div className="flex min-w-0 flex-col gap-1">
           <span className="font-mono text-xs uppercase text-muted-foreground">{section.level}</span>
           <CardTitle className="text-base break-words">{section.heading}</CardTitle>
+          {flaggedForRevision ? (
+            <span className="w-fit rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-950/60 dark:text-amber-200">
+              Needs revision
+            </span>
+          ) : null}
         </div>
         {!editing ? (
           <CardAction>
