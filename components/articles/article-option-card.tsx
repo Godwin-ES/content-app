@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { retryArticleOptionAction, evaluateArticleAction, selectArticleAction } from "@/actions/articles";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -109,16 +110,36 @@ export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluat
       <div className="flex flex-wrap gap-2">
         {!hasVersion ? (
           <Button type="button" size="sm" variant="outline" disabled={locked} onClick={retry} className="w-fit">
-            {isPending ? "Retrying..." : "Retry"}
+            {isPending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Retrying...
+              </>
+            ) : (
+              "Retry"
+            )}
           </Button>
         ) : (
           <>
             <Button type="button" size="sm" variant="outline" disabled={locked} onClick={evaluate} className="w-fit">
-              {isPending ? "Evaluating..." : evaluation ? "Re-evaluate" : "Evaluate"}
+              {isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Evaluating...
+                </>
+              ) : evaluation ? (
+                "Re-evaluate"
+              ) : (
+                "Evaluate"
+              )}
             </Button>
             {canSelect ? (
               <Button type="button" size="sm" disabled={locked || !canSelectAny} onClick={select} className="w-fit">
-                {isPending ? "Selecting..." : "Select this option"}
+                {isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" /> Selecting...
+                  </>
+                ) : (
+                  "Select this option"
+                )}
               </Button>
             ) : null}
           </>

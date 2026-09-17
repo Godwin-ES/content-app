@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { saveManualArticleRevisionAction } from "@/actions/articles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,7 +104,13 @@ export function ArticleOptionEditor({ artifactId, articleVersionId, content, def
             Discard
           </Button>
           <Button type="button" size="sm" onClick={saveVersion} disabled={busy}>
-            {isSaving ? "Saving..." : "Save Version"}
+            {isSaving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Saving...
+              </>
+            ) : (
+              "Save Version"
+            )}
           </Button>
         </div>
       ) : null}

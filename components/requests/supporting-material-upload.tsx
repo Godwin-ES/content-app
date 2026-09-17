@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { uploadSupportingMaterialAction, deleteSupportingMaterialAction } from "@/actions/materials";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ const STATUS_LABEL: Record<SupportingMaterialRow["extraction_status"], string> =
 export function SupportingMaterialUpload({ requestId, initialMaterials, locked = false, onBusyChange }: SupportingMaterialUploadProps) {
   const [materials, setMaterials] = useState(initialMaterials);
   const [error, setError] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -64,9 +66,11 @@ export function SupportingMaterialUpload({ requestId, initialMaterials, locked =
 
   function handleRemove(materialId: string) {
     setError(null);
+    setRemovingId(materialId);
     onBusyChange?.(true);
     startTransition(async () => {
       const result = await deleteSupportingMaterialAction(materialId);
+      setRemovingId(null);
       onBusyChange?.(false);
       if (result.ok) {
         setMaterials((prev) => prev.filter((m) => m.id !== materialId));
@@ -84,7 +88,13 @@ export function SupportingMaterialUpload({ requestId, initialMaterials, locked =
       <label
         className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit cursor-pointer", disabled && "pointer-events-none opacity-50")}
       >
-        {isPending ? "Uploading..." : "Add file"}
+        {isPending ? (
+          <>
+            <Loader2 className="size-4 animate-spin" /> Uploading...
+          </>
+        ) : (
+          "Add file"
+        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -118,7 +128,13 @@ export function SupportingMaterialUpload({ requestId, initialMaterials, locked =
                 ) : null}
               </div>
               <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={() => handleRemove(material.id)}>
-                Remove
+                {removingId === material.id ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" /> Removing...
+                  </>
+                ) : (
+                  "Remove"
+                )}
               </Button>
             </li>
           ))}

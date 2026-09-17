@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { addSourceUrlAction } from "@/actions/research";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,7 +66,13 @@ export function AddUrlControl({ requestId, locked = false, onBusyChange }: AddUr
           autoFocus
         />
         <Button type="button" size="sm" disabled={disabled || !url.trim()} onClick={add}>
-          {isPending ? "Adding..." : "Add"}
+          {isPending ? (
+            <>
+              <Loader2 className="size-4 animate-spin" /> Adding...
+            </>
+          ) : (
+            "Add"
+          )}
         </Button>
         <Button
           type="button"

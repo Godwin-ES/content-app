@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { generateContentPlanAction, saveManualContentPlanAction, revertToPlanVersionAction } from "@/actions/planning";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -48,10 +49,11 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
   const [busyCount, setBusyCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [revertingId, setRevertingId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const router = useRouter();
 
-  const locked = busyCount > 0 || isPending;
+  const locked = busyCount > 0 || isPending || revertingId !== null;
   const handleBusyChange = (busy: boolean) => setBusyCount((c) => Math.max(0, c + (busy ? 1 : -1)));
 
   const isDirty = plan ? JSON.stringify(draft) !== JSON.stringify(toDraft(plan)) : draft !== null;
@@ -89,9 +91,9 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
 
   async function revert(versionId: string) {
     setError(null);
-    setIsPending(true);
+    setRevertingId(versionId);
     const result = await revertToPlanVersionAction(requestId, versionId);
-    setIsPending(false);
+    setRevertingId(null);
     if (result.ok) router.refresh();
     else setError(result.error.message);
   }
@@ -111,7 +113,13 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
           </Alert>
         ) : null}
         <Button type="button" onClick={generate} disabled={!canGenerate || isPending} className="w-fit">
-          {isPending ? "Generating..." : "Generate content plan"}
+          {isPending ? (
+            <>
+              <Loader2 className="size-4 animate-spin" /> Generating...
+            </>
+          ) : (
+            "Generate content plan"
+          )}
         </Button>
       </div>
     );
@@ -178,7 +186,13 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
             Discard
           </Button>
           <Button type="button" size="sm" onClick={saveVersion} disabled={locked}>
-            {isPending ? "Saving..." : "Save Version"}
+            {isPending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Saving...
+              </>
+            ) : (
+              "Save Version"
+            )}
           </Button>
         </div>
       ) : null}
@@ -202,7 +216,13 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
                   </div>
                   {v.id !== plan.id ? (
                     <Button type="button" variant="outline" size="sm" disabled={locked} onClick={() => revert(v.id)}>
-                      Revert to this
+                      {revertingId === v.id ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" /> Reverting...
+                        </>
+                      ) : (
+                        "Revert to this"
+                      )}
                     </Button>
                   ) : null}
                 </li>

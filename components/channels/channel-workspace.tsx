@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { generateChannelsAction, retryChannelAction, evaluateChannelAction } from "@/actions/channels";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -77,11 +78,25 @@ function ChannelCard({
           <Badge variant={hasVersion ? "outline" : "destructive"}>{hasVersion ? "Generated" : "Failed"}</Badge>
           {!hasVersion ? (
             <Button type="button" size="sm" variant="outline" disabled={locked} onClick={retry} className="w-fit">
-              {isPending ? "Retrying..." : "Retry"}
+              {isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Retrying...
+                </>
+              ) : (
+                "Retry"
+              )}
             </Button>
           ) : (
             <Button type="button" size="sm" variant="outline" disabled={locked} onClick={evaluate} className="w-fit">
-              {isPending ? "Evaluating..." : evaluation ? "Re-evaluate" : "Evaluate"}
+              {isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Evaluating...
+                </>
+              ) : evaluation ? (
+                "Re-evaluate"
+              ) : (
+                "Evaluate"
+              )}
             </Button>
           )}
         </div>
@@ -166,7 +181,15 @@ export function ChannelWorkspace({
         <h3 className="text-sm font-medium">Channel Assets</h3>
         {channelArtifacts.length === 0 || channelArtifacts.some((a) => !a.current_version_id) ? (
           <Button type="button" size="sm" onClick={generate} disabled={!canGenerate || isPending}>
-            {isPending ? "Generating..." : channelArtifacts.length === 0 ? "Generate channel assets" : "Retry all"}
+            {isPending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Generating...
+              </>
+            ) : channelArtifacts.length === 0 ? (
+              "Generate channel assets"
+            ) : (
+              "Retry all"
+            )}
           </Button>
         ) : null}
       </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { startResearchAction } from "@/actions/research";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -10,6 +11,7 @@ import { SupportingMaterialUpload } from "@/components/requests/supporting-mater
 import { AddUrlControl } from "@/components/research/add-url-control";
 import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
 import { SourceCard } from "@/components/research/source-card";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { Database } from "@/lib/supabase/database.types";
 
 type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"];
@@ -59,18 +61,53 @@ export function ResearchTab({ requestId, status, sources, evidenceBySource, deci
     });
   }
 
+  // The research pipeline retrieves and analyzes each source one at a time
+  // server-side (lib/research/service.ts), writing its status as it goes
+  // rather than all at once at the end — so polling for fresh counts while
+  // it runs can show genuine per-source progress instead of a static "in
+  // progress" placeholder for what can be a multi-minute run. This polls
+  // the database directly through the browser client rather than calling
+  // router.refresh(): the Next.js App Router only processes one pending
+  // navigation/action at a time, so refresh calls issued while
+  // startResearchAction's own request is still in flight get queued behind
+  // it and never land until the whole pipeline finishes — which would
+  // defeat the purpose of live progress entirely.
+  const [liveSourceStats, setLiveSourceStats] = useState<{ total: number; processed: number } | null>(null);
+
+  useEffect(() => {
+    if (!isStarting) return;
+    const supabase = createSupabaseBrowserClient();
+    let cancelled = false;
+
+    async function poll() {
+      const { data } = await supabase.from("research_sources").select("retrieval_status").eq("request_id", requestId);
+      if (cancelled || !data) return;
+      setLiveSourceStats({ total: data.length, processed: data.filter((s) => s.retrieval_status !== "pending").length });
+    }
+
+    poll();
+    const interval = setInterval(poll, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      setLiveSourceStats(null);
+    };
+  }, [isStarting, requestId]);
+
+  const sourceStats = liveSourceStats ?? { total: sources.length, processed: sources.filter((s) => s.retrieval_status !== "pending").length };
+
   return (
     <div className="flex flex-col gap-6">
       {status === "draft" ? (
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <h3 className="text-sm font-medium">Research</h3>
           {isStarting ? (
-            <ol className="flex flex-col gap-1 text-sm text-muted-foreground">
-              <li>Research plan created</li>
-              <li>Discovering candidate sources...</li>
-              <li>Retrieving source content...</li>
-              <li>Analyzing evidence...</li>
-            </ol>
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              {sourceStats.total === 0
+                ? "Discovering candidate sources..."
+                : `Retrieving and analyzing sources: ${sourceStats.processed} of ${sourceStats.total} processed so far.`}
+            </p>
           ) : (
             <p className="text-sm text-muted-foreground">
               Start research on this topic using any supplied URLs/materials below, plus a general web search.
@@ -82,7 +119,13 @@ export function ResearchTab({ requestId, status, sources, evidenceBySource, deci
             </Alert>
           ) : null}
           <Button type="button" onClick={startResearch} disabled={locked} className="w-fit">
-            {isStarting ? "Researching..." : "Start research"}
+            {isStarting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Researching...
+              </>
+            ) : (
+              "Start research"
+            )}
           </Button>
         </div>
       ) : null}

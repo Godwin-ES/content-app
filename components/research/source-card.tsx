@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { recordSourceDecisionAction, deleteSourceAction } from "@/actions/sources";
 import { startSourceAction } from "@/actions/research";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ export function SourceCard({
   onBusyChange,
 }: SourceCardProps) {
   const [error, setError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<"accept" | "exclude" | "start" | "remove" | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -65,8 +67,10 @@ export function SourceCard({
 
   function decide(next: "accepted" | "excluded") {
     setError(null);
+    setPendingAction(next === "accepted" ? "accept" : "exclude");
     startTransition(async () => {
       const result = await recordSourceDecisionAction(source.id, next, null);
+      setPendingAction(null);
       if (result.ok) router.refresh();
       else setError(result.error.message);
     });
@@ -74,9 +78,11 @@ export function SourceCard({
 
   function start() {
     setError(null);
+    setPendingAction("start");
     onBusyChange?.(true);
     startTransition(async () => {
       const result = await startSourceAction(source.id);
+      setPendingAction(null);
       onBusyChange?.(false);
       if (result.ok) router.refresh();
       else setError(result.error.message);
@@ -85,9 +91,11 @@ export function SourceCard({
 
   function remove() {
     setError(null);
+    setPendingAction("remove");
     onBusyChange?.(true);
     startTransition(async () => {
       const result = await deleteSourceAction(source.id);
+      setPendingAction(null);
       onBusyChange?.(false);
       if (result.ok) router.refresh();
       else setError(result.error.message);
@@ -143,12 +151,26 @@ export function SourceCard({
       <div className="flex flex-wrap gap-2">
         {source.retrieval_status === "pending" || source.retrieval_status === "failed" ? (
           <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={start}>
-            {isPending ? "Working..." : source.retrieval_status === "pending" ? "Start Research" : "Retry"}
+            {pendingAction === "start" ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Working...
+              </>
+            ) : source.retrieval_status === "pending" ? (
+              "Start Research"
+            ) : (
+              "Retry"
+            )}
           </Button>
         ) : null}
         {source.retrieval_status === "pending" ? (
           <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={remove}>
-            Remove
+            {pendingAction === "remove" ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Removing...
+              </>
+            ) : (
+              "Remove"
+            )}
           </Button>
         ) : null}
         {showDecisionControls ? (
@@ -160,7 +182,13 @@ export function SourceCard({
               disabled={!isUsable || disabled}
               onClick={() => decide("accepted")}
             >
-              Accept
+              {pendingAction === "accept" ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Accepting...
+                </>
+              ) : (
+                "Accept"
+              )}
             </Button>
             <Button
               type="button"
@@ -169,7 +197,13 @@ export function SourceCard({
               disabled={disabled}
               onClick={() => decide("excluded")}
             >
-              Exclude
+              {pendingAction === "exclude" ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Excluding...
+                </>
+              ) : (
+                "Exclude"
+              )}
             </Button>
           </>
         ) : null}

@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MarkdownBody } from "@/components/shared/markdown-body";
 import { Badge } from "@/components/ui/badge";
-import { Pencil } from "lucide-react";
+import { Loader2, Pencil } from "lucide-react";
 import { ChannelRegenerateDialog } from "@/components/channels/channel-regenerate-dialog";
 import type { XPost } from "@/lib/ai/schemas/channel";
 
@@ -137,7 +137,13 @@ export function XEditor({ artifactId, content, locked, onBusyChange }: XEditorPr
             Discard
           </Button>
           <Button type="button" size="sm" onClick={saveVersion} disabled={busy}>
-            {isSaving ? "Saving..." : "Save Version"}
+            {isSaving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Saving...
+              </>
+            ) : (
+              "Save Version"
+            )}
           </Button>
         </div>
       ) : null}
