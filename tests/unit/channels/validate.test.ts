@@ -60,10 +60,26 @@ describe("validateNewsletter", () => {
   it("passes a well-formed newsletter", () => {
     const checks = validateNewsletter(newsletter());
     expect(findCheck(checks, "subject_present")?.ok).toBe(true);
+    expect(findCheck(checks, "intro_length")?.ok).toBe(true);
     expect(findCheck(checks, "body_present")?.ok).toBe(true);
     expect(findCheck(checks, "word_count_range")?.ok).toBe(true);
     expect(findCheck(checks, "call_to_action_present")?.ok).toBe(true);
     expect(findCheck(checks, "signoff_present")?.ok).toBe(true);
+  });
+
+  it("passes intro_length for a 3-sentence introduction", () => {
+    const checks = validateNewsletter(newsletter({ introduction: "First point. Second point. Third point." }));
+    expect(findCheck(checks, "intro_length")?.ok).toBe(true);
+  });
+
+  it("fails intro_length for a 4-sentence introduction", () => {
+    const checks = validateNewsletter(newsletter({ introduction: "One. Two. Three. Four." }));
+    expect(findCheck(checks, "intro_length")?.ok).toBe(false);
+  });
+
+  it("fails intro_length for an empty introduction", () => {
+    const checks = validateNewsletter(newsletter({ introduction: "" }));
+    expect(findCheck(checks, "intro_length")?.ok).toBe(false);
   });
 
   it("fails word_count_range when too short", () => {

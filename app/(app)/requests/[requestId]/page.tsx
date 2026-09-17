@@ -106,6 +106,9 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
     })
   );
   const channelEvaluationsByArtifact = Object.fromEntries(channelEvaluationEntries);
+  const channelAllVersionsEntries = await Promise.all(
+    channelArtifacts.map(async (a) => [a.id, await listArtifactVersions(supabase, a.id)] as const)
+  );
 
   let currentPackage = null;
   if (request.current_package_id) {
@@ -209,6 +212,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       channelArtifacts={channelArtifacts}
       currentVersionsByArtifact={channelVersionsByArtifact}
       evaluationsByArtifact={channelEvaluationsByArtifact}
+      versionsByArtifact={Object.fromEntries(channelAllVersionsEntries)}
       canGenerate={request.status === "content_development"}
     />
   ) : (

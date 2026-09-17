@@ -24,7 +24,8 @@ export function buildNewsletterAdapterPrompt(input: ChannelAdapterInput): { syst
     input.cta ? `Call to action: ${input.cta}` : "No specific call to action was supplied; propose one consistent with the article.",
     `Article title: ${input.articleTitle}`,
     `Article body:\n${input.articleBodyMarkdown}`,
-  ].join("\n\n");
+    input.instruction ? `Instruction from the Content Manager for this regeneration:\n${input.instruction}` : null,
+  ].filter((line): line is string => line !== null);
 
-  return { system, user };
+  return { system, user: user.join("\n\n") };
 }

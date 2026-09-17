@@ -23,7 +23,8 @@ export function buildXAdapterPrompt(input: ChannelAdapterInput): { system: strin
     `Tone: ${input.tone}`,
     `Article title: ${input.articleTitle}`,
     `Article body:\n${input.articleBodyMarkdown}`,
-  ].join("\n\n");
+    input.instruction ? `Instruction from the Content Manager for this regeneration:\n${input.instruction}` : null,
+  ].filter((line): line is string => line !== null);
 
-  return { system, user };
+  return { system, user: user.join("\n\n") };
 }

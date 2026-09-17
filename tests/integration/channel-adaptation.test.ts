@@ -13,6 +13,7 @@ import type { AIProvider } from "@/lib/ai/types";
 import {
   generateChannelAssets,
   regenerateChannelAsset,
+  proposeChannelRevision,
   evaluateChannelVersion,
   saveManualChannelRevision,
 } from "@/lib/channels/service";
@@ -207,6 +208,31 @@ describe.skipIf(!hasCredentials)("channel adaptation (hosted Supabase integratio
     const evaluation = await evaluateChannelVersion(owner.client, evalAi, "fake-model", xArtifact.current_version_id!);
     const unsupported = evaluation.unsupported_claims as string[];
     expect(unsupported.length).toBeGreaterThan(0);
+  });
+
+  it("proposes a channel revision as a preview only, without persisting a new version", async () => {
+    const request = await requestWithSelectedArticle();
+    await generateChannelAssets(owner.client, schemaAwareChannelProvider(), "fake-model", request.id);
+
+    const artifacts = await listContentArtifacts(owner.client, request.id);
+    const linkedinArtifact = artifacts.find((a) => a.kind === "linkedin")!;
+    const versionsBefore = await listArtifactVersions(owner.client, linkedinArtifact.id);
+
+    const proposalAi = new FakeAIProvider([linkedinPost("A punchier, more direct rewrite of the post.")]);
+    const proposal = await proposeChannelRevision(
+      owner.client,
+      proposalAi,
+      "fake-model",
+      linkedinArtifact.id,
+      "Make it punchier."
+    );
+    expect((proposal as { body: string }).body).toBe("A punchier, more direct rewrite of the post.");
+
+    const versionsAfter = await listArtifactVersions(owner.client, linkedinArtifact.id);
+    expect(versionsAfter).toHaveLength(versionsBefore.length);
+
+    const { data: artifactAfter } = await admin.from("content_artifacts").select().eq("id", linkedinArtifact.id).single();
+    expect(artifactAfter!.current_version_id).toBe(linkedinArtifact.current_version_id);
   });
 
   it("allows an independent manual edit of one channel without touching the others", async () => {

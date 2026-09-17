@@ -211,6 +211,40 @@ export async function regenerateChannelAsset(
 }
 
 /**
+ * Proposes a whole-post regeneration with an explicit instruction, without
+ * persisting anything (Phase 5 of the post-Task-22 UX pass) — the same
+ * draft/Save-Version pattern the Plan and Article tabs already use.
+ * LinkedIn/X have no internal sections to target individually, so
+ * "Regenerate" always redoes the whole post; the newsletter's named fields
+ * get the same treatment as a plan/article section elsewhere.
+ */
+export async function proposeChannelRevision(
+  supabase: SupabaseClient<Database>,
+  ai: AIProvider,
+  modelId: string,
+  artifactId: string,
+  instruction: string | null
+): Promise<LinkedinPost | XPost | Newsletter> {
+  const { data: artifact, error } = await supabase.from("content_artifacts").select().eq("id", artifactId).single();
+  if (error || !artifact) throw error ?? new DomainError("NOT_FOUND", "channel_adaptation", "Artifact not found.");
+  if (artifact.kind === "article") {
+    throw new DomainError("VALIDATION_ERROR", "channel_adaptation", "Only a channel asset can be regenerated this way.");
+  }
+
+  const request = await getRequestOrThrow(supabase, artifact.request_id);
+  const { article } = await getSelectedArticle(supabase, request);
+
+  return adaptOne(ai, modelId, artifact.kind as ChannelKind, {
+    audience: request.resolved_audience,
+    tone: request.resolved_tone,
+    cta: request.resolved_cta,
+    articleTitle: article.title,
+    articleBodyMarkdown: articleBodyMarkdown(article),
+    instruction,
+  });
+}
+
+/**
  * Evaluates one channel asset version (SYSTEM-DESIGN-NEXTJS.md §22).
  * Deterministic platform checks run first and always accompany the
  * evaluation; the AI evaluator separately checks Channel Fit, Tone,

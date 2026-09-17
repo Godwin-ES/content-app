@@ -28,7 +28,7 @@ export const channelEvaluationSchema = z.object({
   overallStatus: z.enum(["pass", "revise", "reject"]),
   channelFit: z.number().int().min(1).max(5),
   certaintyInflationDetected: z.boolean(),
-  findings: z.array(z.string()).default([]),
+  findings: z.array(z.string()).min(1),
   recommendedAction: z.string().nullable().default(null),
 });
 

@@ -1,4 +1,10 @@
-import { NEWSLETTER_MAX_WORDS, NEWSLETTER_MIN_WORDS, X_MAX_HASHTAGS } from "@/lib/channels/rules";
+import {
+  NEWSLETTER_MAX_WORDS,
+  NEWSLETTER_MIN_WORDS,
+  NEWSLETTER_INTRO_MIN_SENTENCES,
+  NEWSLETTER_INTRO_MAX_SENTENCES,
+  X_MAX_HASHTAGS,
+} from "@/lib/channels/rules";
 import type { LinkedinPost, Newsletter, XPost } from "@/lib/ai/schemas/channel";
 
 export interface ChannelCheckResult {
@@ -12,6 +18,13 @@ function wordCount(text: string): number {
     .trim()
     .split(/\s+/)
     .filter((w) => w.length > 0).length;
+}
+
+/** Counts sentences by terminal punctuation — a plain heuristic, adequate for a 1-3-sentence range check. */
+function sentenceCount(text: string): number {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return 0;
+  return (trimmed.match(/[^.!?]+[.!?]+/g) ?? [trimmed]).length;
 }
 
 /**
@@ -60,12 +73,21 @@ export function validateXPost(post: XPost): ChannelCheckResult[] {
 export function validateNewsletter(newsletter: Newsletter): ChannelCheckResult[] {
   const words = wordCount(newsletter.bodyMarkdown);
   const inRange = words >= NEWSLETTER_MIN_WORDS && words <= NEWSLETTER_MAX_WORDS;
+  const introSentences = sentenceCount(newsletter.introduction);
+  const introInRange = introSentences >= NEWSLETTER_INTRO_MIN_SENTENCES && introSentences <= NEWSLETTER_INTRO_MAX_SENTENCES;
 
   return [
     {
       key: "subject_present",
       ok: newsletter.subject.trim().length > 0,
       message: newsletter.subject.trim().length > 0 ? "Subject line present." : "Subject line is empty.",
+    },
+    {
+      key: "intro_length",
+      ok: introInRange,
+      message: introInRange
+        ? `Introduction is ${introSentences} sentence(s), within the ${NEWSLETTER_INTRO_MIN_SENTENCES}-${NEWSLETTER_INTRO_MAX_SENTENCES} target.`
+        : `Introduction is ${introSentences} sentence(s); target is ${NEWSLETTER_INTRO_MIN_SENTENCES}-${NEWSLETTER_INTRO_MAX_SENTENCES}.`,
     },
     {
       key: "body_present",

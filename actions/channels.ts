@@ -6,6 +6,7 @@ import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai
 import {
   generateChannelAssets,
   regenerateChannelAsset,
+  proposeChannelRevision,
   evaluateChannelVersion,
   saveManualChannelRevision,
   type ChannelResult,
@@ -84,6 +85,37 @@ export async function evaluateChannelAction(channelVersionId: string): Promise<A
     return { ok: true, data: evaluation };
   } catch (error) {
     const actionError = await toLoggedActionError(error, "evaluate_channel_asset", { channelVersionId });
+    return { ok: false, error: actionError };
+  }
+}
+
+/**
+ * Proposes a whole-post regeneration, with an explicit instruction — a
+ * preview only, nothing persists until Save Version
+ * (saveManualChannelRevisionAction).
+ */
+export async function proposeChannelRevisionAction(
+  artifactId: string,
+  instruction: string | null
+): Promise<ActionResult<LinkedinPost | XPost | Newsletter>> {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    await requireContentManager(supabase);
+
+    const { data: artifact } = await supabase.from("content_artifacts").select("request_id").eq("id", artifactId).single();
+    if (!artifact) throw new Error("Artifact not found");
+    const { data: request, error } = await supabase.from("content_requests").select().eq("id", artifact.request_id).single();
+    if (error || !request) throw error;
+
+    const modelChoice = resolveAIModelForRequest(request);
+    const ai = await getAIProvider(modelChoice);
+    const modelId = getModelIdFor(modelChoice);
+
+    const proposal = await proposeChannelRevision(supabase, ai, modelId, artifactId, instruction);
+    return { ok: true, data: proposal };
+  } catch (error) {
+    const actionError = await toLoggedActionError(error, "propose_channel_revision", { artifactId });
     return { ok: false, error: actionError };
   }
 }
