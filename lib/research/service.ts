@@ -10,7 +10,7 @@ import { analyzeSource } from "@/lib/ai/service";
 import { canonicalizeUrl, dedupeByCanonicalUrl, parseUserSuppliedUrl } from "@/lib/research/url";
 import { createOperationRun, updateOperationRun } from "@/lib/repositories/operations";
 import { recordActivityEvent } from "@/lib/repositories/activity";
-import { createResearchSource, updateResearchSource, createSourceEvidence, getResearchSource } from "@/lib/repositories/sources";
+import { createResearchSource, updateResearchSource, createSourceEvidence, getResearchSource, listResearchSources } from "@/lib/repositories/sources";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
 type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"];
@@ -250,14 +250,28 @@ export async function runResearchPipeline(
           return [];
         }
       });
-  const candidates: Array<SearchResultItem & { origin: "researched" | "user_url" }> = searchResultsByQuery
-    .flat()
-    .map((r) => ({ ...r, origin: "researched" as const }));
+  // Materials and URLs supplied at intake already exist as `pending`
+  // sources. They are picked up here, so one "Start research" covers
+  // everything attached to the request — before, a supplied URL sat
+  // untouched until someone found and started it one source at a time.
+  const allSources = await listResearchSources(supabase, requestId);
+  const pendingSupplied = allSources.filter((source) => source.retrieval_status === "pending" && source.origin !== "researched");
+
+  const candidates: Array<SearchResultItem & { origin: "researched" | "user_url"; existingSourceId?: string }> = [];
+
+  // Listed first so that dedupe keeps the existing row and updates it in
+  // place, rather than creating a second source for the same URL.
+  for (const source of pendingSupplied) {
+    if (source.origin !== "user_url" || !source.original_url) continue;
+    candidates.push({ url: source.original_url, title: null, snippet: null, origin: "user_url", existingSourceId: source.id });
+  }
 
   const userUrls = Array.isArray(request.source_urls) ? (request.source_urls as unknown as string[]) : [];
   for (const url of userUrls) {
     candidates.push({ url, title: null, snippet: null, origin: "user_url" });
   }
+
+  candidates.push(...searchResultsByQuery.flat().map((r) => ({ ...r, origin: "researched" as const })));
 
   const canonicalized = candidates
     .map((c) => {
@@ -271,7 +285,7 @@ export async function runResearchPipeline(
 
   const deduped = dedupeByCanonicalUrl(canonicalized).slice(0, MAX_CANDIDATES_ATTEMPTED);
 
-  const processedSources = await mapWithConcurrency(deduped, RETRIEVAL_CONCURRENCY, (candidate) =>
+  const processedSources: ResearchSourceRow[] = await mapWithConcurrency(deduped, RETRIEVAL_CONCURRENCY, (candidate) =>
     retrieveAndAnalyze(
       supabase,
       ai,
@@ -281,9 +295,19 @@ export async function runResearchPipeline(
       plan.researchQuestions,
       candidate.origin,
       candidate.url,
-      candidate.canonicalUrl
+      candidate.canonicalUrl,
+      candidate.existingSourceId
     )
   );
+
+  // Uploaded files have nothing to retrieve — their text was extracted at
+  // upload — so they run the evidence analysis directly.
+  const analyzedMaterials = await mapWithConcurrency(
+    pendingSupplied.filter((source) => source.origin === "uploaded_material"),
+    RETRIEVAL_CONCURRENCY,
+    (source) => analyzeUploadedMaterialSource(supabase, ai, modelId, source.id).catch(() => source)
+  );
+  processedSources.push(...analyzedMaterials);
 
   const usableSourceCount = Math.min(
     processedSources.filter((source) => source.retrieval_status === "usable").length,

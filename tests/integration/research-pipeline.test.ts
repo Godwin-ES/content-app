@@ -73,6 +73,38 @@ describe.skipIf(!hasCredentials)("research pipeline (hosted Supabase integration
     return data!;
   }
 
+  it("picks up a URL supplied at intake in the same pipeline run, updating its pending row rather than duplicating it", async () => {
+    const request = await newRequest();
+    const supplied = await addPendingSourceUrl(owner.client, request.id, "https://example.com/supplied");
+    expect(supplied.retrieval_status).toBe("pending");
+
+    const ai = new FakeAIProvider([RESEARCH_PLAN, usableAnalysis()]);
+    const research = new FakeResearchProvider();
+    for (const query of RESEARCH_PLAN.searchQueries) research.setSearchResults(query, []);
+    research.setRetrieval("https://example.com/supplied", {
+      status: "usable",
+      page: {
+        originalUrl: "https://example.com/supplied",
+        canonicalUrl: "https://example.com/supplied",
+        title: "Supplied",
+        publisher: "Example",
+        author: null,
+        publishedAt: null,
+        markdown: "Some teams reported reduced administrative workload.",
+        retrievedAt: new Date().toISOString(),
+      },
+    });
+
+    await runResearchPipeline(owner.client, ai, research, "fake-model", request.id);
+
+    // One row, reused: the supplied URL must not become a second source.
+    const sources = await listResearchSources(owner.client, request.id);
+    expect(sources).toHaveLength(1);
+    expect(sources[0].id).toBe(supplied.id);
+    expect(sources[0].origin).toBe("user_url");
+    expect(sources[0].retrieval_status).toBe("usable");
+  });
+
   it("produces a plan with 3-5 queries, canonicalizes/dedupes candidates, and stores immutable source snapshots", async () => {
     const request = await newRequest();
     const ai = new FakeAIProvider([RESEARCH_PLAN, usableAnalysis(), usableAnalysis()]);
