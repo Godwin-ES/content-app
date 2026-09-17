@@ -31,7 +31,7 @@ function newsletterAsset(words = 300) {
     introduction: "A quick update.",
     bodyMarkdown: Array.from({ length: words }, (_, i) => `word${i}`).join(" "),
     callToAction: "Read the full article.",
-    signoff: "Best, The Team",
+    signoff: "Here's to smarter hiring.",
   };
 }
 

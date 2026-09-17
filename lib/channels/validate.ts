@@ -68,12 +68,26 @@ export function validateXPost(post: XPost): ChannelCheckResult[] {
 }
 
 /**
+ * The newsletter renders the signoff as its final line with nothing after
+ * it — no sender name, no signature block. A letter-style valediction
+ * ("To your talent success," / "Best regards,") therefore ends the whole
+ * email on a dangling comma, waiting for a name that never comes. A
+ * complete closing line ends the sentence instead.
+ */
+function isCompleteClosingLine(signoff: string): boolean {
+  const trimmed = signoff.trim();
+  if (trimmed.length === 0) return false;
+  return /[.!?]$/.test(trimmed);
+}
+
+/**
  * Mechanical newsletter checks (SYSTEM-DESIGN-NEXTJS.md §22).
  */
 export function validateNewsletter(newsletter: Newsletter): ChannelCheckResult[] {
   const words = wordCount(newsletter.bodyMarkdown);
   const inRange = words >= NEWSLETTER_MIN_WORDS && words <= NEWSLETTER_MAX_WORDS;
   const introSentences = sentenceCount(newsletter.introduction);
+  const signoffIsComplete = isCompleteClosingLine(newsletter.signoff);
   const introInRange = introSentences >= NEWSLETTER_INTRO_MIN_SENTENCES && introSentences <= NEWSLETTER_INTRO_MAX_SENTENCES;
 
   return [
@@ -110,6 +124,13 @@ export function validateNewsletter(newsletter: Newsletter): ChannelCheckResult[]
       key: "signoff_present",
       ok: newsletter.signoff.trim().length > 0,
       message: newsletter.signoff.trim().length > 0 ? "Signoff present." : "Signoff is missing.",
+    },
+    {
+      key: "signoff_is_complete_line",
+      ok: signoffIsComplete,
+      message: signoffIsComplete
+        ? "Signoff reads as a complete closing line."
+        : "Signoff is left hanging — it should be a complete closing line ending in a full stop, since no sender name is printed after it.",
     },
   ];
 }

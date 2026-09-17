@@ -11,7 +11,7 @@ const PLATFORM_RULES: Record<ChannelEvaluatorInput["channel"], string> = {
     "Uses the PAS structure (Problem, Agitation, Solution); short paragraphs; bullets/simple symbols where they help; only a small number of relevant emoji if they fit the brand tone; ends with a clear call to action.",
   x: "Leads with the single strongest insight/benefit/hook; stays focused on one core idea; uses line breaks for readability; no more than 1-2 relevant hashtags.",
   newsletter:
-    "Strong subject line with a clear benefit or point of intrigue; a 1-3 sentence introduction; a skimmable main section (subheadings/bullets); a clear call to action and a friendly sign-off; 250-600 words total.",
+    "Strong subject line with a clear benefit or point of intrigue; a 1-3 sentence introduction; a skimmable main section (subheadings/bullets); a clear call to action; a warm sign-off that is a complete closing line ending in a full stop, since nothing is printed after it; 250-600 words total.",
 };
 
 /**

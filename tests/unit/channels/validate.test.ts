@@ -52,7 +52,7 @@ describe("validateNewsletter", () => {
       introduction: "A quick note on what's new.",
       bodyMarkdown: words(300),
       callToAction: "Read the full article.",
-      signoff: "Best, The Team",
+      signoff: "Here's to smarter hiring.",
       ...overrides,
     };
   }
@@ -65,6 +65,7 @@ describe("validateNewsletter", () => {
     expect(findCheck(checks, "word_count_range")?.ok).toBe(true);
     expect(findCheck(checks, "call_to_action_present")?.ok).toBe(true);
     expect(findCheck(checks, "signoff_present")?.ok).toBe(true);
+    expect(findCheck(checks, "signoff_is_complete_line")?.ok).toBe(true);
   });
 
   it("passes intro_length for a 3-sentence introduction", () => {
@@ -95,6 +96,22 @@ describe("validateNewsletter", () => {
   it("fails call_to_action_present when empty", () => {
     const checks = validateNewsletter(newsletter({ callToAction: "" }));
     expect(findCheck(checks, "call_to_action_present")?.ok).toBe(false);
+  });
+
+  it("fails signoff_is_complete_line for a letter-style valediction", () => {
+    // Nothing is printed after the signoff, so a trailing comma ends the
+    // whole email waiting for a name that never comes.
+    for (const dangling of ["To your talent success,", "Best regards,", "Warmly,", "Until next time"]) {
+      const checks = validateNewsletter(newsletter({ signoff: dangling }));
+      expect(findCheck(checks, "signoff_is_complete_line")?.ok).toBe(false);
+    }
+  });
+
+  it("passes signoff_is_complete_line for a complete closing line", () => {
+    for (const complete of ["Here's to smarter hiring.", "See you next week.", "Here's to smarter hiring!"]) {
+      const checks = validateNewsletter(newsletter({ signoff: complete }));
+      expect(findCheck(checks, "signoff_is_complete_line")?.ok).toBe(true);
+    }
   });
 
   it("fails signoff_present when empty", () => {
