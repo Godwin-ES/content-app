@@ -5,6 +5,8 @@ interface ResolvedDefaultsCardProps {
   audience: string;
   objective: string;
   tone: string;
+  materialCount: number;
+  urlCount: number;
 }
 
 /**
@@ -15,11 +17,16 @@ interface ResolvedDefaultsCardProps {
  * AI-derived, so naming them here only invited the reader to look for an
  * input that does not exist.
  */
-export function ResolvedDefaultsCard({ audience, objective, tone }: ResolvedDefaultsCardProps) {
+export function ResolvedDefaultsCard({ audience, objective, tone, materialCount, urlCount }: ResolvedDefaultsCardProps) {
   const rows = [
     { label: "Audience", value: audience || DEFAULT_REQUEST_SETTINGS.audience },
     { label: "Objective", value: objective || DEFAULT_REQUEST_SETTINGS.objective },
     { label: "Tone", value: tone || DEFAULT_REQUEST_SETTINGS.tone },
+    {
+      label: "Supporting materials",
+      value: materialCount > 0 ? `${materialCount} provided by user` : "None provided by user",
+    },
+    { label: "Source URLs", value: urlCount > 0 ? `${urlCount} provided by user` : "None provided by user" },
   ];
 
   return (

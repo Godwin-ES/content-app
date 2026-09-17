@@ -49,6 +49,7 @@ export function ResearchTab({ requestId, status, sources, evidenceBySource, deci
   }, []);
 
   const locked = busyCount > 0;
+  const hasSuppliedSources = sources.some((source) => source.origin !== "researched");
 
   async function updateScope(next: boolean) {
     setSuppliedOnly(next);
@@ -130,16 +131,18 @@ export function ResearchTab({ requestId, status, sources, evidenceBySource, deci
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
-          <label className="flex w-fit items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="size-4"
-              checked={suppliedOnly}
-              disabled={locked || isSavingScope}
-              onChange={(e) => updateScope(e.target.checked)}
-            />
-            Only use the supplied materials and URLs — skip general web research
-          </label>
+          {hasSuppliedSources ? (
+            <label className="flex w-fit items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4"
+                checked={suppliedOnly}
+                disabled={locked || isSavingScope}
+                onChange={(e) => updateScope(e.target.checked)}
+              />
+              Only use the supplied materials and URLs — skip general web research
+            </label>
+          ) : null}
 
           <Button type="button" onClick={startResearch} disabled={locked} className="w-fit">
             {isStarting ? (

@@ -1544,10 +1544,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      delete_draft_request: {
-        Args: { p_request_id: string }
-        Returns: undefined
-      }
+      delete_request: { Args: { p_request_id: string }; Returns: undefined }
       package_request_id: { Args: { p_package_id: string }; Returns: string }
       queue_item_request_id: {
         Args: { p_queue_item_id: string }

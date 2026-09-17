@@ -6,11 +6,11 @@ import { deleteRequestAction } from "@/actions/requests";
 import { Button } from "@/components/ui/button";
 
 /**
- * Deletion is only ever offered for a `draft` request — the server action
- * re-checks this itself (delete_draft_request), so this button is a
- * convenience, not the actual enforcement point.
+ * Offered until a Reviewer has responded to the request. The server action
+ * re-checks that itself (delete_request), so this button is a convenience,
+ * not the actual enforcement point.
  */
-export function DeleteDraftButton({ requestId }: { requestId: string }) {
+export function DeleteRequestButton({ requestId }: { requestId: string }) {
   const [confirming, setConfirming] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();

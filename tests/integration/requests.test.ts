@@ -8,7 +8,7 @@ import {
   deleteTestUser,
   hasSupabaseCredentials,
 } from "@/tests/helpers/supabase-test-clients";
-import { createContentRequest, getContentManagerDashboard } from "@/lib/repositories/requests";
+import { createContentRequest, listOwnedRequests } from "@/lib/repositories/requests";
 import { listActivityEvents } from "@/lib/repositories/activity";
 import { DEFAULT_REQUEST_SETTINGS } from "@/lib/domain/defaults";
 
@@ -93,14 +93,18 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  it("buckets requests into dashboard groups by status", async () => {
+  it("returns every owned request, including one still at draft", async () => {
+    // A draft used to be dropped from the dashboard entirely, so this
+    // covers the plain case as much as the status-change one.
     const draft = await createContentRequest(owner.client, owner.userId, { topic: "Draft request" });
     requestIds.push(draft.id);
 
-    await admin.from("content_requests").update({ status: "source_review" }).eq("id", draft.id);
-    const dashboard = await getContentManagerDashboard(owner.client, owner.userId);
+    const withDraft = await listOwnedRequests(owner.client, owner.userId);
+    expect(withDraft.some((r) => r.id === draft.id && r.status === "draft")).toBe(true);
 
-    expect(dashboard.sourceReview.some((r) => r.id === draft.id)).toBe(true);
-    expect(dashboard.other.some((r) => r.id === draft.id)).toBe(false);
+    await admin.from("content_requests").update({ status: "source_review" }).eq("id", draft.id);
+
+    const afterChange = await listOwnedRequests(owner.client, owner.userId);
+    expect(afterChange.find((r) => r.id === draft.id)?.status).toBe("source_review");
   });
 });

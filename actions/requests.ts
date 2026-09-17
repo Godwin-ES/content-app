@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireContentManager } from "@/lib/auth/guards";
-import { createContentRequest, deleteDraftRequest } from "@/lib/repositories/requests";
+import { createContentRequest, deleteRequest } from "@/lib/repositories/requests";
 import { uploadSupportingMaterial } from "@/lib/materials/service";
 import { addPendingSourceUrl } from "@/lib/research/service";
 import { parseUserSuppliedUrl } from "@/lib/research/url";
@@ -107,17 +107,17 @@ function emptyToUndefined(value: FormDataEntryValue | null): string | undefined 
 }
 
 /**
- * Deletes a request outright — only ever possible in `draft`, before
- * anything downstream exists to lose. `delete_draft_request` re-checks
- * ownership and status itself, so this is a real server-enforced rule, not
- * just a UI affordance that happens to be hidden past draft.
+ * Deletes a request outright. `delete_request` re-checks ownership and
+ * refuses once a Reviewer has left feedback, so this is a real
+ * server-enforced rule rather than a UI affordance that happens to be
+ * hidden at the right moments.
  */
 export async function deleteRequestAction(requestId: string): Promise<ActionResult<null>> {
   const supabase = await createSupabaseServerClient();
 
   try {
     await requireContentManager(supabase);
-    await deleteDraftRequest(supabase, requestId);
+    await deleteRequest(supabase, requestId);
     return { ok: true, data: null };
   } catch (error) {
     const actionError = await toLoggedActionError(error, "delete_request", { requestId });

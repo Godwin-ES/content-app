@@ -19,6 +19,8 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
   const [objective, setObjective] = useState("");
   const [tone, setTone] = useState("");
   const [aiModelChoice, setAiModelChoice] = useState<AIModelChoice>("gemini");
+  const [files, setFiles] = useState<File[]>([]);
+  const [urls, setUrls] = useState<string[]>([]);
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -36,7 +38,7 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
         </p>
       </div>
 
-      <ResolvedDefaultsCard audience={audience} objective={objective} tone={tone} />
+      <ResolvedDefaultsCard audience={audience} objective={objective} tone={tone} materialCount={files.length} urlCount={urls.length} />
 
       {testModeEnabled ? (
         <div className="rounded-lg border border-dashed p-4">
@@ -70,7 +72,13 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
               <Label htmlFor="tone">Tone</Label>
               <Input id="tone" name="tone" value={tone} onChange={(e) => setTone(e.target.value)} />
             </div>
-            <IntakeAttachments disabled={pending} />
+            <IntakeAttachments
+              files={files}
+              urls={urls}
+              onFilesChange={setFiles}
+              onUrlsChange={setUrls}
+              disabled={pending}
+            />
           </div>
         ) : null}
       </div>
@@ -82,7 +90,7 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
       ) : null}
 
       <Button type="submit" disabled={pending} className="w-fit">
-        {pending ? "Starting..." : "Start research"}
+        {pending ? "Confirming..." : "Confirm request"}
       </Button>
     </form>
   );

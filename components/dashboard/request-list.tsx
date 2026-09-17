@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { LocalDateTime } from "@/components/shared/local-date-time";
-import { DeleteDraftButton } from "@/components/dashboard/delete-draft-button";
+import { DeleteRequestButton } from "@/components/dashboard/delete-request-button";
 import type { Database } from "@/lib/supabase/database.types";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
@@ -28,13 +28,20 @@ const NEXT_ACTION: Record<ContentRequestRow["status"], string> = {
 
 interface RequestListProps {
   requests: ContentRequestRow[];
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
-export function RequestList({ requests }: RequestListProps) {
+export function RequestList({
+  requests,
+  emptyTitle = "No requests yet",
+  emptyDescription = "Start one from the button above.",
+}: RequestListProps) {
   if (requests.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-        No requests yet. Start one from the button above.
+      <div className="flex flex-col gap-1 rounded-lg border border-dashed p-8 text-center">
+        <p className="text-sm font-medium">{emptyTitle}</p>
+        <p className="text-sm text-muted-foreground">{emptyDescription}</p>
       </div>
     );
   }
@@ -52,7 +59,9 @@ export function RequestList({ requests }: RequestListProps) {
           <div className="flex items-center gap-3">
             <Badge variant="outline">{STATUS_LABELS[request.status]}</Badge>
             <span className="text-sm text-muted-foreground">{NEXT_ACTION[request.status]}</span>
-            {request.status === "draft" ? <DeleteDraftButton requestId={request.id} /> : null}
+            {request.status === "changes_requested" || request.status === "approved" ? null : (
+              <DeleteRequestButton requestId={request.id} />
+            )}
           </div>
         </div>
       ))}

@@ -18,6 +18,7 @@ import {
   getPackageReview,
 } from "@/lib/approvals/service";
 import { getLatestReview, submitPackageForReview } from "@/lib/repositories/approvals";
+import { deleteRequest } from "@/lib/repositories/requests";
 
 function articleContent(title = "Article") {
   return {
@@ -219,6 +220,35 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
 
     const { data: afterApproval } = await admin.from("content_requests").select("status").eq("id", requestId).single();
     expect(afterApproval?.status).toBe("approved");
+  });
+
+  it("allows deleting a request with generated content, but refuses once a Reviewer has given feedback", async () => {
+    const { requestId, pkg } = await fullyReadyRequest();
+
+    // Well past draft, with a plan, artifacts, versions and a package —
+    // deletion has to unpick the provenance FKs that do not cascade.
+    const review = await submitPackageForReview(owner.client, requestId, pkg.id);
+    await expect(deleteRequest(owner.client, requestId)).resolves.toBeUndefined();
+
+    const { data: gone } = await admin.from("content_requests").select("id").eq("id", requestId).maybeSingle();
+    expect(gone).toBeNull();
+    void review;
+
+    // A second request that the Reviewer has actually responded to.
+    const second = await fullyReadyRequest();
+    requestIds.push(second.requestId);
+    const secondReview = await submitPackageForReview(owner.client, second.requestId, second.pkg.id);
+    await decideApproval(reviewer.client, {
+      reviewId: secondReview.id,
+      packageId: second.pkg.id,
+      decision: "changes_requested",
+      comment: "Tighten the intro",
+    });
+
+    await expect(deleteRequest(owner.client, second.requestId)).rejects.toMatchObject({ code: "INVALID_STATE" });
+
+    const { data: kept } = await admin.from("content_requests").select("id").eq("id", second.requestId).maybeSingle();
+    expect(kept).not.toBeNull();
   });
 
   it("refuses a 'rejected' decision outright — the Reviewer has only approve/changes_requested", async () => {

@@ -11,36 +11,51 @@ import { parseUserSuppliedUrl } from "@/lib/research/url";
 const ACCEPTED_FILE_TYPES =
   ".pdf,.docx,.md,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain";
 
+interface IntakeAttachmentsProps {
+  files: File[];
+  urls: string[];
+  onFilesChange: (files: File[]) => void;
+  onUrlsChange: (urls: string[]) => void;
+  disabled?: boolean;
+}
+
 /**
  * Supporting materials and source URLs at intake. Files go through a real
- * file picker that accepts several at once, and URLs are added one at a
- * time through an Add URL control — replacing a free-text box that asked
- * for "one URL per line", which gave no feedback on whether any given line
- * was actually a usable link until research had already started.
+ * file picker, and URLs are added one at a time — replacing a free-text
+ * box that asked for "one URL per line" and gave no feedback on whether
+ * any given line was a usable link until research had already started.
  *
  * Both ride along in the form's own FormData (`materials`, `sourceUrls`),
  * so they are attached in the same submission that creates the request
  * rather than needing a request to exist first.
  */
-export function IntakeAttachments({ disabled = false }: { disabled?: boolean }) {
-  const [files, setFiles] = useState<File[]>([]);
-  const [urls, setUrls] = useState<string[]>([]);
+export function IntakeAttachments({ files, urls, onFilesChange, onUrlsChange, disabled = false }: IntakeAttachmentsProps) {
   const [urlOpen, setUrlOpen] = useState(false);
   const [urlDraft, setUrlDraft] = useState("");
   const [urlError, setUrlError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function addFiles(selected: FileList | null) {
-    if (!selected) return;
-    const incoming = Array.from(selected);
-    setFiles((prev) => {
-      const seen = new Set(prev.map((f) => `${f.name}:${f.size}`));
-      return [...prev, ...incoming.filter((f) => !seen.has(`${f.name}:${f.size}`))];
-    });
+  /**
+   * FormData reads files off the input element, not off React state, so the
+   * element's own FileList has to be rewritten whenever the list changes.
+   * Without this, removing a file would only remove its chip (it would
+   * still upload), and a second trip through the picker would replace the
+   * first selection instead of adding to it.
+   */
+  function commitFiles(next: File[]) {
+    const input = fileInputRef.current;
+    if (input) {
+      const transfer = new DataTransfer();
+      for (const file of next) transfer.items.add(file);
+      input.files = transfer.files;
+    }
+    onFilesChange(next);
   }
 
-  function removeFile(index: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+  function addFiles(selected: FileList | null) {
+    if (!selected?.length) return;
+    const seen = new Set(files.map((f) => `${f.name}:${f.size}`));
+    commitFiles([...files, ...Array.from(selected).filter((f) => !seen.has(`${f.name}:${f.size}`))]);
   }
 
   function addUrl() {
@@ -53,7 +68,7 @@ export function IntakeAttachments({ disabled = false }: { disabled?: boolean }) 
       setUrlError("That URL has already been added.");
       return;
     }
-    setUrls((prev) => [...prev, normalized]);
+    onUrlsChange([...urls, normalized]);
     setUrlDraft("");
     setUrlError(null);
     setUrlOpen(false);
@@ -63,7 +78,7 @@ export function IntakeAttachments({ disabled = false }: { disabled?: boolean }) 
     <div className="flex flex-col gap-5 sm:col-span-2">
       <div className="flex flex-col gap-2">
         <Label>Supporting materials</Label>
-        <p className="text-sm text-muted-foreground">PDF, DOCX, Markdown, or TXT. You can add several at once.</p>
+        <p className="text-sm text-muted-foreground">PDF, DOCX, Markdown, or TXT.</p>
 
         <label className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit cursor-pointer", disabled && "pointer-events-none opacity-50")}>
           <Paperclip className="size-4" />
@@ -85,7 +100,14 @@ export function IntakeAttachments({ disabled = false }: { disabled?: boolean }) 
             {files.map((file, index) => (
               <li key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
                 <span className="truncate">{file.name}</span>
-                <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${file.name}`} onClick={() => removeFile(index)} disabled={disabled}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Remove ${file.name}`}
+                  onClick={() => commitFiles(files.filter((_, i) => i !== index))}
+                  disabled={disabled}
+                >
                   <X className="size-4" />
                 </Button>
               </li>
@@ -107,7 +129,7 @@ export function IntakeAttachments({ disabled = false }: { disabled?: boolean }) 
               variant="ghost"
               size="icon"
               aria-label={`Remove ${url}`}
-              onClick={() => setUrls((prev) => prev.filter((u) => u !== url))}
+              onClick={() => onUrlsChange(urls.filter((u) => u !== url))}
               disabled={disabled}
             >
               <X className="size-4" />

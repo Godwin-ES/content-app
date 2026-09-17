@@ -1,23 +1,14 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getContentManagerDashboard } from "@/lib/repositories/requests";
-import { ActionSummary } from "@/components/dashboard/action-summary";
-import { RequestList } from "@/components/dashboard/request-list";
+import { listOwnedRequests } from "@/lib/repositories/requests";
+import { RequestStatusTabs } from "@/components/dashboard/request-status-tabs";
 import { buttonVariants } from "@/components/ui/button";
 
 export default async function DashboardPage() {
   const user = await requireRole("content_manager");
   const supabase = await createSupabaseServerClient();
-  const dashboard = await getContentManagerDashboard(supabase, user.userId);
-
-  const allRequests = [
-    ...dashboard.needsAttention,
-    ...dashboard.sourceReview,
-    ...dashboard.awaitingApproval,
-    ...dashboard.approvedReady,
-    ...dashboard.other,
-  ].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  const requests = await listOwnedRequests(supabase, user.userId);
 
   return (
     <div className="flex flex-col gap-8">
@@ -31,12 +22,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      <ActionSummary dashboard={dashboard} />
-
-      <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">All requests</h2>
-        <RequestList requests={allRequests} />
-      </div>
+      <RequestStatusTabs requests={requests} />
     </div>
   );
 }
