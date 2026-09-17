@@ -4,11 +4,10 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { startResearchAction } from "@/actions/research";
+import { setSuppliedSourcesOnlyAction } from "@/actions/requests";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EmptyState } from "@/components/shared/empty-state";
-import { SupportingMaterialUpload } from "@/components/requests/supporting-material-upload";
-import { AddUrlControl } from "@/components/research/add-url-control";
 import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
 import { SourceCard } from "@/components/research/source-card";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -17,7 +16,6 @@ import type { Database } from "@/lib/supabase/database.types";
 type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"];
 type SourceEvidenceRow = Database["public"]["Tables"]["source_evidence"]["Row"];
 type SourceConflictRow = Database["public"]["Tables"]["source_conflicts"]["Row"];
-type SupportingMaterialRow = Database["public"]["Tables"]["supporting_materials"]["Row"];
 
 interface ResearchTabProps {
   requestId: string;
@@ -26,7 +24,7 @@ interface ResearchTabProps {
   evidenceBySource: Record<string, SourceEvidenceRow[]>;
   decisionsBySource: Record<string, "accepted" | "excluded" | null>;
   conflicts: SourceConflictRow[];
-  materials: SupportingMaterialRow[];
+  suppliedSourcesOnly: boolean;
 }
 
 /**
@@ -38,8 +36,10 @@ interface ResearchTabProps {
  * "don't let two things mutate shared state at once" pattern week-3's
  * proposal workspace already uses for section edit/regenerate.
  */
-export function ResearchTab({ requestId, status, sources, evidenceBySource, decisionsBySource, conflicts, materials }: ResearchTabProps) {
+export function ResearchTab({ requestId, status, sources, evidenceBySource, decisionsBySource, conflicts, suppliedSourcesOnly }: ResearchTabProps) {
   const [busyCount, setBusyCount] = useState(0);
+  const [suppliedOnly, setSuppliedOnly] = useState(suppliedSourcesOnly);
+  const [isSavingScope, setIsSavingScope] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isStarting, startTransition] = useTransition();
   const router = useRouter();
@@ -49,6 +49,18 @@ export function ResearchTab({ requestId, status, sources, evidenceBySource, deci
   }, []);
 
   const locked = busyCount > 0;
+
+  async function updateScope(next: boolean) {
+    setSuppliedOnly(next);
+    setError(null);
+    setIsSavingScope(true);
+    const result = await setSuppliedSourcesOnlyAction(requestId, next);
+    setIsSavingScope(false);
+    if (!result.ok) {
+      setSuppliedOnly(!next);
+      setError(result.error.message);
+    }
+  }
 
   function startResearch() {
     setError(null);
@@ -110,7 +122,7 @@ export function ResearchTab({ requestId, status, sources, evidenceBySource, deci
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Start research on this topic using any supplied URLs/materials below, plus a general web search.
+              Research runs over the materials and URLs supplied with this request, plus a general web search of the topic.
             </p>
           )}
           {error ? (
@@ -118,6 +130,17 @@ export function ResearchTab({ requestId, status, sources, evidenceBySource, deci
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
+          <label className="flex w-fit items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={suppliedOnly}
+              disabled={locked || isSavingScope}
+              onChange={(e) => updateScope(e.target.checked)}
+            />
+            Only use the supplied materials and URLs — skip general web research
+          </label>
+
           <Button type="button" onClick={startResearch} disabled={locked} className="w-fit">
             {isStarting ? (
               <>
@@ -130,16 +153,8 @@ export function ResearchTab({ requestId, status, sources, evidenceBySource, deci
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 rounded-lg border p-4">
-        <h3 className="text-sm font-medium">Provide any additional supporting materials or source URLs</h3>
-        <div className="flex flex-wrap gap-2">
-          <SupportingMaterialUpload requestId={requestId} initialMaterials={materials} locked={locked} onBusyChange={handleBusyChange} />
-          <AddUrlControl requestId={requestId} locked={locked} onBusyChange={handleBusyChange} />
-        </div>
-      </div>
-
       {sources.length === 0 ? (
-        <EmptyState title="No sources yet" description="Add supporting material or source URLs to begin research." />
+        <EmptyState title="No sources yet" description="Start research to gather sources for this topic." />
       ) : status === "source_review" ? (
         <SourceReviewWorkspace
           requestId={requestId}

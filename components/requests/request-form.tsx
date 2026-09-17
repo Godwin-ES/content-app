@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ResolvedDefaultsCard } from "@/components/requests/resolved-defaults-card";
+import { IntakeAttachments } from "@/components/requests/intake-attachments";
 import { ModelSelector } from "@/components/test-mode/model-selector";
 import type { AIModelChoice } from "@/lib/domain/types";
 
@@ -69,20 +70,7 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
               <Label htmlFor="tone">Tone</Label>
               <Input id="tone" name="tone" value={tone} onChange={(e) => setTone(e.target.value)} />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="publicationDate">Target publication date</Label>
-              <Input id="publicationDate" name="publicationDate" type="date" />
-            </div>
-            <div className="flex flex-col gap-2 sm:col-span-2">
-              <Label htmlFor="sourceUrls">Source URLs</Label>
-              <Textarea id="sourceUrls" name="sourceUrls" rows={2} placeholder="One URL per line" />
-            </div>
-            <div className="flex items-center gap-2 sm:col-span-2">
-              <input type="checkbox" id="suppliedSourcesOnly" name="suppliedSourcesOnly" className="size-4" />
-              <Label htmlFor="suppliedSourcesOnly" className="font-normal">
-                Only use supplied materials/URLs — skip general web research
-              </Label>
-            </div>
+            <IntakeAttachments disabled={pending} />
           </div>
         ) : null}
       </div>

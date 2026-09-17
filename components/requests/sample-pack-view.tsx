@@ -23,7 +23,6 @@ export function SamplePackView({ pack }: { pack: SamplePack }) {
           <AssumptionRow label="Audience" supplied={pack.assumptions.suppliedAudience} resolved={pack.assumptions.resolvedAudience} />
           <AssumptionRow label="Objective" supplied={pack.assumptions.suppliedObjective} resolved={pack.assumptions.resolvedObjective} />
           <AssumptionRow label="Tone" supplied={pack.assumptions.suppliedTone} resolved={pack.assumptions.resolvedTone} />
-          <AssumptionRow label="CTA" supplied={pack.assumptions.suppliedCta} resolved={pack.assumptions.resolvedCta ?? "None"} />
         </dl>
       </section>
 

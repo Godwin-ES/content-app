@@ -131,6 +131,19 @@ export async function uploadSupportingMaterial(
       supporting_material_id: updated.id,
       retrieval_status: "pending",
     });
+  } else if (updated.extraction_status === "failed") {
+    // A file whose text could not be extracted gets a source row too, as a
+    // failed one. Uploads happen at intake and the source list is the only
+    // place they are shown afterwards, so without this the file would be
+    // accepted and then vanish with no explanation anywhere in the UI.
+    await createResearchSource(supabase, {
+      request_id: params.requestId,
+      origin: "uploaded_material",
+      title: params.filename,
+      supporting_material_id: updated.id,
+      retrieval_status: "failed",
+      retrieval_error: updated.extraction_error ?? "The text of this file could not be read.",
+    });
   }
 
   return updated;

@@ -12,6 +12,30 @@ const TRACKING_PARAM_PATTERNS: RegExp[] = [
 ];
 
 /**
+ * Accepts a link as a person would actually paste it and returns a full
+ * absolute URL, or null if it could not be one. `new URL()` alone rejects
+ * "example.com/article" outright, which surfaced as an unhandled TypeError
+ * and a generic "Something unexpected happened" toast rather than an
+ * answerable message — so a missing scheme is filled in instead of failing.
+ */
+export function parseUserSuppliedUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  try {
+    const url = new URL(withScheme);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    // A bare word ("notes", "localhost") parses fine but is never a source.
+    if (!url.hostname.includes(".") || url.hostname.endsWith(".")) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Collapses tracking-parameter variants of the same article into one
  * canonical URL and normalizes formatting differences that do not change
  * the resource (SYSTEM-DESIGN-NEXTJS.md §9.5). Deterministic: two URLs that

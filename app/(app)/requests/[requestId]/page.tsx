@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { requireCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getContentRequest } from "@/lib/repositories/requests";
-import { listSupportingMaterials } from "@/lib/repositories/materials";
 import { listResearchSources, listSourceEvidence, getLatestSourceDecision, listSourceConflicts } from "@/lib/repositories/sources";
 import { listContentArtifacts, listArtifactVersions } from "@/lib/repositories/content";
 import { listContentPlanVersions } from "@/lib/planning/service";
@@ -42,8 +41,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
 
   if (!request) notFound();
 
-  const [materials, sources, activityEvents] = await Promise.all([
-    listSupportingMaterials(supabase, requestId),
+  const [sources, activityEvents] = await Promise.all([
     listResearchSources(supabase, requestId),
     listActivityEvents(supabase, requestId),
   ]);
@@ -182,7 +180,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       evidenceBySource={evidenceBySource}
       decisionsBySource={decisionsBySource}
       conflicts={conflicts}
-      materials={materials}
+      suppliedSourcesOnly={request.supplied_sources_only}
     />
   );
 

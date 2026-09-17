@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArticleSectionCard } from "@/components/articles/article-section-card";
-import type { ArticleOutput } from "@/lib/ai/schemas/article";
+import { articleSections, type ArticleOutput } from "@/lib/ai/schemas/article";
 
 interface ArticleOptionEditorProps {
   artifactId: string;
@@ -30,12 +30,14 @@ interface ArticleOptionEditorProps {
  * just update this local draft first.
  */
 export function ArticleOptionEditor({ artifactId, articleVersionId, content, defaultInstruction, locked, onBusyChange }: ArticleOptionEditorProps) {
-  const [draft, setDraft] = useState<ArticleOutput>(content);
+  // A pre-sections article stored only `bodyMarkdown`, so its sections are
+  // derived once on mount and become real the moment a version is saved.
+  const [draft, setDraft] = useState<ArticleOutput>(() => ({ ...content, sections: articleSections(content) }));
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
 
-  const isDirty = JSON.stringify(draft) !== JSON.stringify(content);
+  const isDirty = JSON.stringify(draft) !== JSON.stringify({ ...content, sections: articleSections(content) });
 
   function updateSection(index: number, section: ArticleOutput["sections"][number]) {
     const sections = [...draft.sections];
@@ -44,7 +46,7 @@ export function ArticleOptionEditor({ artifactId, articleVersionId, content, def
   }
 
   function discard() {
-    setDraft(content);
+    setDraft({ ...content, sections: articleSections(content) });
     setError(null);
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalizeUrl, dedupeByCanonicalUrl } from "@/lib/research/url";
+import { canonicalizeUrl, dedupeByCanonicalUrl, parseUserSuppliedUrl } from "@/lib/research/url";
 
 describe("canonicalizeUrl", () => {
   it("removes common tracking parameters", () => {
@@ -61,5 +61,27 @@ describe("dedupeByCanonicalUrl", () => {
     const result = dedupeByCanonicalUrl(items);
     expect(result).toHaveLength(2);
     expect(result.map((r) => r.label)).toEqual(["first", "different"]);
+  });
+});
+
+describe("parseUserSuppliedUrl", () => {
+  it("fills in a missing scheme rather than rejecting the link", () => {
+    expect(parseUserSuppliedUrl("example.com/article")).toBe("https://example.com/article");
+    expect(parseUserSuppliedUrl("www.example.com")).toBe("https://www.example.com/");
+  });
+
+  it("keeps an explicit scheme as given", () => {
+    expect(parseUserSuppliedUrl("http://example.com/a")).toBe("http://example.com/a");
+    expect(parseUserSuppliedUrl("  https://example.com/a  ")).toBe("https://example.com/a");
+  });
+
+  it("returns null for input that could never be a source", () => {
+    expect(parseUserSuppliedUrl("")).toBeNull();
+    expect(parseUserSuppliedUrl("   ")).toBeNull();
+    // A bare word parses as a hostname but is not a reachable source.
+    expect(parseUserSuppliedUrl("notes")).toBeNull();
+    expect(parseUserSuppliedUrl("localhost")).toBeNull();
+    expect(parseUserSuppliedUrl("ftp://example.com/a")).toBeNull();
+    expect(parseUserSuppliedUrl("javascript:alert(1)")).toBeNull();
   });
 });

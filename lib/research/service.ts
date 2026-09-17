@@ -7,7 +7,7 @@ import type { AIProvider } from "@/lib/ai/types";
 import type { ResearchProvider, SearchResultItem } from "@/lib/research/types";
 import { createResearchPlan } from "@/lib/ai/service";
 import { analyzeSource } from "@/lib/ai/service";
-import { canonicalizeUrl, dedupeByCanonicalUrl } from "@/lib/research/url";
+import { canonicalizeUrl, dedupeByCanonicalUrl, parseUserSuppliedUrl } from "@/lib/research/url";
 import { createOperationRun, updateOperationRun } from "@/lib/repositories/operations";
 import { recordActivityEvent } from "@/lib/repositories/activity";
 import { createResearchSource, updateResearchSource, createSourceEvidence, getResearchSource } from "@/lib/repositories/sources";
@@ -376,7 +376,15 @@ export async function addPendingSourceUrl(
   requestId: string,
   url: string
 ): Promise<ResearchSourceRow> {
-  const canonicalUrl = canonicalizeUrl(url);
+  const normalizedUrl = parseUserSuppliedUrl(url);
+  if (!normalizedUrl) {
+    throw new DomainError(
+      "VALIDATION_ERROR",
+      "add_source_url",
+      "That does not look like a web address. Paste a full link, for example https://example.com/article."
+    );
+  }
+  const canonicalUrl = canonicalizeUrl(normalizedUrl);
 
   const { data: existingSources, error } = await supabase
     .from("research_sources")
@@ -391,7 +399,7 @@ export async function addPendingSourceUrl(
   return createResearchSource(supabase, {
     request_id: requestId,
     origin: "user_url",
-    original_url: url,
+    original_url: normalizedUrl,
     canonical_url: canonicalUrl,
     retrieval_status: "pending",
   });

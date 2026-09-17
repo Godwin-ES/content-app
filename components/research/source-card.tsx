@@ -16,9 +16,9 @@ type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"]
 type SourceEvidenceRow = Database["public"]["Tables"]["source_evidence"]["Row"];
 
 const ORIGIN_LABEL: Record<ResearchSourceRow["origin"], string> = {
-  researched: "Researched",
-  user_url: "Your URL",
-  uploaded_material: "Uploaded material",
+  researched: "Found by research",
+  user_url: "Provided by Content Manager",
+  uploaded_material: "Uploaded by Content Manager",
 };
 
 interface SourceCardProps {
@@ -117,7 +117,12 @@ export function SourceCard({
             <span className="truncate font-medium">{displayTitle}</span>
           )}
           <span className="truncate text-xs text-muted-foreground">
-            {source.publisher ?? "Unknown publisher"} · {ORIGIN_LABEL[source.origin]}
+            {/* A supplied file or link has no publisher to report, and saying
+                "Unknown publisher" of something the Content Manager handed
+                over reads as a failure rather than a fact — so where there
+                is no publisher, the provenance stands on its own. */}
+            {source.publisher ? `${source.publisher} · ` : ""}
+            {ORIGIN_LABEL[source.origin]}
             {source.published_at ? (
               <>
                 {" · "}
