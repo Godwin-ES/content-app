@@ -14,7 +14,6 @@ import {
   submitForApproval,
   withdrawApproval,
   decideApproval,
-  reopenRejectedRequest,
   getReviewerQueue,
   getPackageReview,
 } from "@/lib/approvals/service";
@@ -197,7 +196,7 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     ).rejects.toMatchObject({ code: "INVALID_STATE" });
   });
 
-  it("returns the request to editable content_development on changes_requested, and to rejected/reopenable on rejected", async () => {
+  it("makes the request editable again on changes_requested and resubmits straight through to approval", async () => {
     const { requestId, articleArtifactId, pkg } = await fullyReadyRequest();
     const review = await submitForApproval(owner.client, requestId);
 
@@ -212,16 +211,33 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     await passingEvaluation(edited.id);
     await admin.from("content_requests").update({ selected_article_version_id: edited.id }).eq("id", requestId);
 
-    // Resubmit and get rejected this time.
+    // Request Changes is the only route back, so resubmission has to work
+    // directly from `changes_requested` with no intermediate reopen step.
     const pkg2 = await createContentPackage(owner.client, requestId);
     const review2 = await submitForApproval(owner.client, requestId);
-    await decideApproval(reviewer.client, { reviewId: review2.id, packageId: pkg2.id, decision: "rejected", comment: "Not aligned" });
+    await decideApproval(reviewer.client, { reviewId: review2.id, packageId: pkg2.id, decision: "approved", comment: null });
 
-    const { data: afterRejected } = await admin.from("content_requests").select("status").eq("id", requestId).single();
-    expect(afterRejected?.status).toBe("rejected");
+    const { data: afterApproval } = await admin.from("content_requests").select("status").eq("id", requestId).single();
+    expect(afterApproval?.status).toBe("approved");
+  });
 
-    await expect(reopenRejectedRequest(owner.client, requestId)).resolves.toMatchObject({ status: "content_development" });
-    await expect(reopenRejectedRequest(owner.client, requestId)).rejects.toMatchObject({ code: "INVALID_STATE" });
+  it("refuses a 'rejected' decision outright — the Reviewer has only approve/changes_requested", async () => {
+    const { requestId, pkg } = await fullyReadyRequest();
+    const review = await submitForApproval(owner.client, requestId);
+
+    await expect(
+      decideApproval(reviewer.client, {
+        reviewId: review.id,
+        packageId: pkg.id,
+        // Cast past the narrowed ReviewDecision type on purpose: the point
+        // is that the database refuses it even if a caller bypasses TypeScript.
+        decision: "rejected" as never,
+        comment: "Not aligned",
+      })
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+
+    const { data: unchanged } = await admin.from("content_requests").select("status").eq("id", requestId).single();
+    expect(unchanged?.status).toBe("pending_approval");
   });
 
   it("keeps an approved package immutable and historically correct even after a later edit", async () => {

@@ -14,7 +14,6 @@ const DECISION_LABEL: Record<string, string> = {
   withdrawn: "Withdrawn",
   approved: "Approved",
   changes_requested: "Changes requested",
-  rejected: "Rejected",
 };
 
 /**

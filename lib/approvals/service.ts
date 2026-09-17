@@ -12,10 +12,10 @@ import {
   submitPackageForReview,
   withdrawPackageReview,
   decidePackageReview,
-  reopenRejectedRequest as reopenRejectedRequestRepo,
 } from "@/lib/repositories/approvals";
 import { getSourceSetSources } from "@/lib/repositories/sources";
 import { assertNoInjectedPersistenceFailure } from "@/lib/test-support/failure-injection";
+import type { ReviewDecision } from "@/lib/domain/types";
 
 type ApprovalReviewRow = Database["public"]["Tables"]["approval_reviews"]["Row"];
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
@@ -58,7 +58,7 @@ export async function withdrawApproval(supabase: SupabaseClient<Database>, revie
 
 export async function decideApproval(
   supabase: SupabaseClient<Database>,
-  params: { reviewId: string; packageId: string; decision: "approved" | "changes_requested" | "rejected"; comment: string | null }
+  params: { reviewId: string; packageId: string; decision: ReviewDecision; comment: string | null }
 ): Promise<ApprovalReviewRow> {
   await assertNoInjectedPersistenceFailure("approval_persistence_failure", "approval");
   const review = await decidePackageReview(supabase, params);
@@ -67,14 +67,6 @@ export async function decideApproval(
     notifyContentManagerDecision({ requestId: request.id, topic: request.topic, decision: params.decision, comment: params.comment })
   );
   return review;
-}
-
-/**
- * Explicit, deliberate transition out of `rejected` back to
- * `content_development` (SYSTEM-DESIGN-NEXTJS.md §24) — never automatic.
- */
-export async function reopenRejectedRequest(supabase: SupabaseClient<Database>, requestId: string): Promise<ContentRequestRow> {
-  return reopenRejectedRequestRepo(supabase, requestId);
 }
 
 export interface ReviewQueueCard {
@@ -92,7 +84,6 @@ export interface ReviewerQueue {
   awaitingReview: ReviewQueueCard[];
   changesRequested: ReviewQueueCard[];
   approved: ReviewQueueCard[];
-  rejected: ReviewQueueCard[];
 }
 
 async function toQueueCard(supabase: SupabaseClient<Database>, review: ApprovalReviewRow): Promise<ReviewQueueCard | null> {
@@ -122,18 +113,16 @@ async function toQueueCard(supabase: SupabaseClient<Database>, review: ApprovalR
  * need the status split, not an explicit reviewer filter.
  */
 export async function getReviewerQueue(supabase: SupabaseClient<Database>): Promise<ReviewerQueue> {
-  const [pending, changesRequested, approved, rejected] = await Promise.all([
+  const [pending, changesRequested, approved] = await Promise.all([
     listPendingReviews(supabase),
     listDecidedReviews(supabase, "changes_requested"),
     listDecidedReviews(supabase, "approved"),
-    listDecidedReviews(supabase, "rejected"),
   ]);
 
-  const [awaitingCards, changesCards, approvedCards, rejectedCards] = await Promise.all([
+  const [awaitingCards, changesCards, approvedCards] = await Promise.all([
     Promise.all(pending.map((r) => toQueueCard(supabase, r))),
     Promise.all(changesRequested.map((r) => toQueueCard(supabase, r))),
     Promise.all(approved.map((r) => toQueueCard(supabase, r))),
-    Promise.all(rejected.map((r) => toQueueCard(supabase, r))),
   ]);
 
   const notNull = (c: ReviewQueueCard | null): c is ReviewQueueCard => c !== null;
@@ -141,7 +130,6 @@ export async function getReviewerQueue(supabase: SupabaseClient<Database>): Prom
     awaitingReview: awaitingCards.filter(notNull),
     changesRequested: changesCards.filter(notNull),
     approved: approvedCards.filter(notNull),
-    rejected: rejectedCards.filter(notNull),
   };
 }
 

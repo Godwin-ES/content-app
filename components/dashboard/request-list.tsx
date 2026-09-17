@@ -13,7 +13,6 @@ const STATUS_LABELS: Record<ContentRequestRow["status"], string> = {
   pending_approval: "Pending Approval",
   changes_requested: "Changes Requested",
   approved: "Approved",
-  rejected: "Rejected",
   archived: "Archived",
 };
 
@@ -24,7 +23,6 @@ const NEXT_ACTION: Record<ContentRequestRow["status"], string> = {
   pending_approval: "Awaiting reviewer",
   changes_requested: "Review requested changes",
   approved: "Queue or schedule",
-  rejected: "Reopen if appropriate",
   archived: "None",
 };
 

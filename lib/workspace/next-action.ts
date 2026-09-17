@@ -15,7 +15,6 @@ export type NextActionKey =
   | "await_review"
   | "review_requested_changes"
   | "queue_approved_content"
-  | "reopen_rejected"
   | "none";
 
 export interface NextAction {
@@ -111,9 +110,6 @@ export function deriveNextAction(snapshot: WorkspaceSnapshot): NextAction {
         return action("queue_approved_content", "Publishing: Queue approved content", "Queue or schedule the approved package's channels.");
       }
       return action("none", "Nothing pending", "This request has no outstanding action right now.");
-
-    case "rejected":
-      return action("reopen_rejected", "Approval: Reopen for content development", "Explicitly reopen this request to make further changes.");
 
     default:
       return action("none", "Nothing pending", "This request has no outstanding action right now.");

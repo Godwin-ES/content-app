@@ -100,7 +100,7 @@ export async function getContentManagerDashboard(
 
   const rows = data ?? [];
   return {
-    needsAttention: rows.filter((r) => r.status === "changes_requested" || r.status === "rejected"),
+    needsAttention: rows.filter((r) => r.status === "changes_requested"),
     sourceReview: rows.filter((r) => r.status === "source_review"),
     awaitingApproval: rows.filter((r) => r.status === "pending_approval"),
     approvedReady: rows.filter((r) => r.status === "approved"),

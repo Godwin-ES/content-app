@@ -43,7 +43,6 @@ export function ReviewQueue({ queue }: ReviewQueueProps) {
         <TabsTrigger value="awaiting">Awaiting Review ({queue.awaitingReview.length})</TabsTrigger>
         <TabsTrigger value="changes">Changes Requested ({queue.changesRequested.length})</TabsTrigger>
         <TabsTrigger value="approved">Approved ({queue.approved.length})</TabsTrigger>
-        <TabsTrigger value="rejected">Rejected ({queue.rejected.length})</TabsTrigger>
       </TabsList>
       <TabsContent value="awaiting">
         <QueueCardList cards={queue.awaitingReview} emptyMessage="No packages awaiting review." />
@@ -53,9 +52,6 @@ export function ReviewQueue({ queue }: ReviewQueueProps) {
       </TabsContent>
       <TabsContent value="approved">
         <QueueCardList cards={queue.approved} emptyMessage="No approved packages yet." />
-      </TabsContent>
-      <TabsContent value="rejected">
-        <QueueCardList cards={queue.rejected} emptyMessage="No rejected packages." />
       </TabsContent>
     </Tabs>
   );

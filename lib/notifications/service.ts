@@ -2,6 +2,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendDiscordMessage } from "@/lib/notifications/discord";
 import { getInjectedFailureMode } from "@/lib/test-support/failure-injection";
+import type { ReviewDecision } from "@/lib/domain/types";
 
 type NotificationChannel = "content_manager" | "reviewer" | "system_errors";
 
@@ -70,11 +71,11 @@ export async function notifyReviewerWithdrawal(params: { requestId: string; topi
 export async function notifyContentManagerDecision(params: {
   requestId: string;
   topic: string;
-  decision: "approved" | "changes_requested" | "rejected";
+  decision: ReviewDecision;
   comment: string | null;
 }): Promise<void> {
   const decisionLabel =
-    params.decision === "approved" ? "approved" : params.decision === "changes_requested" ? "sent back for changes" : "rejected";
+    params.decision === "approved" ? "approved" : "sent back for changes";
   const commentSuffix = params.comment ? `\n> ${params.comment}` : "";
 
   await notify({

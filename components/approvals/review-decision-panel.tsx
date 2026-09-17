@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { ReviewDecision } from "@/lib/domain/types";
 
 interface ReviewDecisionPanelProps {
   reviewId: string;
@@ -15,7 +16,8 @@ interface ReviewDecisionPanelProps {
 }
 
 /**
- * The Reviewer's three decisions (SYSTEM-DESIGN-NEXTJS.md §24.2). The
+ * The Reviewer's two decisions. Approve ships the package; Request
+ * Changes sends it back for edits and resubmission. The
  * server (decide_package_review RPC) is the actual authority on every
  * eligibility rule — role, self-approval, staleness, pending status — this
  * UI only presents the choice.
@@ -26,7 +28,7 @@ export function ReviewDecisionPanel({ reviewId, packageId, isPending }: ReviewDe
   const [busy, startTransition] = useTransition();
   const router = useRouter();
 
-  function decide(decision: "approved" | "changes_requested" | "rejected") {
+  function decide(decision: ReviewDecision) {
     setError(null);
     startTransition(async () => {
       const result = await decideApprovalAction(reviewId, packageId, decision, comment.trim() || null);
@@ -42,8 +44,14 @@ export function ReviewDecisionPanel({ reviewId, packageId, isPending }: ReviewDe
   return (
     <div className="flex flex-col gap-3 rounded-lg border p-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="review-comment">Comment (optional, required recommended for Changes Requested/Rejected)</Label>
-        <Textarea id="review-comment" value={comment} onChange={(e) => setComment(e.target.value)} rows={3} />
+        <Label htmlFor="review-comment">Comment for changes</Label>
+        <Textarea
+          id="review-comment"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          rows={3}
+          placeholder="What needs to change before this can be approved?"
+        />
       </div>
 
       {error ? (
@@ -58,9 +66,6 @@ export function ReviewDecisionPanel({ reviewId, packageId, isPending }: ReviewDe
         </Button>
         <Button type="button" size="sm" variant="outline" onClick={() => decide("changes_requested")} disabled={busy}>
           Request Changes
-        </Button>
-        <Button type="button" size="sm" variant="destructive" onClick={() => decide("rejected")} disabled={busy}>
-          Reject
         </Button>
       </div>
     </div>

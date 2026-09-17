@@ -8,7 +8,7 @@ interface ActionSummaryProps {
 }
 
 const GROUPS: Array<{ key: keyof ContentManagerDashboard; label: string; description: string }> = [
-  { key: "needsAttention", label: "Needs Attention", description: "Changes requested or rejected" },
+  { key: "needsAttention", label: "Needs Attention", description: "Reviewer asked for changes" },
   { key: "sourceReview", label: "Source Review", description: "Sources ready to review" },
   { key: "awaitingApproval", label: "Awaiting Approval", description: "Submitted, waiting on a reviewer" },
   { key: "approvedReady", label: "Approved / Ready", description: "Ready to queue or schedule" },

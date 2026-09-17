@@ -7,7 +7,6 @@ const STATUS_LABEL: Record<string, string> = {
   pending_approval: "Pending Approval",
   changes_requested: "Changes Requested",
   approved: "Approved",
-  rejected: "Rejected",
   archived: "Archived",
 };
 
@@ -18,7 +17,6 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   pending_approval: "default",
   changes_requested: "destructive",
   approved: "default",
-  rejected: "destructive",
   archived: "outline",
 };
 

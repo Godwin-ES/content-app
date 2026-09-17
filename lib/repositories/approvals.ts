@@ -1,9 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { throwFromRpcError } from "@/lib/supabase/rpc";
+import type { ReviewDecision } from "@/lib/domain/types";
 
 type ApprovalReviewRow = Database["public"]["Tables"]["approval_reviews"]["Row"];
-type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
 
 export async function getLatestReview(
   supabase: SupabaseClient<Database>,
@@ -41,7 +41,7 @@ export async function listPendingReviews(supabase: SupabaseClient<Database>): Pr
 
 export async function listDecidedReviews(
   supabase: SupabaseClient<Database>,
-  status: "changes_requested" | "approved" | "rejected"
+  status: ReviewDecision
 ): Promise<ApprovalReviewRow[]> {
   const { data, error } = await supabase
     .from("approval_reviews")
@@ -75,7 +75,7 @@ export async function withdrawPackageReview(
 
 export async function decidePackageReview(
   supabase: SupabaseClient<Database>,
-  params: { reviewId: string; packageId: string; decision: "approved" | "changes_requested" | "rejected"; comment: string | null }
+  params: { reviewId: string; packageId: string; decision: ReviewDecision; comment: string | null }
 ): Promise<ApprovalReviewRow> {
   const { data, error } = await supabase.rpc("decide_package_review", {
     p_review_id: params.reviewId,
@@ -85,15 +85,5 @@ export async function decidePackageReview(
   });
   if (error) throwFromRpcError(error, "decide_approval");
   if (!data) throw new Error("decide_package_review returned no data");
-  return data;
-}
-
-export async function reopenRejectedRequest(
-  supabase: SupabaseClient<Database>,
-  requestId: string
-): Promise<ContentRequestRow> {
-  const { data, error } = await supabase.rpc("reopen_rejected_request", { p_request_id: requestId });
-  if (error) throwFromRpcError(error, "reopen_rejected_request");
-  if (!data) throw new Error("reopen_rejected_request returned no data");
   return data;
 }

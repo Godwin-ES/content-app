@@ -150,10 +150,6 @@ describe("deriveNextAction", () => {
     expect(deriveNextAction(base({ status: "approved", hasActiveQueueItems: true })).key).toBe("none");
   });
 
-  it("asks to reopen a rejected request", () => {
-    expect(deriveNextAction(base({ status: "rejected" })).key).toBe("reopen_rejected");
-  });
-
   it("shows nothing pending for an archived request", () => {
     expect(deriveNextAction(base({ status: "archived" })).key).toBe("none");
   });

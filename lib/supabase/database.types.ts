@@ -1553,42 +1553,6 @@ export type Database = {
         Args: { p_queue_item_id: string }
         Returns: string
       }
-      reopen_rejected_request: {
-        Args: { p_request_id: string }
-        Returns: {
-          additional_instructions: string | null
-          created_at: string
-          current_package_id: string | null
-          current_plan_id: string | null
-          current_source_set_id: string | null
-          id: string
-          owner_id: string
-          publication_date: string | null
-          resolved_audience: string
-          resolved_cta: string | null
-          resolved_objective: string
-          resolved_primary_keyword: string | null
-          resolved_tone: string
-          selected_article_version_id: string | null
-          source_urls: Json
-          status: string
-          supplied_audience: string | null
-          supplied_cta: string | null
-          supplied_objective: string | null
-          supplied_primary_keyword: string | null
-          supplied_sources_only: boolean
-          supplied_tone: string | null
-          test_model_choice: string | null
-          topic: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "content_requests"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       request_owned_by_current_user: {
         Args: { p_request_id: string }
         Returns: boolean
