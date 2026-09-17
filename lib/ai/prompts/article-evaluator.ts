@@ -1,5 +1,5 @@
 import { SHARED_GROUNDING_RULES, formatEvidencePackets, type EvidencePacketInput } from "@/lib/ai/prompts/shared-grounding";
-import type { ArticleOutput } from "@/lib/ai/schemas/article";
+import { articleBodyMarkdown, type ArticleOutput } from "@/lib/ai/schemas/article";
 
 export interface ArticleEvaluatorInput {
   audience: string;
@@ -44,7 +44,7 @@ export function buildArticleEvaluatorPrompt(input: ArticleEvaluatorInput): { sys
     `Objective: ${input.objective}`,
     `Tone: ${input.tone}`,
     `Article title: ${input.article.title}`,
-    `Article body:\n${input.article.bodyMarkdown}`,
+    `Article body:\n${articleBodyMarkdown(input.article)}`,
     `Claim ledger:\n${JSON.stringify(input.article.claims, null, 2)}`,
     "Reviewed evidence:",
     formatEvidencePackets(input.evidencePackets),

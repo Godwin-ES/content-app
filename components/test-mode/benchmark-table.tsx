@@ -7,6 +7,7 @@ import { MarkdownBody } from "@/components/shared/markdown-body";
 import { Label } from "@/components/ui/label";
 import type { AIModelChoice } from "@/lib/domain/types";
 import type { BenchmarkRunResult } from "@/lib/benchmark/service";
+import { articleBodyMarkdown } from "@/lib/ai/schemas/article";
 
 const MODEL_LABEL: Record<AIModelChoice, string> = {
   gemini: "Gemini",
@@ -68,7 +69,7 @@ export function BenchmarkTable({ entries }: { entries: BenchmarkEntry[] }) {
                   {article.insufficientEvidence ? (
                     <Badge variant="secondary">Declared insufficient evidence: {article.insufficientEvidenceReason}</Badge>
                   ) : null}
-                  <MarkdownBody className="mt-1 text-muted-foreground">{article.bodyMarkdown}</MarkdownBody>
+                  <MarkdownBody className="mt-1 text-muted-foreground">{articleBodyMarkdown(article)}</MarkdownBody>
                 </div>
 
                 <div>

@@ -1,4 +1,5 @@
 import type { SamplePack } from "@/lib/sample-pack/service";
+import { articleBodyMarkdown } from "@/lib/ai/schemas/article";
 import { MarkdownBody } from "@/components/shared/markdown-body";
 
 /**
@@ -42,7 +43,7 @@ export function SamplePackView({ pack }: { pack: SamplePack }) {
         <p className="text-xs uppercase text-muted-foreground">Evaluation: {pack.evaluationSummary.article}</p>
         <h3 className="mt-2 font-medium">{pack.article.title}</h3>
         <p className="text-sm">{pack.article.metaDescription}</p>
-        <MarkdownBody className="mt-2">{pack.article.bodyMarkdown}</MarkdownBody>
+        <MarkdownBody className="mt-2">{articleBodyMarkdown(pack.article)}</MarkdownBody>
       </section>
 
       <section>

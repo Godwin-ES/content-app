@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { generateArticleOptionsAction } from "@/actions/articles";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { ArticleOptionCard } from "@/components/articles/article-option-card";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -23,8 +25,9 @@ interface ArticleComparisonProps {
 }
 
 /**
- * Article generation trigger + compact option comparison
- * (SYSTEM-DESIGN-NEXTJS.md §15, §34.7).
+ * Article generation trigger + option sub-tabs (SYSTEM-DESIGN-NEXTJS.md
+ * §15, §34.7). Each option gets its own full-width tab (Phase 4 of the
+ * post-Task-22 UX pass) instead of three cramped side-by-side columns.
  */
 export function ArticleComparison({
   requestId,
@@ -69,23 +72,42 @@ export function ArticleComparison({
       ) : null}
 
       {articleArtifacts.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <Tabs defaultValue={articleArtifacts[0].id}>
+          <TabsList>
+            {articleArtifacts.map((artifact) => {
+              const version = currentVersionsByArtifact[artifact.id];
+              const isSelected = version?.id !== undefined && version.id === selectedArticleVersionId;
+              return (
+                <TabsTrigger key={artifact.id} value={artifact.id} className="flex items-center gap-2">
+                  Option {artifact.slot}
+                  {!artifact.current_version_id ? (
+                    <Badge variant="destructive">Failed</Badge>
+                  ) : isSelected ? (
+                    <Badge>Selected</Badge>
+                  ) : null}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
           {articleArtifacts.map((artifact) => (
-            <ArticleOptionCard
-              key={artifact.id}
-              requestId={requestId}
-              artifact={artifact}
-              currentVersion={currentVersionsByArtifact[artifact.id] ?? null}
-              evaluation={evaluationsByArtifact[artifact.id] ?? null}
-              versions={versionsByArtifact[artifact.id] ?? []}
-              isSelected={
-                currentVersionsByArtifact[artifact.id]?.id !== undefined &&
-                currentVersionsByArtifact[artifact.id]?.id === selectedArticleVersionId
-              }
-              canSelectAny={selectedArticleVersionId === null}
-            />
+            <TabsContent key={artifact.id} value={artifact.id}>
+              <div className="pt-4">
+                <ArticleOptionCard
+                  requestId={requestId}
+                  artifact={artifact}
+                  currentVersion={currentVersionsByArtifact[artifact.id] ?? null}
+                  evaluation={evaluationsByArtifact[artifact.id] ?? null}
+                  versions={versionsByArtifact[artifact.id] ?? []}
+                  isSelected={
+                    currentVersionsByArtifact[artifact.id]?.id !== undefined &&
+                    currentVersionsByArtifact[artifact.id]?.id === selectedArticleVersionId
+                  }
+                  canSelectAny={selectedArticleVersionId === null}
+                />
+              </div>
+            </TabsContent>
           ))}
-        </div>
+        </Tabs>
       ) : (
         <p className="text-sm text-muted-foreground">No article options generated yet.</p>
       )}

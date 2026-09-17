@@ -4,7 +4,7 @@ import path from "node:path";
 import type { AIProvider } from "@/lib/ai/types";
 import type { ContentPlan } from "@/lib/ai/schemas/content-plan";
 import type { EvidencePacketInput } from "@/lib/ai/prompts/shared-grounding";
-import type { ArticleOutput } from "@/lib/ai/schemas/article";
+import { articleBodyMarkdown, type ArticleOutput } from "@/lib/ai/schemas/article";
 import type { Evaluation } from "@/lib/ai/schemas/evaluation";
 import type { LinkedinPost, ChannelEvaluation } from "@/lib/ai/schemas/channel";
 import { generateArticle, evaluateArticle, reviseArticle, adaptLinkedIn, evaluateChannel } from "@/lib/ai/service";
@@ -96,7 +96,7 @@ export async function runBenchmarkScenario(ai: AIProvider, modelId: string, scen
   }
 
   const deterministicChecks = article
-    ? validateArticleSEO({ title: article.title, primaryKeyword: scenario.plan.primaryKeyword, bodyMarkdown: article.bodyMarkdown, links: article.links })
+    ? validateArticleSEO({ title: article.title, primaryKeyword: scenario.plan.primaryKeyword, bodyMarkdown: articleBodyMarkdown(article), links: article.links })
     : [];
 
   const validEvidenceIds = new Set(scenario.validEvidenceIds);
@@ -145,7 +145,7 @@ export async function runBenchmarkScenario(ai: AIProvider, modelId: string, scen
         tone: scenario.tone,
         cta: scenario.cta,
         articleTitle: articleForChannel.title,
-        articleBodyMarkdown: articleForChannel.bodyMarkdown,
+        articleBodyMarkdown: articleBodyMarkdown(articleForChannel),
       });
       linkedinResult = step(linkedinPost);
     } catch (error) {
@@ -162,7 +162,7 @@ export async function runBenchmarkScenario(ai: AIProvider, modelId: string, scen
     try {
       const channelEvaluation = await evaluateChannel(ai, modelId, {
         channel: "linkedin",
-        articleBodyMarkdown: articleForChannel.bodyMarkdown,
+        articleBodyMarkdown: articleBodyMarkdown(articleForChannel),
         channelOutputText: linkedinPost.body,
       });
       channelEvaluationResult = step(channelEvaluation);

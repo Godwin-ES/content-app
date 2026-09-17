@@ -28,7 +28,10 @@ function article(title = "Article", extra: Record<string, unknown> = {}) {
     metaDescription: "meta",
     primaryKeyword: "ai agents in recruiting",
     secondaryKeywords: [],
-    bodyMarkdown: `# ${title}\n\nSome teams reported reduced workload.\n\n## Details\n\nMore text about it here.`,
+    sections: [
+      { heading: "Introduction", level: "h2" as const, bodyMarkdown: "Some teams reported reduced workload." },
+      { heading: "Details", level: "h2" as const, bodyMarkdown: "More text about it here." },
+    ],
     links: [{ url: "https://a.com", label: "Source" }],
     claims: [
       {

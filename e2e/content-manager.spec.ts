@@ -65,6 +65,7 @@ test("a new request lands in the workspace showing the Overview tab and a next-s
   await expect(page.getByText("E2E workspace request")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Overview" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Research" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Plan" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Articles" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Channels" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Approval" })).toBeVisible();
@@ -72,7 +73,7 @@ test("a new request lands in the workspace showing the Overview tab and a next-s
   await expect(page.getByRole("tab", { name: "Activity" })).toBeVisible();
 
   await expect(page.getByText("Next step")).toBeVisible();
-  await expect(page.getByText("Add source material")).toBeVisible();
+  await expect(page.getByText("Research: Start content research")).toBeVisible();
 });
 
 test("switching tabs reveals each section's own empty state", async ({ page }) => {

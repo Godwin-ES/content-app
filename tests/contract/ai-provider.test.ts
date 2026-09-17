@@ -23,7 +23,7 @@ const VALID_ARTICLE: ArticleOutput = {
   metaDescription: "How AI agents are reshaping recruiting workflows.",
   primaryKeyword: "ai agents in recruiting",
   secondaryKeywords: [],
-  bodyMarkdown: "# AI Agents in Recruiting\n\nSome teams reported reduced administrative workload.",
+  sections: [{ heading: "Introduction", level: "h2", bodyMarkdown: "Some teams reported reduced administrative workload." }],
   links: [],
   claims: [
     {

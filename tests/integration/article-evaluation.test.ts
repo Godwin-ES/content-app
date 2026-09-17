@@ -18,7 +18,10 @@ const VALID_ARTICLE = {
   metaDescription: "meta",
   primaryKeyword: "AI agents in recruiting",
   secondaryKeywords: [],
-  bodyMarkdown: "# AI Agents in Recruiting\n\nSome teams reported reduced workload.\n\n## Details\n\nMore text here about it.",
+  sections: [
+    { heading: "AI Agents in Recruiting", level: "h2" as const, bodyMarkdown: "Some teams reported reduced workload." },
+    { heading: "Details", level: "h2" as const, bodyMarkdown: "More text here about it." },
+  ],
   links: [{ url: "https://a.com", label: "Source" }],
   claims: [
     {

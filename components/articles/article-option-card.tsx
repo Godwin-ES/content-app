@@ -2,19 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  retryArticleOptionAction,
-  evaluateArticleAction,
-  autoReviseArticleAction,
-  selectArticleAction,
-} from "@/actions/articles";
+import { retryArticleOptionAction, evaluateArticleAction, selectArticleAction } from "@/actions/articles";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EvaluationSummary } from "@/components/articles/evaluation-summary";
 import { EvaluationDrawer } from "@/components/articles/evaluation-drawer";
-import { ArticleEditor } from "@/components/articles/article-editor";
-import { TargetedRevisionPanel } from "@/components/articles/targeted-revision-panel";
+import { ArticleOptionEditor } from "@/components/articles/article-option-editor";
 import { VersionHistory } from "@/components/articles/version-history";
 import type { Database } from "@/lib/supabase/database.types";
 import type { ArticleOutput } from "@/lib/ai/schemas/article";
@@ -36,29 +30,24 @@ interface ArticleOptionCardProps {
 const ANGLE_LABEL: Record<string, string> = { A: "Practical", B: "Strategic", C: "Educational" };
 
 /**
- * Compact option card (SYSTEM-DESIGN-NEXTJS.md §20, §34.7). Opening an
- * option reveals its full editable article, revision history, targeted-
- * revision panel, and (once passing) an explicit Select action — the
- * server, not this UI, is what actually enforces every eligibility rule.
+ * One article option in full (SYSTEM-DESIGN-NEXTJS.md §20, §34.7) — shown
+ * on its own sub-tab (Phase 4 of the post-Task-22 UX pass), not cramped
+ * side by side with the other two. Re-evaluate/Auto-revise/Targeted-
+ * revision collapse down to Re-evaluate (a small secondary check) plus
+ * per-section Edit/Regenerate inside ArticleOptionEditor — the server, not
+ * this UI, is what actually enforces every eligibility rule.
  */
-export function ArticleOptionCard({
-  requestId,
-  artifact,
-  currentVersion,
-  evaluation,
-  versions,
-  isSelected,
-  canSelectAny,
-}: ArticleOptionCardProps) {
+export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluation, versions, isSelected, canSelectAny }: ArticleOptionCardProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [open, setOpen] = useState(false);
+  const [busyCount, setBusyCount] = useState(0);
   const router = useRouter();
 
   const content = currentVersion?.content as unknown as ArticleOutput | undefined;
   const hasVersion = Boolean(currentVersion);
-  const canAutoRevise = evaluation?.overall_status === "revise";
   const canSelect = evaluation?.overall_status === "pass" && !isSelected;
+  const locked = isPending || busyCount > 0;
+  const handleBusyChange = (busy: boolean) => setBusyCount((c) => Math.max(0, c + (busy ? 1 : -1)));
 
   function retry() {
     setError(null);
@@ -79,16 +68,6 @@ export function ArticleOptionCard({
     });
   }
 
-  function autoRevise() {
-    if (!currentVersion) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await autoReviseArticleAction(currentVersion.id);
-      if (result.ok) router.refresh();
-      else setError(result.error.message);
-    });
-  }
-
   function select() {
     if (!currentVersion) return;
     setError(null);
@@ -100,7 +79,7 @@ export function ArticleOptionCard({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border p-4">
+    <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium uppercase text-muted-foreground">
           Option {artifact.slot} · {ANGLE_LABEL[artifact.slot ?? ""] ?? ""}
@@ -113,8 +92,6 @@ export function ArticleOptionCard({
 
       {content ? (
         <>
-          <h4 className="font-medium">{content.title}</h4>
-          <p className="line-clamp-2 text-sm text-muted-foreground">{content.metaDescription}</p>
           <EvaluationSummary evaluation={evaluation} />
           {evaluation ? <EvaluationDrawer evaluation={evaluation} /> : null}
           <VersionHistory versions={versions} currentVersionId={currentVersion?.id ?? null} />
@@ -131,24 +108,16 @@ export function ArticleOptionCard({
 
       <div className="flex flex-wrap gap-2">
         {!hasVersion ? (
-          <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={retry} className="w-fit">
+          <Button type="button" size="sm" variant="outline" disabled={locked} onClick={retry} className="w-fit">
             {isPending ? "Retrying..." : "Retry"}
           </Button>
         ) : (
           <>
-            <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={evaluate} className="w-fit">
+            <Button type="button" size="sm" variant="outline" disabled={locked} onClick={evaluate} className="w-fit">
               {isPending ? "Evaluating..." : evaluation ? "Re-evaluate" : "Evaluate"}
             </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => setOpen((v) => !v)} className="w-fit">
-              {open ? "Close" : "Open"}
-            </Button>
-            {canAutoRevise ? (
-              <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={autoRevise} className="w-fit">
-                {isPending ? "Revising..." : "Auto-revise"}
-              </Button>
-            ) : null}
             {canSelect ? (
-              <Button type="button" size="sm" disabled={isPending || !canSelectAny} onClick={select} className="w-fit">
+              <Button type="button" size="sm" disabled={locked || !canSelectAny} onClick={select} className="w-fit">
                 {isPending ? "Selecting..." : "Select this option"}
               </Button>
             ) : null}
@@ -156,11 +125,15 @@ export function ArticleOptionCard({
         )}
       </div>
 
-      {open && content ? (
-        <div className="flex flex-col gap-4 border-t pt-4">
-          <ArticleEditor artifactId={artifact.id} content={content} />
-          {currentVersion ? <TargetedRevisionPanel articleVersionId={currentVersion.id} currentContent={content} /> : null}
-        </div>
+      {content && currentVersion ? (
+        <ArticleOptionEditor
+          artifactId={artifact.id}
+          articleVersionId={currentVersion.id}
+          content={content}
+          defaultInstruction={evaluation?.revision_instructions ?? null}
+          locked={locked}
+          onBusyChange={handleBusyChange}
+        />
       ) : null}
     </div>
   );

@@ -1,5 +1,5 @@
 import { SHARED_GROUNDING_RULES, formatEvidencePackets, type EvidencePacketInput } from "@/lib/ai/prompts/shared-grounding";
-import type { ArticleOutput } from "@/lib/ai/schemas/article";
+import { articleBodyMarkdown, type ArticleOutput } from "@/lib/ai/schemas/article";
 import type { Evaluation } from "@/lib/ai/schemas/evaluation";
 
 export interface ArticleReviserInput {
@@ -27,7 +27,7 @@ export function buildArticleReviserPrompt(input: ArticleReviserInput): { system:
 
   const userParts = [
     `Current article title: ${input.article.title}`,
-    `Current article body:\n${input.article.bodyMarkdown}`,
+    `Current article body:\n${articleBodyMarkdown(input.article)}`,
     `Current claim ledger:\n${JSON.stringify(input.article.claims, null, 2)}`,
     `Evaluation status: ${input.evaluation.overallStatus}`,
     `Unsupported claims to fix: ${input.evaluation.unsupportedClaims.join("; ") || "none listed"}`,

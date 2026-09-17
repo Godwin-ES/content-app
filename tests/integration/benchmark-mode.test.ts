@@ -10,7 +10,7 @@ function articleContent(overrides: Record<string, unknown> = {}) {
     metaDescription: "meta",
     primaryKeyword: "ai agents in recruiting",
     secondaryKeywords: [],
-    bodyMarkdown: "# AI Agents in Recruiting\n\nSome surveyed companies reported reduced screening time.",
+    sections: [{ heading: "Overview", level: "h2", bodyMarkdown: "Some surveyed companies reported reduced screening time." }],
     links: [{ url: "https://example.com/a", label: "Source" }],
     claims: [
       {

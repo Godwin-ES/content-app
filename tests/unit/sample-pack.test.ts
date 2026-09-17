@@ -19,7 +19,7 @@ function articleContent(title = "Article") {
     metaDescription: "meta",
     primaryKeyword: "ai agents in recruiting",
     secondaryKeywords: [],
-    bodyMarkdown: `# ${title}\n\nSome teams reported reduced workload.`,
+    sections: [{ heading: "Overview", level: "h2" as const, bodyMarkdown: "Some teams reported reduced workload." }],
     links: [],
     claims: [],
   };

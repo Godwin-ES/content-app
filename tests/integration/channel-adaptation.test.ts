@@ -126,7 +126,7 @@ describe.skipIf(!hasCredentials)("channel adaptation (hosted Supabase integratio
         metaDescription: "meta",
         primaryKeyword: "ai agents in recruiting",
         secondaryKeywords: [],
-        bodyMarkdown: "# AI Agents in Recruiting\n\nSome teams reported reduced administrative workload.",
+        sections: [{ heading: "Overview", level: "h2", bodyMarkdown: "Some teams reported reduced administrative workload." }],
         links: [],
         claims: [],
       },

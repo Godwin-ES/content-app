@@ -8,7 +8,7 @@ import type { AIProvider } from "@/lib/ai/types";
 import { adaptLinkedIn, adaptX, adaptNewsletter, evaluateChannel as evaluateChannelAI } from "@/lib/ai/service";
 import type { ChannelAdapterInput } from "@/lib/ai/prompts/linkedin-adapter";
 import type { LinkedinPost, XPost, Newsletter, ChannelEvaluation } from "@/lib/ai/schemas/channel";
-import type { ArticleOutput } from "@/lib/ai/schemas/article";
+import { articleBodyMarkdown, type ArticleOutput } from "@/lib/ai/schemas/article";
 import { validateLinkedinPost, validateXPost, validateNewsletter, type ChannelCheckResult } from "@/lib/channels/validate";
 import {
   getContentArtifactBySlot,
@@ -123,7 +123,7 @@ async function generateOneChannel(
       tone: request.resolved_tone,
       cta: request.resolved_cta,
       articleTitle: article.title,
-      articleBodyMarkdown: article.bodyMarkdown,
+      articleBodyMarkdown: articleBodyMarkdown(article),
     });
 
     const contentHash = hashCanonicalJson(JSON.parse(JSON.stringify(output)));
@@ -257,7 +257,7 @@ export async function evaluateChannelVersion(
   try {
     evaluation = await evaluateChannelAI(ai, modelId, {
       channel,
-      articleBodyMarkdown: article.bodyMarkdown,
+      articleBodyMarkdown: articleBodyMarkdown(article),
       channelOutputText: channelOutputText(channel, version.content),
     });
   } catch (error) {

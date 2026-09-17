@@ -20,10 +20,10 @@ export interface ArticleWriterInput {
 }
 
 const STRUCTURE_RULES = [
-  "Use exactly one H1 (the title). Include the primary keyword in the title and within the first 100 words.",
-  "Use H2 section headers, and H3 subheaders where needed.",
-  "Use short paragraphs of 2 to 3 sentences.",
-  "Include 2 to 3 relevant internal or external links.",
+  "Return one entry in `sections` per planned section, in the same order, each with that section's own heading, level, and body markdown (no further headings inside a section's own bodyMarkdown — one heading per section entry).",
+  "The title (returned separately, not as a section) already serves as the H1 — include the primary keyword in it and within the first 100 words of the first section's body.",
+  "Use short paragraphs of 2 to 3 sentences within each section's body.",
+  "Include 2 to 3 relevant internal or external links, spread across the sections where they naturally fit.",
   "Every factual or inference claim must appear in the `claims` array with the exact evidence IDs (e.g. S4:E1) it draws on. Editorial/connective language does not need a claim entry.",
 ].join("\n- ");
 

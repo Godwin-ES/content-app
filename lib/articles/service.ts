@@ -8,7 +8,7 @@ import type { AIProvider } from "@/lib/ai/types";
 import { generateArticle, evaluateArticle as evaluateArticleAI, reviseArticle as reviseArticleAI } from "@/lib/ai/service";
 import type { ArticleAngle } from "@/lib/ai/prompts/article-writer";
 import type { ContentPlan, ContentPlanSection } from "@/lib/ai/schemas/content-plan";
-import type { ArticleOutput } from "@/lib/ai/schemas/article";
+import { articleBodyMarkdown, type ArticleOutput } from "@/lib/ai/schemas/article";
 import type { Evaluation } from "@/lib/ai/schemas/evaluation";
 import { getEvidenceContextForRequest } from "@/lib/grounding/evidence-context";
 import { validateClaimEvidence } from "@/lib/grounding/claim-validation";
@@ -320,7 +320,7 @@ export async function evaluateArticleVersion(
   const deterministicChecks = validateArticleSEO({
     title: article.title,
     primaryKeyword: article.primaryKeyword,
-    bodyMarkdown: article.bodyMarkdown,
+    bodyMarkdown: articleBodyMarkdown(article),
     links: article.links,
   });
   const articleClaimIds = new Set(article.claims.map((c) => c.claimId));

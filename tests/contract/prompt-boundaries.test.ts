@@ -66,7 +66,7 @@ describe("prompts include the shared grounding rules", () => {
           metaDescription: "m",
           primaryKeyword: "k",
           secondaryKeywords: [],
-          bodyMarkdown: "body",
+          sections: [{ heading: "Section", level: "h2", bodyMarkdown: "body" }],
           links: [],
           claims: [],
         },

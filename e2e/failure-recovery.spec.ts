@@ -150,7 +150,7 @@ test("a partial article-generation failure state renders correctly: two succeede
     metaDescription: "meta",
     primaryKeyword: "ai agents in recruiting",
     secondaryKeywords: [],
-    bodyMarkdown: `# ${title}\n\nSome teams reported reduced workload.`,
+    sections: [{ heading: "Overview", level: "h2", bodyMarkdown: "Some teams reported reduced workload." }],
     links: [],
     claims: [],
   });
@@ -175,7 +175,16 @@ test("a partial article-generation failure state renders correctly: two succeede
   await login(page, owner.email, owner.password);
   await page.goto(`/requests/${request!.id}`);
   await page.getByRole("tab", { name: "Articles" }).click();
-  await expect(page.getByText("Failed").first()).toBeVisible({ timeout: 15000 });
+  // Each option is its own sub-tab (Phase 4 of the post-Task-22 UX pass);
+  // the failed one's badge shows right on its tab trigger, but seeing its
+  // Retry button (and the other two options' "Generated" state) requires
+  // switching into each tab in turn.
+  await expect(page.getByRole("tab", { name: /Option B/ }).getByText("Failed")).toBeVisible({ timeout: 15000 });
+  await page.getByRole("tab", { name: /Option B/ }).click();
   await expect(page.getByRole("button", { name: "Retry", exact: true })).toBeVisible();
-  await expect(page.getByText("Generated", { exact: true })).toHaveCount(2);
+
+  for (const slot of ["A", "C"]) {
+    await page.getByRole("tab", { name: new RegExp(`Option ${slot}`) }).click();
+    await expect(page.getByText("Generated", { exact: true })).toBeVisible();
+  }
 });
