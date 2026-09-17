@@ -41,7 +41,10 @@ async function login(page: import("@playwright/test").Page) {
 
 test("dashboard shows an empty state before any request exists", async ({ page }) => {
   await login(page);
-  await expect(page.getByText(/no requests yet/i)).toBeVisible();
+  // The dashboard groups by stage now, so the empty state belongs to the
+  // tab that opens first rather than to the page as a whole.
+  await expect(page.getByRole("tab", { name: /In Progress/ })).toBeVisible();
+  await expect(page.getByText(/nothing in progress/i)).toBeVisible();
 });
 
 test("a new request lands in the workspace showing the Overview tab and a next-step stepper", async ({ page }) => {
@@ -70,7 +73,9 @@ test("a new request lands in the workspace showing the Overview tab and a next-s
   await expect(page.getByRole("tab", { name: "Channels" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Approval" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Publishing" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Activity" })).toBeVisible();
+  // Activity is no longer a tab — it lives on the Overview as collapsible history.
+  await expect(page.getByRole("tab", { name: "Activity" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Show activity/ })).toBeVisible();
 
   await expect(page.getByText("Next step")).toBeVisible();
   await expect(page.getByText("Research: Start content research")).toBeVisible();
@@ -103,8 +108,11 @@ test("switching tabs reveals each section's own empty state", async ({ page }) =
   await page.getByRole("tab", { name: "Publishing" }).click();
   await expect(page.getByText("No approved package yet")).toBeVisible();
 
-  await page.getByRole("tab", { name: "Activity" }).click();
-  await expect(page.getByText("No activity yet")).toBeVisible();
+  // Seeded straight into the database, so it has no recorded history —
+  // the activity section should say so rather than render an empty list.
+  await page.getByRole("tab", { name: "Overview" }).click();
+  await page.getByRole("button", { name: /Show activity/ }).click();
+  await expect(page.getByText(/nothing has happened on this request yet/i)).toBeVisible();
 });
 
 test("a pending_approval request shows the read-only submission message", async ({ page }) => {

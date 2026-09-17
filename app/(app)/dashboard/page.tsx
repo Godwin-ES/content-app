@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listOwnedRequests } from "@/lib/repositories/requests";
+import { buildDashboardProgress } from "@/lib/workspace/dashboard-progress";
 import { RequestStatusTabs } from "@/components/dashboard/request-status-tabs";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -18,6 +19,8 @@ export default async function DashboardPage() {
     : { data: [] };
   const pendingReviewIdByRequest = Object.fromEntries((pendingReviews ?? []).map((r) => [r.request_id, r.id]));
 
+  const progressByRequest = await buildDashboardProgress(supabase, requests);
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
@@ -30,7 +33,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      <RequestStatusTabs requests={requests} pendingReviewIdByRequest={pendingReviewIdByRequest} />
+      <RequestStatusTabs requests={requests} pendingReviewIdByRequest={pendingReviewIdByRequest} progressByRequest={progressByRequest} />
     </div>
   );
 }

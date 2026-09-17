@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveNextAction, type WorkspaceSnapshot } from "@/lib/workspace/next-action";
+import { deriveNextAction, derivePipelineProgress, type WorkspaceSnapshot } from "@/lib/workspace/next-action";
 
 function base(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
   return {
@@ -152,5 +152,30 @@ describe("deriveNextAction", () => {
 
   it("shows nothing pending for an archived request", () => {
     expect(deriveNextAction(base({ status: "archived" })).key).toBe("none");
+  });
+});
+
+describe("derivePipelineProgress", () => {
+  it("places each next action in the pipeline stage its own label names", () => {
+    // The label prefix and the stage are meant to be the same fact, so any
+    // drift between them shows up here.
+    const cases: Array<{ snapshot: Parameters<typeof derivePipelineProgress>[0]; stage: string; step: number }> = [
+      { snapshot: base({ status: "draft" }), stage: "Research", step: 1 },
+      { snapshot: base({ status: "source_review", sources: { usable: 2, pending: 0, failed: 0, unusable: 0 } }), stage: "Research", step: 1 },
+      { snapshot: base({ status: "content_development" }), stage: "Plan", step: 2 },
+      { snapshot: base({ status: "content_development", hasContentPlan: true }), stage: "Articles", step: 3 },
+      { snapshot: base({ status: "pending_approval" }), stage: "Approval", step: 5 },
+      { snapshot: base({ status: "changes_requested" }), stage: "Approval", step: 5 },
+      { snapshot: base({ status: "approved" }), stage: "Publishing", step: 6 },
+    ];
+
+    for (const { snapshot, stage, step } of cases) {
+      const progress = derivePipelineProgress(snapshot);
+      expect({ stage: progress.stage, step: progress.step }).toEqual({ stage, step });
+      expect(progress.totalSteps).toBe(6);
+      // The dashboard shows this label; it must match what the Overview's
+      // stepper shows for the same request.
+      expect(progress.label).toBe(deriveNextAction(snapshot).label);
+    }
   });
 });

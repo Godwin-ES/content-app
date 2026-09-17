@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RequestList } from "@/components/dashboard/request-list";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/supabase/database.types";
+import type { PipelineProgress } from "@/lib/workspace/next-action";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
 type RequestStatus = ContentRequestRow["status"];
@@ -63,9 +64,11 @@ const TABS: Array<{ key: TabKey; label: string; emptyTitle: string; emptyDescrip
 export function RequestStatusTabs({
   requests,
   pendingReviewIdByRequest,
+  progressByRequest,
 }: {
   requests: ContentRequestRow[];
   pendingReviewIdByRequest: Record<string, string>;
+  progressByRequest: Record<string, PipelineProgress>;
 }) {
   const byTab = (key: TabKey) => requests.filter((request) => TAB_FOR_STATUS[request.status] === key);
   const visibleTabs = TABS.filter((tab) => !tab.hideWhenEmpty || byTab(tab.key).length > 0);
@@ -104,6 +107,7 @@ export function RequestStatusTabs({
           <RequestList
             requests={byTab(tab.key)}
             pendingReviewIdByRequest={pendingReviewIdByRequest}
+            progressByRequest={progressByRequest}
             emptyTitle={tab.emptyTitle}
             emptyDescription={tab.emptyDescription}
           />

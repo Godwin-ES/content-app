@@ -5,6 +5,7 @@ import { DeleteRequestButton } from "@/components/dashboard/delete-request-butto
 import { WithdrawSubmissionButton } from "@/components/dashboard/withdraw-submission-button";
 import { RequestStage } from "@/components/dashboard/request-stage";
 import type { Database } from "@/lib/supabase/database.types";
+import type { PipelineProgress } from "@/lib/workspace/next-action";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
 
@@ -22,6 +23,7 @@ interface RequestListProps {
   requests: ContentRequestRow[];
   /** The still-pending review for each submitted request, so it can be withdrawn from here. */
   pendingReviewIdByRequest?: Record<string, string>;
+  progressByRequest?: Record<string, PipelineProgress>;
   emptyTitle?: string;
   emptyDescription?: string;
 }
@@ -29,6 +31,7 @@ interface RequestListProps {
 export function RequestList({
   requests,
   pendingReviewIdByRequest = {},
+  progressByRequest = {},
   emptyTitle = "No requests yet",
   emptyDescription = "Start one from the button above.",
 }: RequestListProps) {
@@ -50,7 +53,7 @@ export function RequestList({
           <div key={request.id} className="flex flex-col gap-3 p-4 hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between">
             <Link href={`/requests/${request.id}`} className="flex min-w-0 flex-1 flex-col gap-2">
               <span className="font-medium">{request.topic}</span>
-              <RequestStage status={request.status} />
+              <RequestStage progress={progressByRequest[request.id]} />
               <span className="text-xs text-muted-foreground">
                 Updated <LocalDateTime value={request.updated_at} />
               </span>

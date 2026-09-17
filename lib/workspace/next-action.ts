@@ -115,3 +115,60 @@ export function deriveNextAction(snapshot: WorkspaceSnapshot): NextAction {
       return action("none", "Nothing pending", "This request has no outstanding action right now.");
   }
 }
+
+/**
+ * The six stages of the pipeline, in order — the same six the request
+ * workspace has tabs for. Every next action belongs to exactly one of
+ * them, and each action's label is already prefixed with its stage name
+ * ("Articles: Select an article"), so this mapping is what that prefix
+ * has been saying all along, made explicit and reusable.
+ */
+export const PIPELINE_STAGES = ["Research", "Plan", "Articles", "Channels", "Approval", "Publishing"] as const;
+
+export type PipelineStage = (typeof PIPELINE_STAGES)[number];
+
+const STAGE_FOR_ACTION: Record<NextActionKey, PipelineStage> = {
+  add_sources: "Research",
+  wait_for_research: "Research",
+  resolve_no_usable_sources: "Research",
+  review_sources: "Research",
+  generate_content_plan: "Plan",
+  generate_articles: "Articles",
+  resolve_article_generation_failure: "Articles",
+  resolve_article_evaluation: "Articles",
+  select_article: "Articles",
+  generate_channels: "Channels",
+  resolve_channel_issue: "Channels",
+  create_package: "Approval",
+  submit_for_approval: "Approval",
+  await_review: "Approval",
+  review_requested_changes: "Approval",
+  queue_approved_content: "Publishing",
+  // Nothing outstanding only ever happens at the end of the line.
+  none: "Publishing",
+};
+
+export interface PipelineProgress {
+  stage: PipelineStage;
+  /** 1-based position of `stage` within PIPELINE_STAGES. */
+  step: number;
+  totalSteps: number;
+  /** The next action's own description, so a caller can show what the step actually asks for. */
+  label: string;
+}
+
+/**
+ * How far along the pipeline a request is, derived from the very same
+ * next action the workspace Overview shows — so a request's stage cannot
+ * say one thing on the dashboard and another on its own page.
+ */
+export function derivePipelineProgress(snapshot: WorkspaceSnapshot): PipelineProgress {
+  const nextAction = deriveNextAction(snapshot);
+  const stage = STAGE_FOR_ACTION[nextAction.key];
+  return {
+    stage,
+    step: PIPELINE_STAGES.indexOf(stage) + 1,
+    totalSteps: PIPELINE_STAGES.length,
+    label: nextAction.label,
+  };
+}

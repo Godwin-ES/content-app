@@ -11,7 +11,10 @@ export async function login(page: Page, email: string, password: string) {
   await page.fill("#email", email);
   await page.fill("#password", password);
   await page.click('button[type="submit"]');
-  await page.waitForURL(/dashboard/, { timeout: 15000 });
+  // Sign-in routes by role: a Content Manager lands on /dashboard, a
+  // Reviewer on /reviews. Waiting only for /dashboard silently worked
+  // while every account went there regardless of role.
+  await page.waitForURL(/\/(dashboard|reviews)/, { timeout: 15000 });
 }
 
 // Deliberately reimplements a thin slice of lib/packages/service.ts's

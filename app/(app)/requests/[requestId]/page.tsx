@@ -10,6 +10,7 @@ import { getPackageReadiness } from "@/lib/packages/service";
 import { getLatestReview } from "@/lib/repositories/approvals";
 import { getPublishingQueue } from "@/lib/publishing/service";
 import { listActivityEvents } from "@/lib/repositories/activity";
+import { filterDisplayedActivity } from "@/lib/activity/display";
 import { deriveNextAction, type WorkspaceSnapshot } from "@/lib/workspace/next-action";
 
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -25,7 +26,7 @@ import { ContentPackagePreview } from "@/components/approvals/content-package-pr
 import { SubmissionPanel } from "@/components/approvals/submission-panel";
 import { QueueControls } from "@/components/publishing/queue-controls";
 import { PublishingList } from "@/components/publishing/publishing-list";
-import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { ActivityHistory } from "@/components/activity/activity-history";
 
 /**
  * Request workspace (SYSTEM-DESIGN-NEXTJS.md §34.3): Overview / Research /
@@ -169,6 +170,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
           description={channelArtifacts.length === 0 ? "No channel assets generated yet." : `${channelArtifacts.length} of 3 channels generated.`}
         />
       </div>
+      <ActivityHistory events={filterDisplayedActivity(activityEvents)} />
     </>
   );
 
@@ -252,7 +254,6 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
     <EmptyState title="No approved package yet" description="Publishing becomes available once a package is approved." />
   );
 
-  const activityContent = <ActivityTimeline events={activityEvents} />;
 
   return (
     <div className="flex flex-col gap-6">
@@ -269,7 +270,6 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
         channels={channelsContent}
         approval={approvalContent}
         publishing={publishingContent}
-        activity={activityContent}
       />
     </div>
   );
