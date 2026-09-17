@@ -12,6 +12,7 @@ import { getPublishingQueue } from "@/lib/publishing/service";
 import { listActivityEvents } from "@/lib/repositories/activity";
 import { filterDisplayedActivity } from "@/lib/activity/display";
 import { deriveNextAction, type WorkspaceSnapshot } from "@/lib/workspace/next-action";
+import { articlesStaleAgainstPlan, channelsStaleAgainstArticle } from "@/lib/workspace/staleness";
 
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -27,6 +28,7 @@ import { SubmissionPanel } from "@/components/approvals/submission-panel";
 import { QueueControls } from "@/components/publishing/queue-controls";
 import { PublishingList } from "@/components/publishing/publishing-list";
 import { ActivityHistory } from "@/components/activity/activity-history";
+import { StaleNotice } from "@/components/shared/stale-notice";
 
 /**
  * Request workspace (SYSTEM-DESIGN-NEXTJS.md §34.3): Overview / Research /
@@ -188,8 +190,12 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
 
   const planContent = <PlanTab requestId={requestId} plan={plan} versions={planVersions} canGenerate={request.status === "content_development"} />;
 
+  const articlesStale = articlesStaleAgainstPlan(Object.values(articleVersionsByArtifact), plan?.id ?? null);
+  const channelsStale = channelsStaleAgainstArticle(Object.values(channelVersionsByArtifact), request.selected_article_version_id);
+
   const articlesContent = (
     <>
+      <StaleNotice notice={articlesStale} />
       {plan ? (
         <ArticleComparison
           requestId={requestId}
@@ -207,14 +213,17 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   );
 
   const channelsContent = request.selected_article_version_id ? (
-    <ChannelWorkspace
+    <>
+      <StaleNotice notice={channelsStale} />
+      <ChannelWorkspace
       requestId={requestId}
       channelArtifacts={channelArtifacts}
       currentVersionsByArtifact={channelVersionsByArtifact}
       evaluationsByArtifact={channelEvaluationsByArtifact}
       versionsByArtifact={Object.fromEntries(channelAllVersionsEntries)}
       canGenerate={request.status === "content_development"}
-    />
+      />
+    </>
   ) : (
     <EmptyState title="Select an article first" description="Channel adaptation works from the selected article option." />
   );

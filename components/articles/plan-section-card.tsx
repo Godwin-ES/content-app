@@ -18,6 +18,7 @@ interface PlanSectionCardProps {
   currentDraft: { title: string; angle: string; sections: ContentPlanSection[] };
   locked?: boolean;
   onChange: (index: number, section: ContentPlanSection) => void;
+  onRegenerated: (index: number, section: ContentPlanSection) => void;
   onBusyChange?: (busy: boolean) => void;
 }
 
@@ -31,7 +32,7 @@ interface PlanSectionCardProps {
  * long title) and the level/heading no longer compete for the same row's
  * width.
  */
-export function PlanSectionCard({ requestId, section, index, currentDraft, locked = false, onChange, onBusyChange }: PlanSectionCardProps) {
+export function PlanSectionCard({ requestId, section, index, currentDraft, locked = false, onChange, onRegenerated, onBusyChange }: PlanSectionCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(section);
 
@@ -70,7 +71,7 @@ export function PlanSectionCard({ requestId, section, index, currentDraft, locke
                 sectionIndex={index}
                 sectionLabel={sectionLabel}
                 currentDraft={currentDraft}
-                onRegenerated={(newSection) => onChange(index, newSection)}
+                onRegenerated={(newSection) => onRegenerated(index, newSection)}
                 disabled={locked}
                 onRegenerationStart={() => onBusyChange?.(true)}
                 onRegenerationEnd={() => onBusyChange?.(false)}

@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MarkdownBody } from "@/components/shared/markdown-body";
 import { Loader2, Pencil } from "lucide-react";
 import { ChannelRegenerateDialog } from "@/components/channels/channel-regenerate-dialog";
+import { RegenerationReviewBar } from "@/components/shared/regeneration-review-bar";
 import type { LinkedinPost } from "@/lib/ai/schemas/channel";
 
 interface LinkedinEditorProps {
@@ -30,6 +31,7 @@ export function LinkedinEditor({ artifactId, content, locked, onBusyChange }: Li
   const [editBody, setEditBody] = useState(content.body);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [beforeRegeneration, setBeforeRegeneration] = useState<LinkedinPost | null>(null);
   const router = useRouter();
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(content);
@@ -46,6 +48,7 @@ export function LinkedinEditor({ artifactId, content, locked, onBusyChange }: Li
   }
 
   function discard() {
+    setBeforeRegeneration(null);
     setDraft(content);
     setError(null);
   }
@@ -55,6 +58,7 @@ export function LinkedinEditor({ artifactId, content, locked, onBusyChange }: Li
     setIsSaving(true);
     const result = await saveManualChannelRevisionAction(artifactId, draft);
     setIsSaving(false);
+    setBeforeRegeneration(null);
     if (result.ok) router.refresh();
     else setError(result.error.message);
   }
@@ -71,7 +75,10 @@ export function LinkedinEditor({ artifactId, content, locked, onBusyChange }: Li
             <ChannelRegenerateDialog
               artifactId={artifactId}
               label="LinkedIn post"
-              onRegenerated={(proposal) => setDraft(proposal as LinkedinPost)}
+              onRegenerated={(proposal) => {
+                setBeforeRegeneration(draft);
+                setDraft(proposal as LinkedinPost);
+              }}
               disabled={busy}
               onBusyChange={onBusyChange}
             />
@@ -97,6 +104,18 @@ export function LinkedinEditor({ artifactId, content, locked, onBusyChange }: Li
       ) : (
         <MarkdownBody className="rounded-md border p-4">{draft.body}</MarkdownBody>
       )}
+
+      {beforeRegeneration ? (
+        <RegenerationReviewBar
+          what="post"
+          disabled={busy}
+          onKeep={() => setBeforeRegeneration(null)}
+          onUndo={() => {
+            setDraft(beforeRegeneration);
+            setBeforeRegeneration(null);
+          }}
+        />
+      ) : null}
 
       {error ? (
         <Alert variant="destructive">

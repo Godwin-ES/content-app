@@ -12,6 +12,7 @@ import { MarkdownBody } from "@/components/shared/markdown-body";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Pencil } from "lucide-react";
 import { ChannelRegenerateDialog } from "@/components/channels/channel-regenerate-dialog";
+import { RegenerationReviewBar } from "@/components/shared/regeneration-review-bar";
 import type { XPost } from "@/lib/ai/schemas/channel";
 
 interface XEditorProps {
@@ -40,6 +41,7 @@ export function XEditor({ artifactId, content, locked, onBusyChange }: XEditorPr
   const [editHashtags, setEditHashtags] = useState(content.hashtags.join(" "));
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [beforeRegeneration, setBeforeRegeneration] = useState<XPost | null>(null);
   const router = useRouter();
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(content);
@@ -57,6 +59,7 @@ export function XEditor({ artifactId, content, locked, onBusyChange }: XEditorPr
   }
 
   function discard() {
+    setBeforeRegeneration(null);
     setDraft(content);
     setError(null);
   }
@@ -66,6 +69,7 @@ export function XEditor({ artifactId, content, locked, onBusyChange }: XEditorPr
     setIsSaving(true);
     const result = await saveManualChannelRevisionAction(artifactId, draft);
     setIsSaving(false);
+    setBeforeRegeneration(null);
     if (result.ok) router.refresh();
     else setError(result.error.message);
   }
@@ -82,7 +86,10 @@ export function XEditor({ artifactId, content, locked, onBusyChange }: XEditorPr
             <ChannelRegenerateDialog
               artifactId={artifactId}
               label="X post"
-              onRegenerated={(proposal) => setDraft(proposal as XPost)}
+              onRegenerated={(proposal) => {
+                setBeforeRegeneration(draft);
+                setDraft(proposal as XPost);
+              }}
               disabled={busy}
               onBusyChange={onBusyChange}
             />
@@ -123,6 +130,18 @@ export function XEditor({ artifactId, content, locked, onBusyChange }: XEditorPr
           ) : null}
         </>
       )}
+
+      {beforeRegeneration ? (
+        <RegenerationReviewBar
+          what="post"
+          disabled={busy}
+          onKeep={() => setBeforeRegeneration(null)}
+          onUndo={() => {
+            setDraft(beforeRegeneration);
+            setBeforeRegeneration(null);
+          }}
+        />
+      ) : null}
 
       {error ? (
         <Alert variant="destructive">

@@ -102,7 +102,8 @@ export function ArticleComparison({
                     currentVersionsByArtifact[artifact.id]?.id !== undefined &&
                     currentVersionsByArtifact[artifact.id]?.id === selectedArticleVersionId
                   }
-                  canSelectAny={selectedArticleVersionId === null}
+                  canSelectAny
+                  selectedArticleVersionId={selectedArticleVersionId}
                 />
               </div>
             </TabsContent>

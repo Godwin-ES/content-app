@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MarkdownBody } from "@/components/shared/markdown-body";
 import { Loader2, Pencil } from "lucide-react";
 import { ChannelRegenerateDialog } from "@/components/channels/channel-regenerate-dialog";
+import { RegenerationReviewBar } from "@/components/shared/regeneration-review-bar";
 import type { Newsletter } from "@/lib/ai/schemas/channel";
 
 interface NewsletterEditorProps {
@@ -51,6 +52,7 @@ export function NewsletterEditor({ artifactId, content, locked, onBusyChange }: 
   const [fieldValue, setFieldValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [beforeRegeneration, setBeforeRegeneration] = useState<Newsletter | null>(null);
   const router = useRouter();
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(content);
@@ -68,6 +70,7 @@ export function NewsletterEditor({ artifactId, content, locked, onBusyChange }: 
   }
 
   function discard() {
+    setBeforeRegeneration(null);
     setDraft(content);
     setError(null);
   }
@@ -77,6 +80,7 @@ export function NewsletterEditor({ artifactId, content, locked, onBusyChange }: 
     setIsSaving(true);
     const result = await saveManualChannelRevisionAction(artifactId, draft);
     setIsSaving(false);
+    setBeforeRegeneration(null);
     if (result.ok) router.refresh();
     else setError(result.error.message);
   }
@@ -103,8 +107,8 @@ export function NewsletterEditor({ artifactId, content, locked, onBusyChange }: 
                 label={FIELD_LABELS[field]}
                 instructionPrefix={FIELD_INSTRUCTION_PREFIX[field]}
                 onRegenerated={(proposal) => {
-                  const value = (proposal as Newsletter)[field];
-                  setDraft((prev) => ({ ...prev, [field]: value }));
+                  setBeforeRegeneration(draft);
+                  setDraft({ ...draft, [field]: (proposal as Newsletter)[field] });
                 }}
                 disabled={busy}
                 onBusyChange={onBusyChange}
@@ -146,6 +150,18 @@ export function NewsletterEditor({ artifactId, content, locked, onBusyChange }: 
       {renderField("bodyMarkdown", { multiline: true, markdown: true })}
       {renderField("callToAction")}
       {renderField("signoff")}
+
+      {beforeRegeneration ? (
+        <RegenerationReviewBar
+          what="field"
+          disabled={busy}
+          onKeep={() => setBeforeRegeneration(null)}
+          onUndo={() => {
+            setDraft(beforeRegeneration);
+            setBeforeRegeneration(null);
+          }}
+        />
+      ) : null}
 
       {error ? (
         <Alert variant="destructive">

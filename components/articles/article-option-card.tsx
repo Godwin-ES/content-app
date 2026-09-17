@@ -26,6 +26,7 @@ interface ArticleOptionCardProps {
   versions: ArtifactVersionRow[];
   isSelected: boolean;
   canSelectAny: boolean;
+  selectedArticleVersionId: string | null;
 }
 
 const ANGLE_LABEL: Record<string, string> = { A: "Practical", B: "Strategic", C: "Educational" };
@@ -38,7 +39,7 @@ const ANGLE_LABEL: Record<string, string> = { A: "Practical", B: "Strategic", C:
  * per-section Edit/Regenerate inside ArticleOptionEditor — the server, not
  * this UI, is what actually enforces every eligibility rule.
  */
-export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluation, versions, isSelected, canSelectAny }: ArticleOptionCardProps) {
+export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluation, versions, isSelected, canSelectAny, selectedArticleVersionId }: ArticleOptionCardProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [busyCount, setBusyCount] = useState(0);
@@ -46,7 +47,13 @@ export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluat
 
   const content = currentVersion?.content as unknown as ArticleOutput | undefined;
   const hasVersion = Boolean(currentVersion);
+  // Changing your mind is allowed: the server only requires that the
+  // version be the option's current one and that it passed evaluation, so
+  // a different passing option can be chosen after one already is. Any
+  // channels already adapted from the old choice are then flagged stale
+  // rather than silently left pointing at a superseded article.
   const canSelect = evaluation?.overall_status === "pass" && !isSelected;
+  const anotherOptionSelected = !isSelected && Boolean(selectedArticleVersionId);
   const locked = isPending || busyCount > 0;
   const handleBusyChange = (busy: boolean) => setBusyCount((c) => Math.max(0, c + (busy ? 1 : -1)));
 
@@ -137,6 +144,8 @@ export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluat
                   <>
                     <Loader2 className="size-4 animate-spin" /> Selecting...
                   </>
+                ) : anotherOptionSelected ? (
+                  "Select this option instead"
                 ) : (
                   "Select this option"
                 )}

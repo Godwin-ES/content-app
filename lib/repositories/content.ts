@@ -37,7 +37,15 @@ export async function listContentArtifacts(
   supabase: SupabaseClient<Database>,
   requestId: string
 ): Promise<ContentArtifactRow[]> {
-  const { data, error } = await supabase.from("content_artifacts").select().eq("request_id", requestId);
+  // Ordered explicitly: without this the database returns rows in whatever
+  // order it likes, which is why the article options could render as B, A, C.
+  // Channels carry no slot, so they fall back to creation order.
+  const { data, error } = await supabase
+    .from("content_artifacts")
+    .select()
+    .eq("request_id", requestId)
+    .order("slot", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true });
   if (error) throw error;
   return data ?? [];
 }

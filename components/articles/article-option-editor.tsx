@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArticleSectionCard } from "@/components/articles/article-section-card";
+import { RegenerationReviewBar } from "@/components/shared/regeneration-review-bar";
 import { articleSections, type ArticleOutput } from "@/lib/ai/schemas/article";
 
 interface ArticleOptionEditorProps {
@@ -35,6 +36,10 @@ export function ArticleOptionEditor({ artifactId, articleVersionId, content, def
   const [draft, setDraft] = useState<ArticleOutput>(() => ({ ...content, sections: articleSections(content) }));
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // The draft as it stood immediately before the most recent regeneration,
+  // so that one regeneration can be undone without discarding every other
+  // unsaved edit alongside it.
+  const [beforeRegeneration, setBeforeRegeneration] = useState<ArticleOutput | null>(null);
   const router = useRouter();
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify({ ...content, sections: articleSections(content) });
@@ -46,6 +51,7 @@ export function ArticleOptionEditor({ artifactId, articleVersionId, content, def
   }
 
   function discard() {
+    setBeforeRegeneration(null);
     setDraft({ ...content, sections: articleSections(content) });
     setError(null);
   }
@@ -55,6 +61,7 @@ export function ArticleOptionEditor({ artifactId, articleVersionId, content, def
     setIsSaving(true);
     const result = await saveManualArticleRevisionAction(artifactId, draft);
     setIsSaving(false);
+    setBeforeRegeneration(null);
     if (result.ok) router.refresh();
     else setError(result.error.message);
   }
@@ -87,11 +94,26 @@ export function ArticleOptionEditor({ artifactId, articleVersionId, content, def
             defaultInstruction={defaultInstruction}
             locked={busy}
             onChange={updateSection}
-            onRegenerated={(proposal) => setDraft(proposal)}
+            onRegenerated={(proposal) => {
+              setBeforeRegeneration(draft);
+              setDraft(proposal);
+            }}
             onBusyChange={onBusyChange}
           />
         ))}
       </div>
+
+      {beforeRegeneration ? (
+        <RegenerationReviewBar
+          what="section"
+          disabled={busy}
+          onKeep={() => setBeforeRegeneration(null)}
+          onUndo={() => {
+            setDraft(beforeRegeneration);
+            setBeforeRegeneration(null);
+          }}
+        />
+      ) : null}
 
       {error ? (
         <Alert variant="destructive">

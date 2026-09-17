@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { PlanSectionCard } from "@/components/articles/plan-section-card";
+import { RegenerationReviewBar } from "@/components/shared/regeneration-review-bar";
 import { PlanRegenerateWholeDialog } from "@/components/articles/plan-regenerate-whole-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import type { Database } from "@/lib/supabase/database.types";
@@ -50,6 +51,7 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [revertingId, setRevertingId] = useState<string | null>(null);
+  const [beforeRegeneration, setBeforeRegeneration] = useState<ManualContentPlanInput | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const router = useRouter();
 
@@ -75,6 +77,7 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
   }
 
   function discard() {
+    setBeforeRegeneration(null);
     setDraft(plan ? toDraft(plan) : null);
     setError(null);
   }
@@ -85,6 +88,7 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
     setIsPending(true);
     const result = await saveManualContentPlanAction(requestId, draft);
     setIsPending(false);
+    setBeforeRegeneration(null);
     if (result.ok) router.refresh();
     else setError(result.error.message);
   }
@@ -135,7 +139,10 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
           <div className="flex shrink-0 gap-2">
             <PlanRegenerateWholeDialog
               requestId={requestId}
-              onRegenerated={(newDraft) => setDraft(newDraft)}
+              onRegenerated={(newDraft) => {
+                setBeforeRegeneration(draft);
+                setDraft(newDraft);
+              }}
               disabled={locked}
               onBusyChange={handleBusyChange}
             />
@@ -174,10 +181,26 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
             currentDraft={{ title: draft.title, angle: draft.angle, sections: draft.sections }}
             locked={locked}
             onChange={updateSection}
+            onRegenerated={(i, s) => {
+              setBeforeRegeneration(draft);
+              updateSection(i, s);
+            }}
             onBusyChange={handleBusyChange}
           />
         ))}
       </div>
+
+      {beforeRegeneration ? (
+        <RegenerationReviewBar
+          what="plan content"
+          disabled={locked}
+          onKeep={() => setBeforeRegeneration(null)}
+          onUndo={() => {
+            setDraft(beforeRegeneration);
+            setBeforeRegeneration(null);
+          }}
+        />
+      ) : null}
 
       {isDirty ? (
         <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
