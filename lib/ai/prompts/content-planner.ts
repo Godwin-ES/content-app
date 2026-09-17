@@ -14,7 +14,8 @@ export interface ContentPlannerInput {
 }
 
 const SEO_RULES = [
-  "Include the primary keyword in the title and within the first 100 words.",
+  "The title must contain the primary keyword WORD FOR WORD as an unbroken phrase — not rephrased, and with no words inserted into the middle of it. Leading with the exact phrase followed by a colon and a subtitle is the easiest way to do this naturally.",
+  "Choose a primary keyword that can actually sit in a title unbroken: a short noun phrase a reader would search for, not a sentence.",
   "Use exactly one H1 (the title); use H2 section headers and H3 subheaders where needed.",
   "Use relevant secondary keywords in section headers and body where natural.",
   "Plan 2 to 3 relevant internal or external links.",

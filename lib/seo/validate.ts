@@ -17,6 +17,22 @@ function stripMarkdown(markdown: string): string {
   return markdown.replace(/[#*_`>[\]()]/g, " ");
 }
 
+/**
+ * Lowercases and flattens the punctuation that separates words, so
+ * "four-day work week" still matches "Four Day Work Week" in a title. It
+ * deliberately does NOT reorder or drop words: the SEO spec requires the
+ * primary keyword itself in the title, and a title that merely reuses its
+ * words scattered around ("AI Agents Are Transforming Recruiting" for "AI
+ * agents in recruiting") has not met that, so it must still fail.
+ */
+function normalizeForKeywordMatch(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[\u2010-\u2015]/g, "-")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 function countHeadings(markdown: string, level: number): number {
   const pattern = new RegExp(`^#{${level}}\\s+\\S`, "gm");
   return (markdown.match(pattern) ?? []).length;
@@ -31,10 +47,11 @@ function countHeadings(markdown: string, level: number): number {
 export function validateArticleSEO(article: ArticleSeoInput): SeoCheckResult[] {
   const h1Count = countHeadings(article.bodyMarkdown, 1);
   const h2Count = countHeadings(article.bodyMarkdown, 2);
-  const keywordLower = article.primaryKeyword.trim().toLowerCase();
+  const keywordLower = normalizeForKeywordMatch(article.primaryKeyword);
+  const titleForMatch = normalizeForKeywordMatch(article.title);
 
   const plainText = stripMarkdown(article.bodyMarkdown).trim();
-  const firstWords = plainText.split(/\s+/).slice(0, FIRST_WORDS_WINDOW).join(" ").toLowerCase();
+  const firstWords = normalizeForKeywordMatch(plainText.split(/\s+/).slice(0, FIRST_WORDS_WINDOW).join(" "));
 
   return [
     {
@@ -44,9 +61,9 @@ export function validateArticleSEO(article: ArticleSeoInput): SeoCheckResult[] {
     },
     {
       key: "keyword_in_title",
-      ok: keywordLower.length > 0 && article.title.toLowerCase().includes(keywordLower),
+      ok: keywordLower.length > 0 && titleForMatch.includes(keywordLower),
       message:
-        keywordLower.length > 0 && article.title.toLowerCase().includes(keywordLower)
+        keywordLower.length > 0 && titleForMatch.includes(keywordLower)
           ? "Primary keyword found in title."
           : "Primary keyword is missing from the title.",
     },

@@ -21,7 +21,8 @@ export interface ArticleWriterInput {
 
 const STRUCTURE_RULES = [
   "Return one entry in `sections` per planned section, in the same order, each with that section's own heading, level, and body markdown (no further headings inside a section's own bodyMarkdown — one heading per section entry).",
-  "The title (returned separately, not as a section) already serves as the H1 — include the primary keyword in it and within the first 100 words of the first section's body.",
+  "The title (returned separately, not as a section) already serves as the H1. It must contain the primary keyword WORD FOR WORD, as an unbroken phrase, with no words inserted into the middle of it and nothing rephrased — \"AI agents in recruiting\" may appear as \"AI Agents in Recruiting: What Changes in 2026\" but NOT as \"AI Agents Are Transforming Recruiting\", which breaks the phrase up. Leading with the exact phrase and adding a colon and a subtitle is the easiest way to satisfy this while still reading well.",
+  "The first 100 words of the first section's body must also contain that same exact phrase, unbroken and unrephrased.",
   "Use short paragraphs of 2 to 3 sentences within each section's body.",
   "Include 2 to 3 relevant internal or external links, spread across the sections where they naturally fit.",
   "Every factual or inference claim must appear in the `claims` array with the exact evidence IDs (e.g. S4:E1) it draws on. Editorial/connective language does not need a claim entry.",

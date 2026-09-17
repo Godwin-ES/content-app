@@ -59,3 +59,26 @@ describe("validateArticleSEO", () => {
     expect(findCheck(checks, "keyword_in_title")?.ok).toBe(true);
   });
 });
+
+describe("keyword_in_title punctuation tolerance", () => {
+  const article = (title: string, primaryKeyword: string) => ({
+    title,
+    primaryKeyword,
+    bodyMarkdown: `# ${title}\n\n${primaryKeyword} matters.\n\n## Section\n\nBody.`,
+    links: [],
+  });
+
+  const titleCheck = (title: string, keyword: string) =>
+    validateArticleSEO(article(title, keyword)).find((c) => c.key === "keyword_in_title")!.ok;
+
+  it("matches across hyphen and casing differences", () => {
+    expect(titleCheck("Four Day Work Week: What The Trials Show", "four-day work week")).toBe(true);
+    expect(titleCheck("AI Agents in Recruiting: What Changes", "AI agents in recruiting")).toBe(true);
+  });
+
+  it("still fails when the keyword phrase is broken up", () => {
+    // The SEO spec asks for the keyword in the title, not merely its words
+    // scattered through a rephrasing of it.
+    expect(titleCheck("AI Agents Are Transforming Recruiting", "ai agents in recruiting")).toBe(false);
+  });
+});
