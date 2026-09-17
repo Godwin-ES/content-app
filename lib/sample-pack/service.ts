@@ -25,6 +25,7 @@ export interface SamplePackReviewedSource {
   title: string | null;
   url: string | null;
   publisher: string | null;
+  origin: ResearchSourceRow["origin"];
 }
 
 function summarizeEvaluation(evaluation: EvaluationRow | null): string {
@@ -103,6 +104,7 @@ export async function getSamplePack(supabase: SupabaseClient<Database>, requestI
       title: s.title,
       url: s.canonical_url ?? s.original_url,
       publisher: s.publisher,
+      origin: s.origin,
     })),
     packageVersion: pkg.version_number,
     article: articleVersion.content as unknown as ArticleOutput,

@@ -170,6 +170,23 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     ).rejects.toMatchObject({ code: "SELF_APPROVAL" });
   });
 
+  it("returns a withdrawn request to an editable status, so it lands back in the dashboard's In Progress", async () => {
+    const { requestId, pkg } = await fullyReadyRequest();
+    const review = await submitForApproval(owner.client, requestId);
+
+    const { data: whileSubmitted } = await admin.from("content_requests").select("status").eq("id", requestId).single();
+    expect(whileSubmitted?.status).toBe("pending_approval");
+
+    await withdrawApproval(owner.client, review.id);
+
+    // The dashboard's Withdraw submission button depends on this: a
+    // withdrawn request has to leave "Awaiting Approval" and become
+    // editable (and deletable) again rather than sitting in limbo.
+    const { data: afterWithdraw } = await admin.from("content_requests").select("status").eq("id", requestId).single();
+    expect(afterWithdraw?.status).toBe("content_development");
+    void pkg;
+  });
+
   it("rejects a decision made against a stale (superseded) package", async () => {
     const { requestId, pkg } = await fullyReadyRequest();
     const review1 = await submitForApproval(owner.client, requestId);

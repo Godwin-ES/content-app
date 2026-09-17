@@ -1,4 +1,5 @@
-import type { SamplePack } from "@/lib/sample-pack/service";
+import { ExternalLink } from "lucide-react";
+import type { SamplePack, SamplePackReviewedSource } from "@/lib/sample-pack/service";
 import { articleBodyMarkdown } from "@/lib/ai/schemas/article";
 import { MarkdownBody } from "@/components/shared/markdown-body";
 
@@ -28,10 +29,29 @@ export function SamplePackView({ pack }: { pack: SamplePack }) {
 
       <section>
         <h2 className="mb-2 text-lg font-medium">Reviewed sources ({pack.reviewedSources.length})</h2>
-        <ul className="flex flex-col gap-1 text-sm">
+        <ul className="flex flex-col gap-1.5 text-sm">
           {pack.reviewedSources.map((source, i) => (
-            <li key={i}>
-              {source.title ?? source.url} {source.publisher ? `— ${source.publisher}` : ""}
+            <li key={i} className="flex flex-col">
+              {source.url ? (
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group w-fit rounded-md focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                  <span className="flex items-center gap-1.5 font-medium group-hover:underline">
+                    {source.title ?? source.url}
+                    <ExternalLink aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+                  </span>
+                  <span className="block text-xs break-all text-muted-foreground group-hover:underline">{source.url}</span>
+                </a>
+              ) : (
+                <>
+                  <span className="font-medium">{source.title ?? "Untitled source"}</span>
+                  <span className="text-xs text-muted-foreground">{ORIGIN_LABEL[source.origin]}</span>
+                </>
+              )}
+              {source.url && source.publisher ? <span className="text-xs text-muted-foreground">{source.publisher}</span> : null}
             </li>
           ))}
         </ul>
@@ -77,6 +97,12 @@ export function SamplePackView({ pack }: { pack: SamplePack }) {
  * resolved from defaults" (SYSTEM-DESIGN-NEXTJS.md §7.3), just without
  * showing both when only one actually applies.
  */
+const ORIGIN_LABEL: Record<SamplePackReviewedSource["origin"], string> = {
+  researched: "Found by research",
+  user_url: "Provided by Content Manager",
+  uploaded_material: "Uploaded by Content Manager",
+};
+
 function AssumptionRow({ label, supplied, resolved }: { label: string; supplied: string | null; resolved: string }) {
   return (
     <>

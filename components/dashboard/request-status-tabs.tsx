@@ -7,7 +7,7 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
 type RequestStatus = ContentRequestRow["status"];
-type TabKey = "in-progress" | "awaiting-approval" | "approved" | "archived";
+type TabKey = "in-progress" | "needs-changes" | "awaiting-approval" | "approved" | "archived";
 
 /**
  * Every status maps to exactly one tab. Written as an exhaustive Record
@@ -20,7 +20,7 @@ const TAB_FOR_STATUS: Record<RequestStatus, TabKey> = {
   draft: "in-progress",
   source_review: "in-progress",
   content_development: "in-progress",
-  changes_requested: "in-progress",
+  changes_requested: "needs-changes",
   pending_approval: "awaiting-approval",
   approved: "approved",
   archived: "archived",
@@ -31,7 +31,13 @@ const TABS: Array<{ key: TabKey; label: string; emptyTitle: string; emptyDescrip
     key: "in-progress",
     label: "In Progress",
     emptyTitle: "Nothing in progress",
-    emptyDescription: "Drafts, research, and anything a reviewer sent back will show up here.",
+    emptyDescription: "Drafts and requests you are still working on will show up here.",
+  },
+  {
+    key: "needs-changes",
+    label: "Needs Changes",
+    emptyTitle: "Nothing needs changes",
+    emptyDescription: "Requests a reviewer sent back, with their feedback, will show up here.",
   },
   {
     key: "awaiting-approval",
@@ -54,7 +60,13 @@ const TABS: Array<{ key: TabKey; label: string; emptyTitle: string; emptyDescrip
   },
 ];
 
-export function RequestStatusTabs({ requests }: { requests: ContentRequestRow[] }) {
+export function RequestStatusTabs({
+  requests,
+  pendingReviewIdByRequest,
+}: {
+  requests: ContentRequestRow[];
+  pendingReviewIdByRequest: Record<string, string>;
+}) {
   const byTab = (key: TabKey) => requests.filter((request) => TAB_FOR_STATUS[request.status] === key);
   const visibleTabs = TABS.filter((tab) => !tab.hideWhenEmpty || byTab(tab.key).length > 0);
 
@@ -89,7 +101,12 @@ export function RequestStatusTabs({ requests }: { requests: ContentRequestRow[] 
 
       {visibleTabs.map((tab) => (
         <TabsContent key={tab.key} value={tab.key} className="mt-4">
-          <RequestList requests={byTab(tab.key)} emptyTitle={tab.emptyTitle} emptyDescription={tab.emptyDescription} />
+          <RequestList
+            requests={byTab(tab.key)}
+            pendingReviewIdByRequest={pendingReviewIdByRequest}
+            emptyTitle={tab.emptyTitle}
+            emptyDescription={tab.emptyDescription}
+          />
         </TabsContent>
       ))}
     </Tabs>

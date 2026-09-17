@@ -10,6 +10,14 @@ export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient();
   const requests = await listOwnedRequests(supabase, user.userId);
 
+  // Only submitted requests can be withdrawn, and only through their own
+  // still-pending review.
+  const submittedIds = requests.filter((r) => r.status === "pending_approval").map((r) => r.id);
+  const { data: pendingReviews } = submittedIds.length
+    ? await supabase.from("approval_reviews").select("id, request_id").in("request_id", submittedIds).eq("status", "pending")
+    : { data: [] };
+  const pendingReviewIdByRequest = Object.fromEntries((pendingReviews ?? []).map((r) => [r.request_id, r.id]));
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
@@ -22,7 +30,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      <RequestStatusTabs requests={requests} />
+      <RequestStatusTabs requests={requests} pendingReviewIdByRequest={pendingReviewIdByRequest} />
     </div>
   );
 }
