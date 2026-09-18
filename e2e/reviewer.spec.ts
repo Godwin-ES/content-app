@@ -80,7 +80,7 @@ test("reviewer sees the exact submitted package, decides changes_requested, and 
   const ownerPage = await (await browser.newContext()).newPage();
   await login(ownerPage, ownerCreds.email, ownerCreds.password);
   await ownerPage.goto(`/requests/${requestId}`);
-  await ownerPage.getByRole("tab", { name: "Approval" }).click();
+  await ownerPage.getByRole("tab", { name: "Package" }).click();
   await expect(ownerPage.getByText("Submit for Approval")).toBeVisible({ timeout: 15000 });
 });
 

@@ -7,6 +7,7 @@ import { listContentArtifacts, listArtifactVersions } from "@/lib/repositories/c
 import { listContentPlanVersions } from "@/lib/planning/service";
 import { getLatestEvaluation } from "@/lib/repositories/evaluations";
 import { getPackageReadiness } from "@/lib/packages/service";
+import { getSamplePack } from "@/lib/sample-pack/service";
 import { getLatestReview } from "@/lib/repositories/approvals";
 import { getPublishingQueue } from "@/lib/publishing/service";
 import { listActivityEvents } from "@/lib/repositories/activity";
@@ -25,6 +26,7 @@ import { ArticleComparison } from "@/components/articles/article-comparison";
 import { ChannelWorkspace } from "@/components/channels/channel-workspace";
 import { PackageReadiness } from "@/components/approvals/package-readiness";
 import { ContentPackagePreview } from "@/components/approvals/content-package-preview";
+import { SamplePackView } from "@/components/requests/sample-pack-view";
 import { SubmissionPanel } from "@/components/approvals/submission-panel";
 import { QueueControls } from "@/components/publishing/queue-controls";
 import { PublishingList } from "@/components/publishing/publishing-list";
@@ -34,7 +36,7 @@ import { AutoModePanel } from "@/components/requests/auto-mode-panel";
 
 /**
  * Request workspace (SYSTEM-DESIGN-NEXTJS.md §34.3): Overview / Research /
- * Articles / Channels / Approval / Publishing / Activity tabs, a single
+ * Articles / Channels / Package / Publishing / Activity tabs, a single
  * derived next-action stepper, and explicit empty states rather than a
  * flat page of conditionally-appearing sections.
  */
@@ -122,6 +124,19 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   const readiness = request.selected_article_version_id ? await getPackageReadiness(supabase, requestId) : null;
   const latestReview = request.status === "pending_approval" ? await getLatestReview(supabase, requestId) : null;
   const queue = request.current_package_id ? await getPublishingQueue(supabase, requestId) : null;
+  // The Package tab shows the assembled pack in place, so what gets
+  // approved is what the approver actually reads. Assembling it dereferences
+  // the package's pinned version and evaluation rows; if any of those cannot
+  // be read, the tab degrades to the readiness and submission panels rather
+  // than taking the whole workspace down with it.
+  let samplePack = null;
+  if (request.current_package_id) {
+    try {
+      samplePack = await getSamplePack(supabase, requestId);
+    } catch {
+      samplePack = null;
+    }
+  }
 
   // Built through the shared helper so this page, the dashboard, and auto
   // mode all describe the same request identically.
@@ -220,7 +235,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
     <EmptyState title="Select an article first" description="Channel adaptation works from the selected article option." />
   );
 
-  const approvalContent = request.selected_article_version_id ? (
+  const packageContent = request.selected_article_version_id ? (
     <>
       {readiness ? (
         <PackageReadiness
@@ -229,21 +244,28 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
           canCreate={request.status === "content_development" || request.status === "changes_requested"}
         />
       ) : null}
-      {currentPackage ? <ContentPackagePreview contentPackage={currentPackage} /> : null}
+      {/* The assembled pack below is the package preview, in full and with
+          its evaluations — ContentPackagePreview would print the same
+          article and posts a second time. It stays for the reviewer's page,
+          which has no pack of its own. */}
+      {currentPackage && !samplePack ? <ContentPackagePreview contentPackage={currentPackage} /> : null}
       <SubmissionPanel
         requestId={requestId}
         requestStatus={request.status}
         hasCurrentPackage={Boolean(request.current_package_id)}
         pendingReviewId={latestReview?.id ?? null}
       />
-      {currentPackage ? (
-        <a href={`/requests/${requestId}/sample-pack`} className="w-fit text-sm underline" target="_blank" rel="noreferrer">
-          Open printable sample pack
-        </a>
+      {samplePack ? (
+        <>
+          <SamplePackView pack={samplePack} interactive />
+          <a href={`/requests/${requestId}/sample-pack`} className="w-fit text-sm underline" target="_blank" rel="noreferrer">
+            Open printable version
+          </a>
+        </>
       ) : null}
     </>
   ) : (
-    <EmptyState title="Not ready for approval yet" description="Select an article and generate channel assets first." />
+    <EmptyState title="No package yet" description="Select an article and generate channel assets first." />
   );
 
   const publishingContent = queue ? (
@@ -269,7 +291,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
         plan={planContent}
         articles={articlesContent}
         channels={channelsContent}
-        approval={approvalContent}
+        packageTab={packageContent}
         publishing={publishingContent}
       />
     </div>

@@ -71,7 +71,7 @@ test("a new request lands in the workspace showing the Overview tab and a next-s
   await expect(page.getByRole("tab", { name: "Plan" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Articles" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Channels" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Approval" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Package" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Publishing" })).toBeVisible();
   // Activity is no longer a tab — it lives on the Overview as collapsible history.
   await expect(page.getByRole("tab", { name: "Activity" })).toHaveCount(0);
@@ -102,7 +102,7 @@ test("switching tabs reveals each section's own empty state", async ({ page }) =
   await page.getByRole("tab", { name: "Channels" }).click();
   await expect(page.getByText("Select an article first")).toBeVisible();
 
-  await page.getByRole("tab", { name: "Approval" }).click();
+  await page.getByRole("tab", { name: "Package" }).click();
   await expect(page.getByText("Not ready for approval yet")).toBeVisible();
 
   await page.getByRole("tab", { name: "Publishing" }).click();

@@ -41,11 +41,23 @@ export interface SamplePack {
   assumptions: SamplePackAssumptions;
   reviewedSources: SamplePackReviewedSource[];
   packageVersion: number;
+  packageCreatedAt: string;
   article: ArticleOutput;
   linkedin: LinkedinPost;
   x: XPost;
   newsletter: Newsletter;
   evaluationSummary: { article: string; linkedin: string; x: string; newsletter: string };
+  /**
+   * The package's own pinned evaluations, not just their one-line summary,
+   * so the pack can show the findings behind a verdict on demand rather
+   * than asking the reader to take "pass" on trust.
+   */
+  evaluations: {
+    article: EvaluationRow | null;
+    linkedin: EvaluationRow | null;
+    x: EvaluationRow | null;
+    newsletter: EvaluationRow | null;
+  };
 }
 
 /**
@@ -107,6 +119,7 @@ export async function getSamplePack(supabase: SupabaseClient<Database>, requestI
       origin: s.origin,
     })),
     packageVersion: pkg.version_number,
+    packageCreatedAt: pkg.created_at,
     article: articleVersion.content as unknown as ArticleOutput,
     linkedin: linkedinVersion.content as unknown as LinkedinPost,
     x: xVersion.content as unknown as XPost,
@@ -116,6 +129,12 @@ export async function getSamplePack(supabase: SupabaseClient<Database>, requestI
       linkedin: summarizeEvaluation(linkedinEvaluation),
       x: summarizeEvaluation(xEvaluation),
       newsletter: summarizeEvaluation(newsletterEvaluation),
+    },
+    evaluations: {
+      article: articleEvaluation,
+      linkedin: linkedinEvaluation,
+      x: xEvaluation,
+      newsletter: newsletterEvaluation,
     },
   };
 }
