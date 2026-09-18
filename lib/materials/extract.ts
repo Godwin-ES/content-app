@@ -1,4 +1,3 @@
-import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
 
 export const SUPPORTED_MATERIAL_MIME_TYPES = [
@@ -29,6 +28,11 @@ function failed(error: string): MaterialExtractionResult {
  * (SYSTEM-DESIGN-NEXTJS.md §8). A failed file must never silently become an
  * empty valid source: any error, or text that trims to nothing, is reported
  * as `failed`, never `ready` with blank text. No OCR.
+ *
+ * pdf-parse is intentionally loaded only inside the PDF branch. Its pdf.js
+ * runtime expects DOM/canvas globals in some server environments; importing
+ * it at module scope made unrelated server actions that happened to share
+ * the request-action module fail during initialization on Vercel.
  */
 export async function extractMaterialText(buffer: Buffer, mimeType: string): Promise<MaterialExtractionResult> {
   try {
@@ -36,6 +40,7 @@ export async function extractMaterialText(buffer: Buffer, mimeType: string): Pro
 
     switch (mimeType) {
       case "application/pdf": {
+        const { PDFParse } = await import("pdf-parse");
         const parser = new PDFParse({ data: buffer });
         try {
           const result = await parser.getText();
