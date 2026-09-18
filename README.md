@@ -1,126 +1,66 @@
 # Koya Content Studio
 
-An AI-assisted content research, editorial review, and publishing-preparation application, built for the Koya AI Automation Academy Week 4 project.
+An AI-assisted content research, writing, review, and publishing-preparation application built for the Koya AI Automation Academy Week 4 project.
 
-It takes a raw content idea or a set of source URLs, researches the topic, lets you review the retrieved sources, produces an evidence-backed content plan and three article options, evaluates and (once, automatically) revises weak drafts, adapts the selected article into LinkedIn/X/newsletter versions, requires a human's explicit approval of the *exact* assembled package, and only then allows the approved package's channels to enter an **internal publishing/scheduling queue**.
+A content request moves from a raw idea and optional source material through research, source review, evidence-backed planning, article generation, channel adaptation, human approval, and an internal publishing/scheduling queue.
 
-See `../SYSTEM-DESIGN-NEXTJS.md` and `../IMPLEMENTATION-PLAN-NEXTJS.md` in the parent folder for the full system design and build plan, and `../BUILD-NOTES-NEXTJS.md` for the evidence log of decisions, real bugs found, and residual risks accumulated while building it.
+## Product structure
 
-## The internal publishing boundary
+- **Dashboard** — create content requests, track progress, reopen previous work, and manage deleted requests.
+- **Research** — search the web or use supplied URLs/files, review retrieved sources and evidence, resolve conflicts, and confirm the source set used for writing.
+- **Content development** — build an evidence-backed content plan, generate three article options, evaluate and revise drafts, and select the preferred article.
+- **Channels** — adapt the selected article for LinkedIn, X, and email newsletter while preserving the grounding of the approved source material.
+- **Package & approval** — assemble the exact article and channel versions into a reviewable package before they become eligible for scheduling.
+- **Publishing queue** — queue, schedule, reschedule, or cancel approved channel content inside the application.
 
-**This application never posts to LinkedIn, X, or an email provider.** The authoritative Week 4 endpoint is an internal queue: an approved package's channels can be queued immediately or scheduled for a future time, rescheduled, or cancelled — but the only statuses that ever exist are `queued`, `scheduled`, and `cancelled`. There is deliberately no `published`/`delivered` state anywhere, because no external provider ever confirms one. This is an intentional scope boundary (SYSTEM-DESIGN-NEXTJS.md §4.1, §90), not a missing feature.
+Content, source sets, evaluations, and packages are versioned so later edits do not silently change previously reviewed work. The application also keeps factual generation grounded in reviewed evidence rather than relying on model memory for substantive claims.
 
-## Accounts
+## Tech stack
 
-One account, one person. You sign up with an email and password, and you own everything you create: requests, sources, drafts, packages, approvals, and the publishing queue. There are no roles to assign and nobody to invite.
+- **Next.js 16** + React 19 + TypeScript
+- **Tailwind CSS** + shadcn/ui
+- **Supabase** — Postgres, Auth, Storage, RLS, and database-enforced workflow transitions
+- **Claude** via the Anthropic SDK for planning, generation, evaluation, and revision
+- **Firecrawl** for web research and retrieval
+- **Vitest** for unit/integration tests and **Playwright** for end-to-end testing
 
-The app started with two — a Content Manager who wrote and a Reviewer who approved. Collapsing to one account removed the handover, not the gate: **nothing reaches the publishing queue until a human has read a specific package version and deliberately approved it**, and that approval is recorded against that version with its author and timestamp. There is no "request changes" counterpart, because rejecting your own work is just editing it — any edit starts a new version and returns the request to development, leaving the approved one untouched.
+## Local setup
 
-Every action re-reads who you are from `auth.uid()` server-side and checks ownership in RLS and in the security-definer RPCs. Nothing about identity is ever trusted from the client.
+Requires Node.js 22+ and pnpm.
 
-### Intake checks
+1. Install dependencies:
 
-Intake takes a topic, and optionally an audience, objective and tone. It does **not** take a primary keyword or a call to action: the content planner derives both from the accepted evidence, which is the only place either can be grounded — a keyword typed before any research has run is a guess about what the sources will turn out to say.
+   ```bash
+   pnpm install
+   ```
 
-The four fields are checked in two layers before a request is created, in one pass — one click reports everything at once rather than correcting you a field at a time. Deterministic rules run instantly and cost nothing (length, keyboard walks). An AI reviewer then makes one call for all four, asking only whether each reads like a plausible answer to its own question; one call catches mismatches *between* fields and costs a quarter of one call per field.
+2. Copy the environment template:
 
-Almost every flag is advisory and carries **Use it anyway**. The exception is mechanical and sits where the cost is highest: a topic that is not language blocks, because the topic is required and a broken one spends an entire pipeline producing nothing, and a keyboard walk is a slip rather than a coinage. Whether a real phrase is *too vague* stays with the AI and stays dismissible, because these are guesses about subject matter the app does not know — a coinage, an internal audience name, a deliberately terse tone. Typos are left to the browser's own spellchecker, which is a better speller than anything shipped here and has no opinions about five-word answers.
+   ```bash
+   cp .env.example .env.local
+   ```
 
-### The dashboard
+3. Configure the required Supabase, Anthropic, and Firecrawl credentials in `.env.local`.
 
-Three tabs: **In Progress**, **Published**, and **Deleted**. Deleting is a bin — a request can be restored for 30 days and is removed for good after that, including its uploaded files. Queued publishing items are cancelled when a request is binned, and are not un-cancelled by a restore: whether the content should go out again is a decision, not a side effect of undoing a delete.
+4. Apply the migrations in `supabase/migrations/` to your Supabase project.
 
-The **Schedule** nav page shows everything queued across every request, grouped by when it goes out, and is where it is rescheduled or cancelled. It was called Publishing Queue and was read-only, which made the one page named after the queue the one place the queue could not be managed.
+5. Start the development server:
 
-### Research
+   ```bash
+   pnpm dev
+   ```
 
-Sources can be added at any point before the source set is confirmed — a link or a file, from the Research tab, not only at intake. Each one lands as `pending` and is analysed on the next run, or on its own from its card.
-
-"Only use the supplied materials" stays changeable for as long as the source set is open, because supplied-only research that finds nothing relevant is the likeliest dead end there is and unticking it is the way out. While it is ticked, web results already found are dimmed and undecidable rather than hidden — they are real history and they come back the moment it is unticked.
-
-Research skips the sites whose substance sits behind a sign-in — LinkedIn, Reddit, X, Medium and a handful of others — before anything is fetched, because a login wall costs a retrieval and an AI analysis call to conclude it is a login wall. Only pages research finds for itself are filtered: a link you supply is never touched, since you may well be able to read what a crawler cannot.
-
-Research can run again when a source has been added since the last run, or when the scope has been widened to allow a web search — and the button says which, because the two do different amounts of work. **Research added sources** reads what you added and searches nothing: repeating the searches would return substantially the same pages, have them thrown away by the dedupe, and still cost a research plan and a round of search calls to get there. **Search the web too** does the full run, and picks up anything added along the way. Nothing else re-opens research. Re-runs are additive and deduplicated by canonical URL, so a supplied link the web search also happens to find is never added twice.
-
-### Notifications
-
-Settings takes a Discord webhook URL, and every notification this app sends goes there — there is no deployment-wide webhook, because every one of them is about somebody's own content. It is resolved from the request's owner, or from whoever is signed in when there is no request to attribute it to. The URL is validated against Discord's webhook endpoint in both the action and the RPC, because the server makes an outbound POST to whatever is stored.
-
-What gets sent depends on who is doing the work:
-
-- **Auto mode** reports every step as it lands — research complete, source set confirmed, content plan created, articles generated, article selected, channels generated, package created — plus anything that stops it. A run takes minutes and does seven or eight things in a row with nobody watching, which is exactly when a notification earns its place. Each one carries the topic, what just finished, and a link that opens the request **on the tab where it happened**.
-- **Working by hand** sends nothing per step. You are already looking at the thing that just happened, and a message about a button you pressed a second ago is noise. What still sends is an unexpected error, and the approval of a package — the point where content becomes publishable.
-
-### Channels
-
-Settings holds one destination per channel: a LinkedIn profile or page, an X handle, and a newsletter list with its recipients. These are destinations, not OAuth connections — see the publishing boundary above. The publishing queue warns when something is queued for a channel with nowhere to go.
-
-## Setup
-
-```bash
-pnpm install
-cp .env.example .env.local   # fill in real values — never commit .env.local
-```
-
-Required for the app to run at all: a Supabase project (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`), an Anthropic API key and model, and a Firecrawl key. See `.env.example` for every variable and a short comment on each.
-
-Apply migrations and generate types against your own Supabase project (uses the Transaction pooler connection string if your network can't reach the direct host — see `BUILD-NOTES-NEXTJS.md`):
-
-```bash
-supabase db push --db-url "$SUPABASE_DB_URL"
-supabase gen types typescript --db-url "$SUPABASE_DB_URL" > lib/supabase/database.types.ts
-```
-
-Seed the two dedicated test accounts used by the E2E suite and manual acceptance testing:
-
-```bash
-pnpm seed:test-users
-```
-
-### Development server limitation in some sandboxed environments
-
-In at least one development environment used while building this project, `next dev`'s HMR/WebSocket connection was blocked, so client components never hydrated (buttons appeared but did nothing). If you hit this, verify interactive features against a production build instead:
-
-```bash
-pnpm build && pnpm start
-```
-
-## Environment variables
-
-See `.env.example` for the full list with inline comments. The load-bearing ones to understand:
-
-| Variable | Purpose |
-|---|---|
-| `ANTHROPIC_MODEL` | The model every generation runs on. Set server-side only: model identifiers and what they cost are a deployment decision, not a per-request one. |
-
+6. Open <http://localhost:3000>.
 
 ## Tests
 
 ```bash
-pnpm check      # lint + typecheck + the full unit/integration suite (vitest)
-pnpm test:e2e   # Playwright end-to-end suite (e2e/*.spec.ts)
-pnpm build      # production build
+pnpm test        # unit + integration tests
+pnpm test:e2e    # Playwright end-to-end tests
+pnpm check       # lint + typecheck + unit/integration tests
+pnpm build       # production build
 ```
 
-The unit/integration suite (`tests/unit/`, `tests/integration/`, `tests/contract/`) runs entirely against `FakeAIProvider`/`FakeResearchProvider` plus a real hosted Supabase project (tests requiring real credentials skip themselves cleanly via `hasSupabaseCredentials()` if none are configured). The E2E suite (`e2e/`) exercises real browser flows against a running server, seeding its own ephemeral fixtures via the Supabase admin client and cleaning them up in `afterAll`.
+## Publishing boundary
 
-To purge leftover ephemeral test fixtures at any time (safe to run repeatedly; never touches the two dedicated seeded accounts):
-
-```bash
-pnpm reset:test-data
-```
-
-## Manual acceptance test pack
-
-`../content_test_pack/Koya_Content_Agent_Test_Pack.md` (repo root, alongside this `app/` folder) is the full manual acceptance pack: the eight required Week 4 test scenarios (Raw Idea Request, URL-Based Request, Research and Source Grounding, Evaluation and Revision Loop, Human Approval, Channel Formatting, Publishing/Scheduling, Failure Handling) plus every required edge case, each citing either a specific automated test (runnable via `pnpm test`) or a specific live screenshot in `content_test_pack/evidence/` — never a projected outcome dressed up as a result. Its own closing section names the handful of edge cases not yet exercised live, honestly, as a punch list rather than glossing over them.
-
-## Project structure
-
-- `lib/` — pure/business logic, organized by domain (`articles/`, `channels/`, `packages/`, `approvals/`, `publishing/`, `research/`, `grounding/`, `ai/`, `test-support/`, `sample-pack/`, `workspace/`) plus `repositories/` (thin Supabase query wrappers) and `domain/` (shared types/errors).
-- `actions/` — Next.js Server Actions, one file per domain, thin wrappers around `lib/` that add authentication checks and centralized error logging.
-- `components/` — UI, mirroring the `lib/` domains plus `shared/` (status badges, empty states, error displays) and `ui/` (shadcn primitives).
-- `app/` — routes. `(app)/` is the authenticated shell; `api/test/` is the one dev-only route (failure injection).
-- `supabase/migrations/` — the full schema, RLS policies, and transactional business RPCs (package/approval/queue state transitions are enforced in Postgres, not just in application code).
-- `tests/` — `unit/`, `integration/` (real Supabase), `contract/` (provider adapters against real external services), `fixtures/benchmark/` (frozen model-comparison scenarios).
-- `e2e/` — Playwright specs plus `helpers.ts` for shared fixture-seeding.
-- `scripts/` — `seed-test-users.ts`, `reset-test-data.ts` (see Tests above).
+Koya Content Studio prepares and schedules approved content inside its own queue. It does **not** post directly to LinkedIn, X, or an email provider, so the application does not claim external delivery or publication that it cannot verify.
