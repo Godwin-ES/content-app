@@ -32,7 +32,23 @@ export class FakeAIProvider implements AIProvider {
           "Set USE_FAKE_PROVIDERS=false in .env.local and restart the dev server to use a real model."
       );
     }
-    const next = this.queue.shift();
+    /**
+     * The first queued response that fits the schema being asked for,
+     * rather than strictly the next one.
+     *
+     * A strict queue assumes a step makes a known number of calls in a
+     * known order. Article generation stopped satisfying either: it writes
+     * the title and every section as separate concurrent calls, and three
+     * options run concurrently on top of that, so "call 4" is not a fixed
+     * thing any more. Matching on shape lets a test say what the model
+     * returns without also having to predict when it is asked.
+     *
+     * A response matching nothing is still consumed in order, because a
+     * deliberately malformed fixture is the point of the test that queues
+     * it — skipping it would quietly turn a failure case into a pass.
+     */
+    const matchIndex = this.queue.findIndex((response) => schema.safeParse(response).success);
+    const next = this.queue.splice(matchIndex >= 0 ? matchIndex : 0, 1)[0];
     const parsed = schema.safeParse(next);
     if (!parsed.success) {
       throw new DomainError(

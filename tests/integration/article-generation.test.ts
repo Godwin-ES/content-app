@@ -34,6 +34,35 @@ function validArticle(title = "Article") {
   };
 }
 
+/**
+ * The article writer no longer makes one call per article: it writes the
+ * title and meta description in one, then every planned section in its
+ * own concurrent call. A fixture per article is therefore a frame plus a
+ * section, and the fake matches them to whichever call asks.
+ */
+function validFrame() {
+  return { title: "AI Agents in Recruiting", metaDescription: "meta" };
+}
+
+function validSection(overrides: Record<string, unknown> = {}) {
+  return {
+    bodyMarkdown: "Some teams reported reduced workload.",
+    links: [],
+    insufficientEvidence: false,
+    insufficientEvidenceReason: null,
+    claims: [
+      {
+        claimId: "C1",
+        claimType: "factual" as const,
+        claimText: "Some teams reported reduced workload.",
+        evidenceIds: ["S1:E1"],
+        articleSection: "Intro",
+      },
+    ],
+    ...overrides,
+  };
+}
+
 const hasCredentials = hasSupabaseCredentials();
 
 describe.skipIf(!hasCredentials)("article generation (hosted Supabase integration)", () => {
@@ -107,7 +136,7 @@ describe.skipIf(!hasCredentials)("article generation (hosted Supabase integratio
 
   it("generates exactly three article options (A/B/C)", async () => {
     const request = await requestWithPlanAndSourceSet();
-    const ai = new FakeAIProvider([validArticle("Practical"), validArticle("Strategic"), validArticle("Educational")]);
+    const ai = new FakeAIProvider([validFrame(), validFrame(), validFrame(), validSection(), validSection(), validSection()]);
 
     const result = await generateArticleOptions(owner.client, ai, "fake-model", request.id);
     expect(result.filter((r) => r.status === "succeeded")).toHaveLength(3);
@@ -122,7 +151,7 @@ describe.skipIf(!hasCredentials)("article generation (hosted Supabase integratio
     // The three slots run concurrently, so queue order does not map
     // predictably to slot order — assert on the outcome *set*, not on
     // which specific slot got which queued response.
-    const ai = new FakeAIProvider([validArticle("A"), { title: "broken" }, validArticle("C")]);
+    const ai = new FakeAIProvider([validFrame(), validFrame(), validFrame(), validSection(), validSection(), { bodyMarkdown: "" }]);
 
     const result = await generateArticleOptions(owner.client, ai, "fake-model", request.id);
     const succeeded = result.filter((r) => r.status === "succeeded");
@@ -138,7 +167,8 @@ describe.skipIf(!hasCredentials)("article generation (hosted Supabase integratio
       expect(artifact.current_version_id).not.toBeNull();
     }
 
-    ai.enqueue(validArticle("retried"));
+    ai.enqueue(validFrame());
+    ai.enqueue(validSection());
     const retried = await regenerateArticleOption(owner.client, ai, "fake-model", failedSlot.id);
     expect(retried.status).toBe("succeeded");
 
@@ -148,8 +178,8 @@ describe.skipIf(!hasCredentials)("article generation (hosted Supabase integratio
 
   it("rejects an article whose claims cite unknown evidence, without creating a version", async () => {
     const request = await requestWithPlanAndSourceSet();
-    const badArticle = { ...validArticle("Bad"), claims: [{ ...validArticle().claims[0], evidenceIds: ["S9:E9"] }] };
-    const ai = new FakeAIProvider([badArticle, validArticle("B"), validArticle("C")]);
+    const badSection = validSection({ claims: [{ ...validSection().claims[0], evidenceIds: ["S9:E9"] }] });
+    const ai = new FakeAIProvider([validFrame(), validFrame(), validFrame(), badSection, validSection(), validSection()]);
 
     const result = await generateArticleOptions(owner.client, ai, "fake-model", request.id);
     const failed = result.filter((r) => r.status === "failed");
