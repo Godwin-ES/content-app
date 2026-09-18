@@ -37,8 +37,6 @@ export async function reviewIntakeAction(values: IntakeValues & { topic: string 
       audience: alreadyFlagged.has("audience") ? null : values.audience,
       objective: alreadyFlagged.has("objective") ? null : values.objective,
       tone: alreadyFlagged.has("tone") ? null : values.tone,
-      primaryKeyword: alreadyFlagged.has("primaryKeyword") ? null : values.primaryKeyword,
-      cta: alreadyFlagged.has("cta") ? null : values.cta,
     };
 
     const hasAnythingLeftToReview = Object.values(remaining).some((value) => Boolean(value && value.trim()));
@@ -54,8 +52,6 @@ export async function reviewIntakeAction(values: IntakeValues & { topic: string 
       audience: remaining.audience ?? null,
       objective: remaining.objective ?? null,
       tone: remaining.tone ?? null,
-      primaryKeyword: remaining.primaryKeyword ?? null,
-      cta: remaining.cta ?? null,
     });
 
     const aiFlags: IntakeFlag[] = review.fields

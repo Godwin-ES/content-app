@@ -46,13 +46,9 @@ export async function createContentRequest(
       supplied_audience: input.audience ?? null,
       supplied_objective: input.objective ?? null,
       supplied_tone: input.tone ?? null,
-      supplied_cta: input.cta ?? null,
-      supplied_primary_keyword: input.primaryKeyword ?? null,
       resolved_audience: resolved.audience.value,
       resolved_objective: resolved.objective.value,
       resolved_tone: resolved.tone.value,
-      resolved_cta: resolved.cta.value,
-      resolved_primary_keyword: resolved.primaryKeyword.value,
       supplied_sources_only: input.suppliedSourcesOnly ?? false,
       ai_model_choice: aiModelChoice ?? null,
       status: "draft",
@@ -175,37 +171,6 @@ export async function restoreRequest(supabase: SupabaseClient<Database>, request
   if (error) throwFromRpcError(error, "restore_request");
 }
 
-/**
- * Sets (or clears) the keyword the article is written to rank for.
- *
- * Clearing it is not the same as leaving it alone: both the supplied and
- * the resolved column go back to null, which hands the field back to the
- * research plan to derive. The RPC re-checks ownership and refuses once
- * the request is under review — changing what a package was written to
- * target while it is sitting in front of a decision would make that decision
- * meaningless.
- */
-export async function setRequestPrimaryKeyword(
-  supabase: SupabaseClient<Database>,
-  requestId: string,
-  primaryKeyword: string | null
-): Promise<void> {
-  const { error } = await supabase.rpc("set_request_primary_keyword", {
-    p_request_id: requestId,
-    p_primary_keyword: primaryKeyword ?? "",
-  });
-  if (error) throwFromRpcError(error, "set_request_primary_keyword");
-}
-
-/** Sets (or clears) the CTA every channel asset adapts. Same rules as above. */
-export async function setRequestCta(
-  supabase: SupabaseClient<Database>,
-  requestId: string,
-  cta: string | null
-): Promise<void> {
-  const { error } = await supabase.rpc("set_request_cta", { p_request_id: requestId, p_cta: cta ?? "" });
-  if (error) throwFromRpcError(error, "set_request_cta");
-}
 
 /**
  * Whether research stays strictly inside the supplied materials and URLs.

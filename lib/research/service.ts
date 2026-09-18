@@ -18,8 +18,6 @@ import {
   listResearchSources,
   confirmSourceSet,
 } from "@/lib/repositories/sources";
-import { assessKeywordCoverage, type KeywordCoverage } from "@/lib/research/keyword-coverage";
-import { textCoversKeyword } from "@/lib/domain/keyword";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
 type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"];
@@ -251,14 +249,17 @@ export async function runResearchPipeline(
   // matching the existing pattern for activity_events (lib/repositories/activity.ts).
   const admin = createSupabaseAdminClient();
 
-  // The keyword the rest of the pipeline works from, and the one this run
-  // actually searched for. They are the same value, stored separately: the
-  // first is editable, and comparing them is what tells the Research tab
-  // whether re-running would do anything.
-  const researchedKeyword = request.resolved_primary_keyword ?? plan.primaryKeyword;
+  // The research plan's keyword is provisional — it steers the searches,
+  // and the content planner replaces it later with one derived from the
+  // evidence that actually came back. Recording the scope this run used is
+  // what lets the Research tab know whether widening it would find
+  // anything new.
   await admin
     .from("content_requests")
-    .update({ resolved_primary_keyword: researchedKeyword, researched_keyword: researchedKeyword })
+    .update({
+      resolved_primary_keyword: plan.primaryKeyword,
+      researched_supplied_only: request.supplied_sources_only,
+    })
     .eq("id", requestId);
 
   // "Only use supplied materials" (Phase 1 intake option): skip AI-generated
@@ -352,27 +353,6 @@ export async function runResearchPipeline(
         : "No usable sources found",
     actorId: request.owner_id,
   });
-
-  // Checked here rather than after the source decisions, so it is recorded
-  // while the sources are still on screen —
-  // the last point where changing the keyword or adding one source is
-  // cheap. It never stops the pipeline: the sources are real and the
-  // request should still reach source review, where the gap is shown and
-  // confirming is what gets blocked.
-  if (usableSourceCount > 0) {
-    const coverage = await assessRequestKeywordCoverage(supabase, requestId);
-    // Recorded, not notified: working by hand you are already looking at
-    // the Research tab, where the banner says this. Auto mode notifies,
-    // because nobody is watching it.
-    if (coverage.assessed && !coverage.covered && coverage.keyword) {
-      await recordActivityEvent({
-        requestId,
-        eventType: "keyword_coverage_gap",
-        message: `No usable source mentions the primary keyword "${coverage.keyword}"`,
-        actorId: request.owner_id,
-      });
-    }
-  }
 
   let transitioned = false;
   if (usableSourceCount > 0 && request.status === "draft") {
@@ -524,86 +504,26 @@ export async function analyzeUploadedMaterialSource(
   return result;
 }
 
-/**
- * Assesses the request's keyword coverage against the evidence that will
- * actually inform the article.
- *
- * Which sources count depends on where the request is. Before the source
- * set is confirmed, every usable source is still a candidate; once
- * decisions exist, only the accepted ones matter — excluding the one
- * source that mentioned the keyword is exactly the case worth catching.
- */
-export async function assessRequestKeywordCoverage(
-  supabase: SupabaseClient<Database>,
-  requestId: string
-): Promise<KeywordCoverage> {
-  const request = await getRequestOrThrow(supabase, requestId);
-
-  const { data: sources, error } = await supabase
-    .from("research_sources")
-    .select("id, title, extracted_text, origin, retrieval_status")
-    .eq("request_id", requestId)
-    .eq("retrieval_status", "usable");
-  if (error) throw error;
-
-  const usable = sources ?? [];
-  if (usable.length === 0) return assessKeywordCoverage(request.resolved_primary_keyword, []);
-
-  const { data: decisions, error: decisionError } = await supabase
-    .from("source_review_decisions")
-    .select("source_id, decision, created_at")
-    .in(
-      "source_id",
-      usable.map((s) => s.id)
-    )
-    .order("created_at", { ascending: false });
-  if (decisionError) throw decisionError;
-
-  // Newest first, so the first row seen for a source is its latest decision.
-  const latestDecision = new Map<string, string>();
-  for (const row of decisions ?? []) {
-    if (!latestDecision.has(row.source_id)) latestDecision.set(row.source_id, row.decision);
-  }
-
-  const considered = latestDecision.size === 0 ? usable : usable.filter((s) => latestDecision.get(s.id) === "accepted");
-
-  return assessKeywordCoverage(
-    request.resolved_primary_keyword,
-    considered.map((s) => ({
-      id: s.id,
-      title: s.title,
-      extractedText: s.extracted_text,
-      origin: s.origin as "researched" | "user_url" | "uploaded_material",
-    }))
-  );
-}
 
 /**
- * Confirms the reviewed source set, refusing when the accepted evidence
- * does not cover the request's primary keyword.
+ * Confirms the reviewed source set.
  *
- * The gate lives here rather than in the `confirm_source_set` RPC because
- * it is a content-quality rule, not an authorization one — the same
- * division the deterministic SEO checks already follow. The RPC keeps
- * enforcing who may confirm and in what state.
- *
- * It only ever refuses on sources the system found for itself. Material
- * the user supplied is their call: they know why it is relevant, and
- * blocking on it would turn a safeguard into an obstacle.
+ * This used to refuse when the accepted evidence did not cover the
+ * request's primary keyword. The keyword is no longer something anyone can
+ * type — the content planner derives it from this very evidence, after
+ * confirmation — so a keyword the sources do not support can no longer
+ * exist to be caught. What guards relevance now is the analyzer's per-
+ * source recommendation, which is made before anything is accepted.
  */
 export async function confirmReviewedSourceSet(
   supabase: SupabaseClient<Database>,
   requestId: string
 ): Promise<SourceSetVersionRow> {
-  const coverage = await assessRequestKeywordCoverage(supabase, requestId);
-  if (coverage.blocking) {
-    throw new DomainError("VALIDATION_ERROR", "confirm_source_set", coverage.message);
-  }
   return confirmSourceSet(supabase, requestId);
 }
 
 export type ResearchRunAvailability =
-  | { canRun: true; kind: "initial" | "rerun" }
+  | { canRun: true; kind: "initial" | "rerun"; detail: string }
   /** `reason` explains at length; `hint` is the few words that sit beside the disabled button. */
   | { canRun: false; reason: string; hint: string };
 
@@ -612,22 +532,27 @@ export type ResearchRunAvailability =
  *
  * Research used to be a once-only act: the action refused unless the
  * request was still a draft, and running it is what ends draft. That left
- * a dead end — change the keyword afterwards and the sources stay whatever
- * the first run found, with nothing to do about it.
+ * a dead end — nothing you could do afterwards changed what had been
+ * found.
  *
- * A re-run is offered only when the keyword has actually changed, because
- * re-running the same searches mostly re-fetches the same pages and
- * spends a pipeline to do it. It stops being offered once the source set
- * is confirmed: from that point the confirmed set is what the plan and
- * article are built on, and replacing the evidence underneath finished
- * work is a different operation from gathering it.
+ * Two things re-open it, both of which genuinely change what a run would
+ * do: a source you have added since (a URL or an uploaded file, sitting
+ * pending), and widening the scope from supplied-only to allowing a web
+ * search. Nothing else does, because running the same searches over the
+ * same scope mostly re-fetches the same pages and spends a pipeline to do
+ * it.
+ *
+ * It stops being offered once the source set is confirmed: from there the
+ * confirmed set is what the plan and article are built on, and replacing
+ * the evidence underneath finished work is a different operation from
+ * gathering it.
  */
 export function researchRunAvailability(request: {
   status: string;
-  resolved_primary_keyword: string | null;
-  researched_keyword: string | null;
+  supplied_sources_only: boolean;
+  researched_supplied_only: boolean | null;
   deleted_at?: string | null;
-}): ResearchRunAvailability {
+}, pendingSourceCount = 0): ResearchRunAvailability {
   if (request.deleted_at) {
     return {
       canRun: false,
@@ -636,26 +561,51 @@ export function researchRunAvailability(request: {
     };
   }
 
-  if (request.status === "draft") return { canRun: true, kind: "initial" };
+  if (request.status === "draft") {
+    return {
+      canRun: true,
+      kind: "initial",
+      detail: request.supplied_sources_only
+        ? "Analyses the materials and URLs supplied with this request. No web search, because you asked for supplied sources only."
+        : "Analyses the materials and URLs supplied with this request, and searches the web for more.",
+    };
+  }
 
   if (request.status !== "source_review") {
     return {
       canRun: false,
-      reason: "The source set is confirmed, so research is settled for this request. Add a URL to bring in anything it missed.",
-      hint: "Source set confirmed — add a URL to bring in anything missed",
+      reason: "The source set is confirmed, so research is settled for this request.",
+      hint: "Source set confirmed",
     };
   }
 
-  const current = request.resolved_primary_keyword?.trim() ?? "";
-  const researched = request.researched_keyword?.trim() ?? "";
+  // Widening the scope is the one change that makes the same searches
+  // produce different results, because previously there were none.
+  const scopeWidened = request.researched_supplied_only === true && !request.supplied_sources_only;
 
-  if (current && researched && !textCoversKeyword(current, researched) && !textCoversKeyword(researched, current)) {
-    return { canRun: true, kind: "rerun" };
+  if (pendingSourceCount > 0) {
+    return {
+      canRun: true,
+      kind: "rerun",
+      detail:
+        `${pendingSourceCount} source${pendingSourceCount === 1 ? "" : "s"} added since the last run will be analysed` +
+        (scopeWidened ? ", and the web will be searched now that it is allowed." : ". Sources you already have are left exactly as they are."),
+    };
+  }
+
+  if (scopeWidened) {
+    return {
+      canRun: true,
+      kind: "rerun",
+      detail: "Web search is allowed now, so this will look beyond the supplied materials. What you already have is left as it is.",
+    };
   }
 
   return {
     canRun: false,
-    reason: `Research already ran for "${researched || current}". Change the primary keyword to search for something different.`,
-    hint: "Edit the keyword to run more searches",
+    reason: request.supplied_sources_only
+      ? "Research has run over the supplied materials. Add another source, or allow a web search, to find more."
+      : "Research has run for this request. Add a source to bring in anything it missed.",
+    hint: request.supplied_sources_only ? "Add a source, or allow a web search" : "Add a source to find more",
   };
 }

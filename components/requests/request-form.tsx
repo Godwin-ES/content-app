@@ -23,8 +23,6 @@ export function RequestForm() {
   const [audience, setAudience] = useState("");
   const [objective, setObjective] = useState("");
   const [tone, setTone] = useState("");
-  const [primaryKeyword, setPrimaryKeyword] = useState("");
-  const [cta, setCta] = useState("");
   const [aiModelChoice, setAiModelChoice] = useState<AIModelChoice>("gemini");
   const [files, setFiles] = useState<File[]>([]);
   const [urls, setUrls] = useState<string[]>([]);
@@ -50,7 +48,7 @@ export function RequestForm() {
   const [reviewError, setReviewError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  const values = { topic, audience, objective, tone, primaryKeyword, cta };
+  const values = { topic, audience, objective, tone };
   const valuesKey = JSON.stringify(values);
 
   // A blocking flag survives dismissal because it cannot be dismissed:
@@ -160,8 +158,6 @@ export function RequestForm() {
         audience={audience}
         objective={objective}
         tone={tone}
-        primaryKeyword={primaryKeyword}
-        cta={cta}
         materialCount={files.length}
         urlCount={urls.length}
       />
@@ -213,28 +209,6 @@ export function RequestForm() {
               flags={flagsFor("tone")}
               onDismiss={(flag) => setDismissed((s) => new Set(s).add(flag.field))}
               placeholder="e.g. Professional, practical"
-            />
-            <IntakeField
-              id="primaryKeyword"
-              label="Primary keyword"
-              value={primaryKeyword}
-              onChange={(v) => updateField("primaryKeyword", v, setPrimaryKeyword)}
-              flags={flagsFor("primaryKeyword")}
-              onDismiss={(flag) => setDismissed((s) => new Set(s).add(flag.field))}
-              placeholder="Derived from research if left blank"
-              help="The term the article should rank for. Research, the content plan and the SEO checks all work from it."
-              wide
-            />
-            <IntakeField
-              id="cta"
-              label="Call to action"
-              value={cta}
-              onChange={(v) => updateField("cta", v, setCta)}
-              flags={flagsFor("cta")}
-              onDismiss={(flag) => setDismissed((s) => new Set(s).add(flag.field))}
-              placeholder="Derived from the article if left blank"
-              help="What you want a reader to do next. Used by the article and every channel asset."
-              wide
             />
             <IntakeAttachments files={files} urls={urls} onFilesChange={setFiles} onUrlsChange={setUrls} disabled={busy} />
           </div>

@@ -12,7 +12,7 @@ export const intakeReviewSchema = z.object({
   fields: z
     .array(
       z.object({
-        field: z.enum(["topic", "audience", "objective", "tone", "primaryKeyword", "cta"]),
+        field: z.enum(["topic", "audience", "objective", "tone"]),
         plausible: z.boolean(),
         /**
          * Shown to the user when the field is flagged, so it names what is
@@ -24,7 +24,7 @@ export const intakeReviewSchema = z.object({
         reason: z.string().max(240).optional().default(""),
       })
     )
-    .max(6),
+    .max(4),
 });
 
 export type IntakeReview = z.infer<typeof intakeReviewSchema>;

@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
-import { listResearchSources } from "@/lib/repositories/sources";
+import { listResearchSources, getLatestSourceDecision } from "@/lib/repositories/sources";
 import { listContentArtifacts } from "@/lib/repositories/content";
 import { getLatestEvaluation } from "@/lib/repositories/evaluations";
 import { getPackageReadiness } from "@/lib/packages/service";
@@ -66,6 +66,8 @@ export function buildWorkspaceSnapshot(parts: {
 
 export interface LoadedWorkspace {
   request: ContentRequestRow;
+  /** The latest decision on each source, so auto mode can leave yours alone. */
+  sourceDecisions: Record<string, "accepted" | "excluded" | null>;
   snapshot: WorkspaceSnapshot;
   articleArtifacts: ContentArtifactRow[];
   articleEvaluations: Record<string, EvaluationRow | null>;
@@ -103,8 +105,13 @@ export async function loadWorkspace(supabase: SupabaseClient<Database>, requestI
   const readiness = request.selected_article_version_id ? await getPackageReadiness(supabase, requestId) : null;
   const queue = request.current_package_id ? await getPublishingQueue(supabase, requestId) : null;
 
+  const sourceDecisions = Object.fromEntries(
+    await Promise.all(sources.map(async (s) => [s.id, await getLatestSourceDecision(supabase, s.id)] as const))
+  );
+
   return {
     request,
+    sourceDecisions,
     articleArtifacts,
     articleEvaluations,
     channelArtifacts,

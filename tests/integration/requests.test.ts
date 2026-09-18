@@ -8,16 +8,11 @@ import {
   deleteTestUser,
   hasSupabaseCredentials,
 } from "@/tests/helpers/supabase-test-clients";
-import {
-  createContentRequest,
-  listOwnedRequests,
-  setRequestPrimaryKeyword,
-  setRequestCta,
-  setSuppliedSourcesOnly,
-} from "@/lib/repositories/requests";
+import { createContentRequest, listOwnedRequests, setSuppliedSourcesOnly } from "@/lib/repositories/requests";
 import { getContentRequest } from "@/lib/repositories/requests";
 import { listActivityEvents } from "@/lib/repositories/activity";
 import { DEFAULT_REQUEST_SETTINGS } from "@/lib/domain/defaults";
+import { contentRequestInputSchema } from "@/lib/domain/schemas";
 
 const hasCredentials = hasSupabaseCredentials();
 
@@ -70,52 +65,8 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
     expect(request.resolved_objective).toBe(DEFAULT_REQUEST_SETTINGS.objective);
   });
 
-  it("carries a supplied primary keyword and CTA through to the resolved columns", async () => {
-    const request = await createContentRequest(owner.client, owner.userId, {
-      topic: "AI agents in recruiting",
-      primaryKeyword: "ai recruiting agents",
-      cta: "Book a walkthrough",
-    });
-    requestIds.push(request.id);
 
-    expect(request.supplied_primary_keyword).toBe("ai recruiting agents");
-    expect(request.resolved_primary_keyword).toBe("ai recruiting agents");
-    expect(request.supplied_cta).toBe("Book a walkthrough");
-    expect(request.resolved_cta).toBe("Book a walkthrough");
-  });
 
-  it("leaves the keyword and CTA null when not supplied, so each is derived later", async () => {
-    const request = await createContentRequest(owner.client, owner.userId, { topic: "AI agents in recruiting" });
-    requestIds.push(request.id);
-
-    expect(request.supplied_primary_keyword).toBeNull();
-    expect(request.resolved_primary_keyword).toBeNull();
-    expect(request.resolved_cta).toBeNull();
-  });
-
-  it("updates the keyword and CTA after intake, and clearing one hands it back to derivation", async () => {
-    const request = await createContentRequest(owner.client, owner.userId, { topic: "AI agents in recruiting" });
-    requestIds.push(request.id);
-
-    await setRequestPrimaryKeyword(owner.client, request.id, "  ai recruiting agents  ");
-    await setRequestCta(owner.client, request.id, "Book a walkthrough");
-
-    const afterSet = await getContentRequest(owner.client, request.id);
-    expect(afterSet?.supplied_primary_keyword).toBe("ai recruiting agents");
-    expect(afterSet?.resolved_primary_keyword).toBe("ai recruiting agents");
-    expect(afterSet?.resolved_cta).toBe("Book a walkthrough");
-
-    await setRequestPrimaryKeyword(owner.client, request.id, null);
-    const afterClear = await getContentRequest(owner.client, request.id);
-    expect(afterClear?.supplied_primary_keyword).toBeNull();
-    expect(afterClear?.resolved_primary_keyword).toBeNull();
-    // The CTA is untouched by clearing the keyword.
-    expect(afterClear?.resolved_cta).toBe("Book a walkthrough");
-
-    const events = await listActivityEvents(owner.client, request.id);
-    expect(events.some((e) => e.event_type === "primary_keyword_changed")).toBe(true);
-    expect(events.some((e) => e.event_type === "cta_changed")).toBe(true);
-  });
 
   it("actually persists supplied-sources-only — content_requests has no UPDATE policy, so a plain update writes nothing", async () => {
     const request = await createContentRequest(owner.client, owner.userId, { topic: "AI agents in recruiting" });
@@ -129,22 +80,6 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
     expect((await getContentRequest(owner.client, request.id))?.supplied_sources_only).toBe(false);
   });
 
-  it("refuses to change another owner's request settings", async () => {
-    const request = await createContentRequest(owner.client, owner.userId, { topic: "AI agents in recruiting" });
-    requestIds.push(request.id);
-
-    const stranger = await createTestUser(admin, "intake-stranger");
-    try {
-      // The RPC is security definer, so it reads the row and refuses on
-      // ownership rather than failing to find it.
-      await expect(setRequestPrimaryKeyword(stranger.client, request.id, "hijacked")).rejects.toMatchObject({
-        code: "PERMISSION_DENIED",
-      });
-      expect((await getContentRequest(owner.client, request.id))?.resolved_primary_keyword).toBeNull();
-    } finally {
-      await deleteTestUser(admin, stranger.userId);
-    }
-  });
 
   it("rejects a blank topic before touching the database", async () => {
     await expect(createContentRequest(owner.client, owner.userId, { topic: "   " })).rejects.toMatchObject({
@@ -189,5 +124,18 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
 
     const afterChange = await listOwnedRequests(owner.client, owner.userId);
     expect(afterChange.find((r) => r.id === draft.id)?.status).toBe("source_review");
+  });
+
+  it("leaves the keyword and CTA for the content planner to derive", () => {
+    // Neither is an intake field any more: both are produced by the
+    // planner from the accepted evidence, which is the only place either
+    // can be grounded. Passing them is ignored rather than stored.
+    const parsed = contentRequestInputSchema.parse({
+      topic: "AI agents in recruiting",
+      primaryKeyword: "ai recruiting agents",
+      cta: "Book a walkthrough",
+    });
+    expect(parsed).not.toHaveProperty("primaryKeyword");
+    expect(parsed).not.toHaveProperty("cta");
   });
 });

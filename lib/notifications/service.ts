@@ -180,33 +180,6 @@ export async function notifyAutoModeFinished(params: {
   });
 }
 
-/**
- * The research finished, but nothing it found discusses the keyword the
- * article is supposed to rank for. Sent to the Content Manager's channel
- * rather than the system-errors one: nothing malfunctioned, and the person
- * who can fix it — by changing the keyword or adding a source — is the one
- * who needs to hear about it.
- */
-export async function notifyKeywordCoverageGap(params: {
-  requestId: string;
-  topic: string;
-  keyword: string;
-  blocking: boolean;
-}): Promise<void> {
-  const suffix = params.blocking
-    ? "The source set cannot be confirmed until the keyword matches the research, or a source covering it is added."
-    : "The supplied materials are yours to judge, so this is only a warning.";
-
-  await notify({
-    requestId: params.requestId,
-    channel: "content_manager",
-    eventType: "keyword_coverage_gap",
-    message:
-      `⚠️ **${params.topic}** — no source mentions the primary keyword "${params.keyword}".\n${suffix}\n` +
-      `${requestUrl(params.requestId, "research")}`,
-  });
-}
-
 export async function notifySystemError(params: {
   stage: string;
   message: string;

@@ -4,15 +4,13 @@ export interface IntakeReviewerInput {
   audience: string | null;
   objective: string | null;
   tone: string | null;
-  primaryKeyword: string | null;
-  cta: string | null;
 }
 
 /**
  * Intake reviewer: does each answer read like a real answer to the
  * question it was given?
  *
- * One call for all five fields rather than one per field. It is five times
+ * One call for all four fields rather than one per field. It is five times
  * cheaper and faster, and it is the only way to catch the mismatches that
  * exist *between* fields — an audience of "CTOs" beside an objective of
  * "sell dog food" is two individually plausible answers to the wrong brief.
@@ -42,8 +40,6 @@ export function buildIntakeReviewerPrompt(input: IntakeReviewerInput): { system:
     "- audience: who is this piece of content for?",
     "- objective: what should it achieve?",
     "- tone: how should it read?",
-    "- primaryKeyword: the search phrase the article should rank for.",
-    "- cta: what should a reader do next?",
     "",
     "Return a verdict for every field you were given, and none for fields that were not supplied.",
     "For a flagged field, `reason` is one sentence addressed to the writer: what is wrong, and what a real answer would look like. Do not restate the rule.",
@@ -55,8 +51,6 @@ export function buildIntakeReviewerPrompt(input: IntakeReviewerInput): { system:
     ["audience", input.audience],
     ["objective", input.objective],
     ["tone", input.tone],
-    ["primaryKeyword", input.primaryKeyword],
-    ["cta", input.cta],
   ].filter(([, value]) => Boolean(value && String(value).trim()));
 
   const user = ["Fields to check:", ...supplied.map(([field, value]) => `- ${field}: ${value}`)].join("\n");

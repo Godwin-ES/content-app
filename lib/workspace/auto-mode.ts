@@ -6,7 +6,7 @@ import type { ResearchProvider } from "@/lib/research/types";
 import { DomainError } from "@/lib/domain/errors";
 import { deriveNextAction, PIPELINE_STAGES, derivePipelineProgress, type NextActionKey, type PipelineStage } from "@/lib/workspace/next-action";
 import { loadWorkspace } from "@/lib/workspace/snapshot";
-import { runResearchPipeline, assessRequestKeywordCoverage } from "@/lib/research/service";
+import { runResearchPipeline } from "@/lib/research/service";
 import { recordSourceDecision, confirmSourceSet } from "@/lib/repositories/sources";
 import { generateContentPlan } from "@/lib/planning/service";
 import {
@@ -199,6 +199,20 @@ export async function runAutoStep(
   switch (nextAction.key) {
     case "add_sources": {
       const result = await runResearchPipeline(supabase, ai, research, modelId, requestId);
+
+      // Nothing usable leaves the request at draft, whose next action is
+      // "start research" again — so without this, auto mode re-ran the
+      // whole pipeline until its 40-step guard tripped, paying for every
+      // one. There is nothing a repeat would find: the same scope, the
+      // same searches, the same pages.
+      if (result.usableSourceCount === 0) {
+        return blocked(
+          workspace.request.supplied_sources_only
+            ? "Nothing in the supplied materials could be used for this topic. Add another source, or allow a web search as well, then continue."
+            : "Research found nothing usable for this topic. Add a source yourself, then continue."
+        );
+      }
+
       return advanced(`Research complete — ${result.usableSourceCount} source(s) will inform the plan.`);
     }
 
@@ -212,9 +226,16 @@ export async function runAutoStep(
       // usable" was guaranteed to miss. Supplied URLs and uploaded files
       // go through the same analyzer, so a link that turns out to be off
       // topic is excluded like any other.
+      // Only sources nobody has ruled on. Auto mode used to record a
+      // decision for every usable source, which silently replaced
+      // decisions the user had already made by hand — the opposite of
+      // picking up where they left off.
       const usable = workspace.sources.filter((s) => s.retrieval_status === "usable");
-      const accepted = usable.filter((s) => s.recommendation !== "exclude");
-      const excluded = usable.filter((s) => s.recommendation === "exclude");
+      const undecided = usable.filter((s) => !workspace.sourceDecisions[s.id]);
+      const alreadyAccepted = usable.filter((s) => workspace.sourceDecisions[s.id] === "accepted");
+
+      const accepted = undecided.filter((s) => s.recommendation !== "exclude");
+      const excluded = undecided.filter((s) => s.recommendation === "exclude");
 
       for (const source of excluded) {
         await recordSourceDecision(supabase, {
@@ -225,10 +246,13 @@ export async function runAutoStep(
         });
       }
 
-      if (accepted.length === 0) {
+      if (accepted.length + alreadyAccepted.length === 0) {
         return blocked(
-          "Every retrieved source looks off topic, so there is nothing to write from. " +
-            "Change the primary keyword, or add a source yourself, then continue."
+          workspace.request.supplied_sources_only
+            ? "None of the supplied materials are about this topic, so there is nothing to write from. " +
+                "Add another source, or allow a web search as well, then continue."
+            : "Every source found is about something else, so there is nothing to write from. " +
+                "Add a source yourself, then continue."
         );
       }
 
@@ -240,18 +264,14 @@ export async function runAutoStep(
           decidedBy: request.owner_id,
         });
       }
-      // The keyword-coverage gate is a judgement auto mode must not make
-      // for you: the fix is either to change the keyword or to accept that
-      // the research missed it, and both are the user's call. Reported as
-      // a stop, not an error — nothing failed.
-      const coverage = await assessRequestKeywordCoverage(supabase, requestId);
-      if (coverage.blocking) return blocked(coverage.message);
 
       await confirmSourceSet(supabase, requestId);
+
+      const keptYours = alreadyAccepted.length > 0 ? ` (plus ${alreadyAccepted.length} you had already accepted)` : "";
       return advanced(
         excluded.length > 0
-          ? `Accepted ${accepted.length} source(s), excluded ${excluded.length} as off topic, and confirmed the source set.`
-          : `Accepted ${accepted.length} source(s) and confirmed the source set.`
+          ? `Accepted ${accepted.length} source(s)${keptYours}, excluded ${excluded.length} as off topic, and confirmed the source set.`
+          : `Accepted ${accepted.length} source(s)${keptYours} and confirmed the source set.`
       );
     }
 

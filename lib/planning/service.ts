@@ -106,7 +106,20 @@ async function persistPlanVersion(
   if (error || !data) throw error ?? new Error("Failed to save content plan");
 
   const admin = createSupabaseAdminClient();
-  await admin.from("content_requests").update({ current_plan_id: data.id }).eq("id", requestId);
+  // The planner is where the keyword and the CTA are actually decided —
+  // it is the first step that has read the accepted evidence. Writing them
+  // back onto the request keeps every later reader (the article writer,
+  // the channel adapters, the deterministic SEO check) reading the same
+  // field it always did, now filled in by the only step qualified to fill
+  // it rather than by a guess typed before any research happened.
+  await admin
+    .from("content_requests")
+    .update({
+      current_plan_id: data.id,
+      resolved_primary_keyword: plan.primaryKeyword,
+      resolved_cta: plan.ctaDirection,
+    })
+    .eq("id", requestId);
 
   await recordActivityEvent({
     requestId,

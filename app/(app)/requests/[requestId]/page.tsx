@@ -11,7 +11,6 @@ import { getSamplePack } from "@/lib/sample-pack/service";
 import { getPublishingQueue } from "@/lib/publishing/service";
 import { listActivityEvents } from "@/lib/repositories/activity";
 import { filterDisplayedActivity } from "@/lib/activity/display";
-import { assessKeywordCoverage } from "@/lib/research/keyword-coverage";
 import { researchRunAvailability } from "@/lib/research/service";
 import { deriveNextAction, derivePipelineProgress } from "@/lib/workspace/next-action";
 import { buildWorkspaceSnapshot } from "@/lib/workspace/snapshot";
@@ -79,19 +78,6 @@ export default async function RequestWorkspacePage({
   const evidenceBySource = Object.fromEntries(evidenceEntries);
   const decisionsBySource = Object.fromEntries(decisionEntries);
 
-  // Computed from the sources and decisions already loaded above rather
-  // than through assessRequestKeywordCoverage, which would re-fetch every
-  // source's extracted text a second time on every page load. Same pure
-  // function underneath, so the banner and the confirm gate cannot
-  // disagree.
-  const anyDecision = Object.values(decisionsBySource).some((d) => d !== null);
-  const coverageSources = sources
-    .filter((s) => s.retrieval_status === "usable")
-    .filter((s) => !anyDecision || decisionsBySource[s.id] === "accepted");
-  const keywordCoverage = assessKeywordCoverage(
-    request.resolved_primary_keyword,
-    coverageSources.map((s) => ({ id: s.id, title: s.title, extractedText: s.extracted_text, origin: s.origin as "researched" | "user_url" | "uploaded_material" }))
-  );
 
   const planVersions = await listContentPlanVersions(supabase, requestId);
   const plan = planVersions[0] ?? null;
@@ -177,11 +163,6 @@ export default async function RequestWorkspacePage({
   });
   const nextAction = deriveNextAction(snapshot);
 
-  // Request-level settings (primary keyword, CTA) stay editable right up to
-  // approval; once a package is approved, what it was written to target is
-  // part of what was approved. The RPCs enforce the same rule, so this only
-  // decides whether to offer the control.
-  const canEditSettings = ["draft", "source_review", "content_development"].includes(request.status);
 
   const overviewContent = (
     <>
@@ -226,10 +207,7 @@ export default async function RequestWorkspacePage({
       decisionsBySource={decisionsBySource}
       conflicts={conflicts}
       suppliedSourcesOnly={request.supplied_sources_only}
-      primaryKeyword={request.resolved_primary_keyword}
-      canEditSettings={canEditSettings}
-      keywordCoverage={keywordCoverage}
-      runAvailability={researchRunAvailability(request)}
+      runAvailability={researchRunAvailability(request, sources.filter((s) => s.retrieval_status === "pending").length)}
     />
   );
 
@@ -267,8 +245,6 @@ export default async function RequestWorkspacePage({
       evaluationsByArtifact={channelEvaluationsByArtifact}
       versionsByArtifact={Object.fromEntries(channelAllVersionsEntries)}
       canGenerate={request.status === "content_development"}
-      cta={request.resolved_cta}
-      canEditSettings={canEditSettings}
       />
     </>
   ) : (

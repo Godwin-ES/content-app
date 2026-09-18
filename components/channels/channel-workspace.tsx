@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { generateChannelsAction, retryChannelAction, evaluateChannelAction } from "@/actions/channels";
-import { setCtaAction } from "@/actions/requests";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -14,7 +13,6 @@ import { VersionHistory } from "@/components/articles/version-history";
 import { LinkedinEditor } from "@/components/channels/linkedin-editor";
 import { XEditor } from "@/components/channels/x-editor";
 import { NewsletterEditor } from "@/components/channels/newsletter-editor";
-import { EditableSetting } from "@/components/shared/editable-setting";
 import type { Database } from "@/lib/supabase/database.types";
 import type { LinkedinPost, XPost, Newsletter } from "@/lib/ai/schemas/channel";
 import { useAutoMode } from "@/components/requests/auto-mode-context";
@@ -30,8 +28,6 @@ interface ChannelWorkspaceProps {
   evaluationsByArtifact: Record<string, EvaluationRow | null>;
   versionsByArtifact: Record<string, ArtifactVersionRow[]>;
   canGenerate: boolean;
-  cta: string | null;
-  canEditSettings: boolean;
 }
 
 const CHANNEL_LABEL: Record<string, string> = { linkedin: "LinkedIn", x: "X", newsletter: "Newsletter" };
@@ -166,8 +162,6 @@ export function ChannelWorkspace({
   evaluationsByArtifact,
   versionsByArtifact,
   canGenerate,
-  cta,
-  canEditSettings,
 }: ChannelWorkspaceProps) {
   const { running: autoModeRunning } = useAutoMode();
   const [error, setError] = useState<string | null>(null);
@@ -185,18 +179,6 @@ export function ChannelWorkspace({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* The CTA belongs with the posts that carry it. Changing it does not
-          rewrite anything already generated — existing assets keep the CTA
-          they were written with until they are regenerated. */}
-      <EditableSetting
-        label="Call to action"
-        description="What you want a reader to do next. Applied the next time the article or a channel asset is generated."
-        value={cta}
-        derivedLabel="Not set — the writer will choose one"
-        placeholder="e.g. Book a 15-minute walkthrough"
-        onSave={(next) => setCtaAction(requestId, next)}
-        disabled={!canEditSettings}
-      />
 
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Channel Assets</h3>

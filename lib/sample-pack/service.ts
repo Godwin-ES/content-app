@@ -17,7 +17,6 @@ export interface SamplePackAssumptions {
   resolvedObjective: string;
   suppliedTone: string | null;
   resolvedTone: string;
-  suppliedCta: string | null;
   resolvedCta: string | null;
 }
 
@@ -109,7 +108,6 @@ export async function getSamplePack(supabase: SupabaseClient<Database>, requestI
       resolvedObjective: typedRequest.resolved_objective,
       suppliedTone: typedRequest.supplied_tone,
       resolvedTone: typedRequest.resolved_tone,
-      suppliedCta: typedRequest.supplied_cta,
       resolvedCta: typedRequest.resolved_cta,
     },
     reviewedSources: (sources as ResearchSourceRow[]).map((s) => ({

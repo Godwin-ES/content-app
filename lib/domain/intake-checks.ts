@@ -1,4 +1,4 @@
-import { keywordContentWords, normalizeForKeywordMatch } from "@/lib/domain/keyword";
+import { normalizeForKeywordMatch } from "@/lib/domain/keyword";
 
 /**
  * Cheap, instant checks on what someone types at intake.
@@ -15,7 +15,7 @@ import { keywordContentWords, normalizeForKeywordMatch } from "@/lib/domain/keyw
  * audience.
  */
 
-export type IntakeField = "topic" | "audience" | "objective" | "tone" | "primaryKeyword" | "cta";
+export type IntakeField = "topic" | "audience" | "objective" | "tone";
 
 export interface IntakeFlag {
   field: IntakeField;
@@ -23,12 +23,10 @@ export interface IntakeFlag {
   /**
    * Whether the request can still be created over this flag.
    *
-   * Nearly everything here is advisory: these are heuristics about someone
-   * else's subject matter, and "Talent Ceiling" looks like nonsense to a
-   * rule that has never heard of it. The one exception is the keyword's
-   * single-phrase rule, which is not a matter of taste — the SEO check
-   * looks for that exact phrase in the title, and a keyword containing a
-   * comma can never be found there.
+   * Everything about the optional fields is advisory: these are
+   * heuristics about someone else's subject matter, and "Talent Ceiling"
+   * looks like nonsense to a rule that has never heard of it. The topic is
+   * the exception, and only for the mechanical rules — see checkTopic.
    */
   blocking: boolean;
 }
@@ -42,16 +40,11 @@ const MIN_FIELD_LENGTH = 3;
  */
 const MIN_TOPIC_LENGTH = 6;
 
-/** A keyword is a phrase, not a sentence. */
-const MAX_KEYWORD_WORDS = 6;
-
 const FIELD_LABEL: Record<IntakeField, string> = {
   topic: "Topic",
   audience: "Audience",
   objective: "Objective",
   tone: "Tone",
-  primaryKeyword: "Primary keyword",
-  cta: "Call to action",
 };
 
 /** The rows someone drags a finger along when they cannot be bothered. */
@@ -105,54 +98,11 @@ function checkFreeText(field: IntakeField, value: string): IntakeFlag[] {
   return flags;
 }
 
-/**
- * The primary keyword's own rules. Unlike the free-text fields, this one
- * has a downstream consumer with a literal requirement: validateArticleSEO
- * checks the title contains this exact phrase.
- */
-function checkPrimaryKeyword(value: string): IntakeFlag[] {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return [];
-
-  const flags: IntakeFlag[] = [];
-
-  if (/[,;|]|\b(and|or)\b/i.test(trimmed)) {
-    flags.push({
-      field: "primaryKeyword",
-      message: "A primary keyword is one phrase. Remove the list — pick the single phrase the article should rank for.",
-      blocking: true,
-    });
-  }
-
-  const words = keywordContentWords(trimmed);
-  if (words.length > MAX_KEYWORD_WORDS) {
-    flags.push({
-      field: "primaryKeyword",
-      message: `A primary keyword of ${words.length} words is a sentence, not a search. Shorten it to about ${MAX_KEYWORD_WORDS} words or fewer.`,
-      blocking: true,
-    });
-  }
-
-  if (words.length === 0) {
-    flags.push({
-      field: "primaryKeyword",
-      message: "A primary keyword needs at least one meaningful word.",
-      blocking: true,
-    });
-  } else if (looksLikeMashedKeys(trimmed)) {
-    flags.push({ field: "primaryKeyword", message: "Primary keyword does not look like real words.", blocking: false });
-  }
-
-  return flags;
-}
-
 export interface IntakeValues {
   topic?: string | null;
   audience?: string | null;
   objective?: string | null;
   tone?: string | null;
-  primaryKeyword?: string | null;
-  cta?: string | null;
 }
 
 /**
@@ -200,8 +150,6 @@ export function checkIntakeFields(values: IntakeValues): IntakeFlag[] {
     ...checkFreeText("audience", values.audience ?? ""),
     ...checkFreeText("objective", values.objective ?? ""),
     ...checkFreeText("tone", values.tone ?? ""),
-    ...checkPrimaryKeyword(values.primaryKeyword ?? ""),
-    ...checkFreeText("cta", values.cta ?? ""),
   ];
 }
 

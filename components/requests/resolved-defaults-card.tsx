@@ -5,8 +5,6 @@ interface ResolvedDefaultsCardProps {
   audience: string;
   objective: string;
   tone: string;
-  primaryKeyword: string;
-  cta: string;
   materialCount: number;
   urlCount: number;
 }
@@ -15,18 +13,18 @@ interface ResolvedDefaultsCardProps {
  * Shows the visible defaults that will be used for any optional field left
  * blank (SYSTEM-DESIGN-NEXTJS.md §7.3). Updates live as the Content Manager
  * fills in optional fields, so it is always clear what is supplied versus
- * resolved. Primary keyword and CTA have no static brand default — left
- * blank they are derived later, from the research plan and by the writer
- * respectively — so the card says where the value will come from rather
- * than pretending there is a default text to show.
+ * resolved.
+ *
+ * The primary keyword and the call to action are deliberately absent: both
+ * are derived by the content planner from the accepted evidence, so there
+ * is nothing here for someone to supply or override, and listing them
+ * would only invite them to look for an input that does not exist.
  */
-export function ResolvedDefaultsCard({ audience, objective, tone, primaryKeyword, cta, materialCount, urlCount }: ResolvedDefaultsCardProps) {
+export function ResolvedDefaultsCard({ audience, objective, tone, materialCount, urlCount }: ResolvedDefaultsCardProps) {
   const rows = [
     { label: "Audience", value: audience || DEFAULT_REQUEST_SETTINGS.audience },
     { label: "Objective", value: objective || DEFAULT_REQUEST_SETTINGS.objective },
     { label: "Tone", value: tone || DEFAULT_REQUEST_SETTINGS.tone },
-    { label: "Primary keyword", value: primaryKeyword || "Derived from research" },
-    { label: "Call to action", value: cta || "Derived from the article" },
     {
       label: "Supporting materials",
       value: materialCount > 0 ? `${materialCount} provided by user` : "None provided by user",

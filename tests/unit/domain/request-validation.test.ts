@@ -20,6 +20,16 @@ describe("contentRequestInputSchema", () => {
     expect(result.topic).toBe("AI agents");
   });
 
+  it("ignores a keyword or CTA, which the content planner derives from the evidence", () => {
+    const parsed = contentRequestInputSchema.parse({
+      topic: "AI agents",
+      primaryKeyword: "ai recruiting agents",
+      cta: "Book a demo",
+    });
+    expect(parsed).not.toHaveProperty("primaryKeyword");
+    expect(parsed).not.toHaveProperty("cta");
+  });
+
   it("ignores a supplied-URL list, which is no longer a property of the request", () => {
     // Supplied URLs became research_sources rows with origin 'user_url' at
     // intake. An old caller passing them here must not have them silently
@@ -28,7 +38,4 @@ describe("contentRequestInputSchema", () => {
     expect(result).not.toHaveProperty("sourceUrls");
   });
 
-  it("rejects an empty CTA string as distinct from omitted CTA", () => {
-    expect(() => contentRequestInputSchema.parse({ topic: "AI agents", cta: "" })).toThrow();
-  });
 });

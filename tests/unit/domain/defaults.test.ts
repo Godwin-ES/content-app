@@ -13,8 +13,6 @@ describe("resolveRequestSettings", () => {
     expect(resolved.objective.source).toBe("default");
     expect(resolved.tone.value).toBe(DEFAULT_REQUEST_SETTINGS.tone);
     expect(resolved.tone.source).toBe("default");
-    expect(resolved.cta.value).toBeNull();
-    expect(resolved.cta.source).toBe("default");
   });
 
   it("preserves supplied values and marks them as supplied", () => {
@@ -23,14 +21,12 @@ describe("resolveRequestSettings", () => {
       audience: "HR leaders",
       objective: "Drive demo signups",
       tone: "Bold and direct",
-      cta: "Book a demo",
     });
     const resolved = resolveRequestSettings(input);
 
     expect(resolved.audience).toEqual({ value: "HR leaders", source: "supplied" });
     expect(resolved.objective).toEqual({ value: "Drive demo signups", source: "supplied" });
     expect(resolved.tone).toEqual({ value: "Bold and direct", source: "supplied" });
-    expect(resolved.cta).toEqual({ value: "Book a demo", source: "supplied" });
   });
 
   it("resolves a mix of supplied and default values independently", () => {

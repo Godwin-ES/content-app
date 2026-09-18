@@ -62,8 +62,6 @@ export interface ContentRequestInput {
   audience?: string;
   objective?: string;
   tone?: string;
-  cta?: string;
-  primaryKeyword?: string;
   sourceUrls?: string[];
   additionalInstructions?: string;
   publicationDate?: string;
@@ -75,6 +73,4 @@ export interface ResolvedRequestSettings {
   audience: ResolvedField<string>;
   objective: ResolvedField<string>;
   tone: ResolvedField<string>;
-  cta: ResolvedField<string | null>;
-  primaryKeyword: ResolvedField<string | null>;
 }

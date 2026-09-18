@@ -481,7 +481,7 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
-          researched_keyword: string | null
+          researched_supplied_only: boolean | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string
@@ -490,9 +490,7 @@ export type Database = {
           selected_article_version_id: string | null
           status: string
           supplied_audience: string | null
-          supplied_cta: string | null
           supplied_objective: string | null
-          supplied_primary_keyword: string | null
           supplied_sources_only: boolean
           supplied_tone: string | null
           topic: string
@@ -507,7 +505,7 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           owner_id: string
-          researched_keyword?: string | null
+          researched_supplied_only?: boolean | null
           resolved_audience: string
           resolved_cta?: string | null
           resolved_objective: string
@@ -516,9 +514,7 @@ export type Database = {
           selected_article_version_id?: string | null
           status?: string
           supplied_audience?: string | null
-          supplied_cta?: string | null
           supplied_objective?: string | null
-          supplied_primary_keyword?: string | null
           supplied_sources_only?: boolean
           supplied_tone?: string | null
           topic: string
@@ -533,7 +529,7 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           owner_id?: string
-          researched_keyword?: string | null
+          researched_supplied_only?: boolean | null
           resolved_audience?: string
           resolved_cta?: string | null
           resolved_objective?: string
@@ -542,9 +538,7 @@ export type Database = {
           selected_article_version_id?: string | null
           status?: string
           supplied_audience?: string | null
-          supplied_cta?: string | null
           supplied_objective?: string | null
-          supplied_primary_keyword?: string | null
           supplied_sources_only?: boolean
           supplied_tone?: string | null
           topic?: string
@@ -1614,7 +1608,7 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
-          researched_keyword: string | null
+          researched_supplied_only: boolean | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string
@@ -1623,9 +1617,7 @@ export type Database = {
           selected_article_version_id: string | null
           status: string
           supplied_audience: string | null
-          supplied_cta: string | null
           supplied_objective: string | null
-          supplied_primary_keyword: string | null
           supplied_sources_only: boolean
           supplied_tone: string | null
           topic: string
@@ -1670,76 +1662,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      set_request_cta: {
-        Args: { p_cta: string; p_request_id: string }
-        Returns: {
-          ai_model_choice: string | null
-          created_at: string
-          current_package_id: string | null
-          current_plan_id: string | null
-          current_source_set_id: string | null
-          deleted_at: string | null
-          id: string
-          owner_id: string
-          researched_keyword: string | null
-          resolved_audience: string
-          resolved_cta: string | null
-          resolved_objective: string
-          resolved_primary_keyword: string | null
-          resolved_tone: string
-          selected_article_version_id: string | null
-          status: string
-          supplied_audience: string | null
-          supplied_cta: string | null
-          supplied_objective: string | null
-          supplied_primary_keyword: string | null
-          supplied_sources_only: boolean
-          supplied_tone: string | null
-          topic: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "content_requests"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      set_request_primary_keyword: {
-        Args: { p_primary_keyword: string; p_request_id: string }
-        Returns: {
-          ai_model_choice: string | null
-          created_at: string
-          current_package_id: string | null
-          current_plan_id: string | null
-          current_source_set_id: string | null
-          deleted_at: string | null
-          id: string
-          owner_id: string
-          researched_keyword: string | null
-          resolved_audience: string
-          resolved_cta: string | null
-          resolved_objective: string
-          resolved_primary_keyword: string | null
-          resolved_tone: string
-          selected_article_version_id: string | null
-          status: string
-          supplied_audience: string | null
-          supplied_cta: string | null
-          supplied_objective: string | null
-          supplied_primary_keyword: string | null
-          supplied_sources_only: boolean
-          supplied_tone: string | null
-          topic: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "content_requests"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       set_supplied_sources_only: {
         Args: { p_request_id: string; p_value: boolean }
         Returns: {
@@ -1751,7 +1673,7 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
-          researched_keyword: string | null
+          researched_supplied_only: boolean | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string
@@ -1760,9 +1682,7 @@ export type Database = {
           selected_article_version_id: string | null
           status: string
           supplied_audience: string | null
-          supplied_cta: string | null
           supplied_objective: string | null
-          supplied_primary_keyword: string | null
           supplied_sources_only: boolean
           supplied_tone: string | null
           topic: string

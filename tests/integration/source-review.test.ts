@@ -14,7 +14,7 @@ import {
   resolveSourceConflict,
   confirmSourceSet,
 } from "@/lib/repositories/sources";
-import { confirmReviewedSourceSet, assessRequestKeywordCoverage } from "@/lib/research/service";
+import { confirmReviewedSourceSet } from "@/lib/research/service";
 
 const hasCredentials = hasSupabaseCredentials();
 
@@ -128,6 +128,18 @@ describe.skipIf(!hasCredentials)("Source Review (hosted Supabase integration)", 
     expect(updatedRequest?.status).toBe("content_development");
   });
 
+  it("confirms through the app's own entry point, which no longer gates on keyword coverage", async () => {
+    // The keyword is derived by the content planner from this evidence,
+    // after confirmation, so a keyword the sources do not support cannot
+    // exist to be caught here any more.
+    const request = await newRequest();
+    const source = await newSource(request.id, { original_url: "https://example.com/entry-point" });
+    await recordSourceDecision(owner.client, { sourceId: source.id, decision: "accepted", reason: null, decidedBy: owner.userId });
+
+    const sourceSet = await confirmReviewedSourceSet(owner.client, request.id);
+    expect(sourceSet.version_number).toBe(1);
+  });
+
   it("creates Source Set v2 without mutating v1 when accepted sources change later", async () => {
     const request = await newRequest();
     const sourceA = await newSource(request.id, { original_url: "https://example.com/a3" });
@@ -151,108 +163,5 @@ describe.skipIf(!hasCredentials)("Source Review (hosted Supabase integration)", 
     expect(v2Items).toHaveLength(2);
   });
 
-  describe("keyword coverage gate", () => {
-    async function keywordRequest(keyword: string) {
-      const { data } = await admin
-        .from("content_requests")
-        .insert({
-          owner_id: owner.userId,
-          topic: "Source review test",
-          resolved_audience: "a",
-          resolved_objective: "b",
-          resolved_tone: "c",
-          resolved_primary_keyword: keyword,
-          status: "source_review",
-        })
-        .select()
-        .single();
-      requestIds.push(data!.id);
-      return data!;
-    }
-
-    it("refuses to confirm when no accepted researched source mentions the keyword", async () => {
-      const request = await keywordRequest("ai recruiting agents");
-      const source = await newSource(request.id, {
-        original_url: "https://example.com/kw-miss",
-        title: "Warehouse robotics in 2026",
-        extracted_text: "A long article about conveyor belts and warehouse automation.",
-      });
-      await recordSourceDecision(owner.client, { sourceId: source.id, decision: "accepted", reason: null, decidedBy: owner.userId });
-
-      await expect(confirmReviewedSourceSet(owner.client, request.id)).rejects.toMatchObject({
-        code: "VALIDATION_ERROR",
-      });
-
-      const { data: unchanged } = await admin.from("content_requests").select("status").eq("id", request.id).single();
-      expect(unchanged?.status).toBe("source_review");
-    });
-
-    it("confirms once a source covering the keyword is accepted", async () => {
-      const request = await keywordRequest("ai recruiting agents");
-      const miss = await newSource(request.id, {
-        original_url: "https://example.com/kw-miss-2",
-        extracted_text: "Conveyor belts and warehouse automation.",
-      });
-      const hit = await newSource(request.id, {
-        original_url: "https://example.com/kw-hit",
-        title: "AI Recruiting Agents, explained",
-        extracted_text: "How AI recruiting agents shortlist candidates.",
-      });
-      await recordSourceDecision(owner.client, { sourceId: miss.id, decision: "accepted", reason: null, decidedBy: owner.userId });
-      await recordSourceDecision(owner.client, { sourceId: hit.id, decision: "accepted", reason: null, decidedBy: owner.userId });
-
-      const sourceSet = await confirmReviewedSourceSet(owner.client, request.id);
-      expect(sourceSet.version_number).toBe(1);
-    });
-
-    it("counts only accepted sources, so excluding the one that covered the keyword blocks", async () => {
-      const request = await keywordRequest("ai recruiting agents");
-      const miss = await newSource(request.id, {
-        original_url: "https://example.com/kw-miss-3",
-        extracted_text: "Conveyor belts and warehouse automation.",
-      });
-      const hit = await newSource(request.id, {
-        original_url: "https://example.com/kw-hit-2",
-        extracted_text: "How AI recruiting agents shortlist candidates.",
-      });
-      await recordSourceDecision(owner.client, { sourceId: miss.id, decision: "accepted", reason: null, decidedBy: owner.userId });
-      await recordSourceDecision(owner.client, { sourceId: hit.id, decision: "excluded", reason: "Off topic.", decidedBy: owner.userId });
-
-      const coverage = await assessRequestKeywordCoverage(owner.client, request.id);
-      expect(coverage.covered).toBe(false);
-      expect(coverage.blocking).toBe(true);
-      await expect(confirmReviewedSourceSet(owner.client, request.id)).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
-    });
-
-    it("warns but confirms when every accepted source is the user's own material", async () => {
-      const request = await keywordRequest("ai recruiting agents");
-      const supplied = await newSource(request.id, {
-        origin: "user_url",
-        original_url: "https://example.com/kw-supplied",
-        extracted_text: "An internal note about payroll processing.",
-      });
-      await recordSourceDecision(owner.client, { sourceId: supplied.id, decision: "accepted", reason: null, decidedBy: owner.userId });
-
-      const coverage = await assessRequestKeywordCoverage(owner.client, request.id);
-      expect(coverage.covered).toBe(false);
-      expect(coverage.suppliedOnly).toBe(true);
-      expect(coverage.blocking).toBe(false);
-
-      const sourceSet = await confirmReviewedSourceSet(owner.client, request.id);
-      expect(sourceSet.version_number).toBe(1);
-    });
-
-    it("does not gate a request with no primary keyword", async () => {
-      const request = await newRequest();
-      const source = await newSource(request.id, {
-        original_url: "https://example.com/kw-none",
-        extracted_text: "Conveyor belts and warehouse automation.",
-      });
-      await recordSourceDecision(owner.client, { sourceId: source.id, decision: "accepted", reason: null, decidedBy: owner.userId });
-
-      const sourceSet = await confirmReviewedSourceSet(owner.client, request.id);
-      expect(sourceSet.version_number).toBe(1);
-    });
-  });
 
 });

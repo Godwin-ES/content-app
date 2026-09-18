@@ -4,13 +4,10 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { startResearchAction } from "@/actions/research";
-import { setSuppliedSourcesOnlyAction, setPrimaryKeywordAction } from "@/actions/requests";
+import { setSuppliedSourcesOnlyAction } from "@/actions/requests";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EmptyState } from "@/components/shared/empty-state";
-import { EditableSetting } from "@/components/shared/editable-setting";
-import { TriangleAlert } from "lucide-react";
-import type { KeywordCoverage } from "@/lib/research/keyword-coverage";
 import type { ResearchRunAvailability } from "@/lib/research/service";
 import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
 import { SourceCard } from "@/components/research/source-card";
@@ -31,9 +28,6 @@ interface ResearchTabProps {
   decisionsBySource: Record<string, "accepted" | "excluded" | null>;
   conflicts: SourceConflictRow[];
   suppliedSourcesOnly: boolean;
-  primaryKeyword: string | null;
-  canEditSettings: boolean;
-  keywordCoverage: KeywordCoverage | null;
   runAvailability: ResearchRunAvailability;
 }
 
@@ -54,9 +48,6 @@ export function ResearchTab({
   decisionsBySource,
   conflicts,
   suppliedSourcesOnly,
-  primaryKeyword,
-  canEditSettings,
-  keywordCoverage,
   runAvailability,
 }: ResearchTabProps) {
   const [busyCount, setBusyCount] = useState(0);
@@ -150,30 +141,7 @@ export function ResearchTab({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* The keyword lives here because this is where its consequences are:
-          it steers the search queries, the content plan, and the SEO
-          checks. Left blank at intake it is derived from the research plan,
-          and before this there was no way to correct that derivation short
-          of starting the request over. */}
-      <EditableSetting
-        label="Primary keyword"
-        description="The term the article should rank for. Research, the content plan and the SEO checks all work from it."
-        value={primaryKeyword}
-        derivedLabel="Not set — it will be derived from the research plan"
-        placeholder="e.g. AI recruiting agents"
-        onSave={(next) => setPrimaryKeywordAction(requestId, next)}
-        disabled={locked || !canEditSettings}
-      />
 
-      {/* Only shown when there is a gap. A green "coverage is fine" banner
-          would be one more thing to read on every visit and would say
-          nothing the sources do not already. */}
-      {keywordCoverage?.assessed && !keywordCoverage.covered ? (
-        <Alert variant={keywordCoverage.blocking ? "destructive" : "default"}>
-          <TriangleAlert aria-hidden className="size-4" />
-          <AlertDescription>{keywordCoverage.message}</AlertDescription>
-        </Alert>
-      ) : null}
 
       {/* Always present once the request exists, even when research has
           already run. Hiding the button when it is unavailable leaves

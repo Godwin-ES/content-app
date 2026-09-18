@@ -8,8 +8,6 @@ import {
   createContentRequest,
   deleteRequest,
   restoreRequest,
-  setRequestPrimaryKeyword,
-  setRequestCta,
   setSuppliedSourcesOnly,
 } from "@/lib/repositories/requests";
 import { uploadSupportingMaterial } from "@/lib/materials/service";
@@ -29,22 +27,14 @@ export async function createContentRequestAction(
   try {
     const user = await requireSignedIn(supabase);
 
-    // Primary keyword and CTA are optional intake context again. Both are
-    // still derived when left blank — the keyword from the research plan,
-    // the CTA by the writer — but someone who is targeting a specific
-    // keyword or has a campaign CTA to hit had no way to say so, and
-    // steering it afterwards meant regenerating work that was already
-    // written around the wrong one.
-    //
-    // Additional instructions stays out: it was dropped as an intake
-    // concept entirely, not merely hidden.
+    // The primary keyword and the call to action are absent on purpose:
+    // the content planner derives both from the accepted evidence, which
+    // is the only place either can be grounded.
     const rawInput = {
       topic: String(formData.get("topic") ?? ""),
       audience: emptyToUndefined(formData.get("audience")),
       objective: emptyToUndefined(formData.get("objective")),
       tone: emptyToUndefined(formData.get("tone")),
-      primaryKeyword: emptyToUndefined(formData.get("primaryKeyword")),
-      cta: emptyToUndefined(formData.get("cta")),
     };
 
     // URLs arrive as one entry per link from the Add URL control. They are
@@ -175,45 +165,3 @@ export async function setSuppliedSourcesOnlyAction(requestId: string, value: boo
   }
 }
 
-/**
- * Changes the keyword the article targets. Editable on the Research tab
- * because that is where the keyword's consequences are visible — it steers
- * the search queries, the content plan, and the deterministic SEO checks —
- * and because before this the only way to correct a derived keyword was to
- * throw the request away and start again.
- */
-export async function setPrimaryKeywordAction(requestId: string, primaryKeyword: string): Promise<ActionResult<null>> {
-  const supabase = await createSupabaseServerClient();
-
-  try {
-    await requireSignedIn(supabase);
-    await setRequestPrimaryKeyword(supabase, requestId, primaryKeyword.trim() || null);
-    revalidatePath(`/requests/${requestId}`);
-    return { ok: true, data: null };
-  } catch (error) {
-    const actionError = await toLoggedActionError(error, "update_request", { requestId });
-    return { ok: false, error: actionError };
-  }
-}
-
-/**
- * Changes the call to action every channel asset adapts. Editable on the
- * Channels tab, where the posts that carry it are.
- *
- * Changing it does not rewrite anything already generated — the existing
- * assets keep the CTA they were written with until they are regenerated,
- * which is the same rule the rest of the pipeline follows.
- */
-export async function setCtaAction(requestId: string, cta: string): Promise<ActionResult<null>> {
-  const supabase = await createSupabaseServerClient();
-
-  try {
-    await requireSignedIn(supabase);
-    await setRequestCta(supabase, requestId, cta.trim() || null);
-    revalidatePath(`/requests/${requestId}`);
-    return { ok: true, data: null };
-  } catch (error) {
-    const actionError = await toLoggedActionError(error, "update_request", { requestId });
-    return { ok: false, error: actionError };
-  }
-}
