@@ -49,6 +49,39 @@ test("dashboard shows an empty state before any request exists", async ({ page }
   await expect(page.getByText(/nothing in progress/i)).toBeVisible();
 });
 
+/**
+ * The tab has to survive a reload, because a reload is exactly what
+ * someone does while waiting on a long research or article run — and
+ * landing back on the Overview each time made the wait worse.
+ */
+test("the open tab survives a refresh", async ({ page }) => {
+  const { data: request } = await admin
+    .from("content_requests")
+    .insert({
+      owner_id: ownerUserId,
+      topic: "E2E tab persistence request",
+      resolved_audience: "HR leaders",
+      resolved_objective: "Educate",
+      resolved_tone: "Professional",
+      status: "draft",
+    })
+    .select()
+    .single();
+  requestIds.push(request!.id);
+
+  await login(page);
+  await page.goto(`/requests/${request!.id}`);
+
+  await page.getByRole("tab", { name: "Research" }).click();
+  await expect(page.getByRole("tab", { name: "Research" })).toHaveAttribute("aria-selected", "true");
+  // The URL is what carries the tab across the reload.
+  await expect(page).toHaveURL(/[?&]tab=research/);
+
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Research" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "false");
+});
+
 test("a new request lands in the workspace showing the Overview tab and a next-step stepper", async ({ page }) => {
   const { data: request } = await admin
     .from("content_requests")
