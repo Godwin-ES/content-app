@@ -48,10 +48,10 @@ interface SourceCardProps {
  * source starts with no decision, exactly like a researched one.
  *
  * Shows every retrieval_status in place — including the failure reason and
- * a Start Research/Retry action — rather than only ever surfacing that
- * once the source set has already been confirmed (Phase 2 of the
- * post-Task-22 UX pass): a Content Manager needs exactly this information
- * to decide whether a failed source is worth retrying before confirming.
+ * a Retry — rather than only ever surfacing that once the source set has
+ * already been confirmed (Phase 2 of the post-Task-22 UX pass): you need
+ * exactly this information to decide whether a failed source is worth
+ * retrying before confirming.
  */
 export function SourceCard({
   source,
@@ -160,7 +160,7 @@ export function SourceCard({
       {!decision && source.recommendation && source.recommendation_reason ? (
         <p className="flex flex-wrap items-start gap-1.5 text-xs">
           <Badge variant={source.recommendation === "accept" ? "outline" : "secondary"} className="shrink-0">
-            Suggests {source.recommendation}
+            Suggests {source.recommendation === "accept" ? "Accept" : "Exclude"}
           </Badge>
           <span className="min-w-0 flex-1 text-muted-foreground">{source.recommendation_reason}</span>
         </p>
@@ -175,14 +175,18 @@ export function SourceCard({
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        {source.retrieval_status === "pending" || source.retrieval_status === "failed" ? (
+        {/* Retry only. A source waiting to be researched is picked up by
+            the tab's own Start research button along with everything else
+            added since the last run — giving it a second button here meant
+            two ways to do one thing, and neither said which. Re-fetching a
+            page that failed is a different, cheaper operation, and it is
+            still worth doing one at a time. */}
+        {source.retrieval_status === "failed" ? (
           <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={start}>
             {pendingAction === "start" ? (
               <>
                 <Loader2 className="size-4 animate-spin" /> Working...
               </>
-            ) : source.retrieval_status === "pending" ? (
-              "Start Research"
             ) : (
               "Retry"
             )}
@@ -235,7 +239,7 @@ export function SourceCard({
         ) : null}
       </div>
       {showDecisionControls && !isUsable && source.retrieval_status !== "pending" && source.retrieval_status !== "failed" ? (
-        <p className="text-xs text-muted-foreground">This source cannot be accepted until it retrieves successfully.</p>
+        <p className="text-xs text-muted-foreground">No notable evidence could be extracted from this page.</p>
       ) : null}
     </div>
   );

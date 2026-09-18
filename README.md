@@ -42,6 +42,8 @@ Sources can be added at any point before the source set is confirmed — a link 
 
 "Only use the supplied materials" stays changeable for as long as the source set is open, because supplied-only research that finds nothing relevant is the likeliest dead end there is and unticking it is the way out. While it is ticked, web results already found are dimmed and undecidable rather than hidden — they are real history and they come back the moment it is unticked.
 
+Research skips the sites whose substance sits behind a sign-in — LinkedIn, Reddit, X, Medium and a handful of others — before anything is fetched, because a login wall costs a retrieval and an AI analysis call to conclude it is a login wall. Only pages research finds for itself are filtered: a link you supply is never touched, since you may well be able to read what a crawler cannot.
+
 Research can run again when a source has been added since the last run, or when the scope has been widened to allow a web search. Nothing else re-opens it: the same queries over the same scope mostly re-fetch the same pages. Re-runs are additive and deduplicated by canonical URL, so a supplied link the web search also happens to find is never added twice.
 
 ### Notifications

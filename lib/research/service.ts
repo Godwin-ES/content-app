@@ -8,6 +8,7 @@ import type { ResearchProvider, SearchResultItem } from "@/lib/research/types";
 import { createResearchPlan } from "@/lib/ai/service";
 import { analyzeSource } from "@/lib/ai/service";
 import { canonicalizeUrl, dedupeByCanonicalUrl, parseUserSuppliedUrl } from "@/lib/research/url";
+import { isBlockedResearchDomain } from "@/lib/research/blocked-domains";
 import { createOperationRun, updateOperationRun } from "@/lib/repositories/operations";
 import { recordActivityEvent } from "@/lib/repositories/activity";
 import {
@@ -291,7 +292,16 @@ export async function runResearchPipeline(
     candidates.push({ url: source.original_url, title: null, snippet: null, origin: "user_url", existingSourceId: source.id });
   }
 
-  candidates.push(...searchResultsByQuery.flat().map((r) => ({ ...r, origin: "researched" as const })));
+  // Dropped before anything is fetched: a login wall costs a retrieval and
+  // an AI analysis call to conclude it is a login wall. Only what research
+  // found for itself is filtered — a link you supplied is your call, and
+  // you may well be able to read what the crawler cannot.
+  candidates.push(
+    ...searchResultsByQuery
+      .flat()
+      .filter((r) => !isBlockedResearchDomain(r.url))
+      .map((r) => ({ ...r, origin: "researched" as const }))
+  );
 
   const canonicalized = candidates
     .map((c) => {
