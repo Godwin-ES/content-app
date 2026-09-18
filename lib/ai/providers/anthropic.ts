@@ -5,7 +5,14 @@ import { DomainError, getErrorMessage } from "@/lib/domain/errors";
 import type { AIProvider, GenerateStructuredInput } from "@/lib/ai/types";
 
 const RESULT_TOOL_NAME = "emit_result";
-const MAX_OUTPUT_TOKENS = 8192;
+/**
+ * 8192 was the old shared ceiling, and a full long-form article plus its
+ * structured wrapper does not fit inside it — every article generation
+ * failed at exactly that boundary. Sonnet 5 allows far more, so the cap is
+ * now high enough that hitting it means the prompt is genuinely wrong
+ * rather than the article merely being long.
+ */
+const MAX_OUTPUT_TOKENS = 32000;
 
 /**
  * Converts the response schema into a plain JSON Schema tool definition and

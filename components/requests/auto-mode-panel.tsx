@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 
 interface LogEntry {
   status: "advanced" | "finished" | "blocked";
+  stage: PipelineStage;
   message: string;
 }
 
@@ -69,6 +70,18 @@ export function AutoModePanel({
    */
   const stopAfterRef = useRef<PipelineStage>(stopAfter);
   const [stopRequested, setStopRequested] = useState(false);
+  /**
+   * The stage the run is actually in, reported by each completed step.
+   *
+   * `currentStage` is a server prop, and nothing re-renders the page until
+   * the whole run ends — so on its own it would show where the request
+   * stood when the run started and never move. Every step returns the stage
+   * it acted in, which is what both this readout and Stop are about: with
+   * one value behind them, "Stop after this stage" cannot mean a different
+   * stage from the one on screen.
+   */
+  const [liveStage, setLiveStage] = useState<PipelineStage>(currentStage);
+  const liveStageRef = useRef<PipelineStage>(currentStage);
   const router = useRouter();
 
   function chooseStopAfter(stage: PipelineStage) {
@@ -97,6 +110,8 @@ export function AutoModePanel({
     setStoppedForInput(false);
     setError(null);
     setLog([]);
+    setLiveStage(currentStage);
+    liveStageRef.current = currentStage;
 
     // try/finally because `running` greys out every other control in the
     // workspace. An action that throws rather than returning an error — a
@@ -113,7 +128,9 @@ export function AutoModePanel({
           break;
         }
 
-        setLog((prev) => [...prev, { status: result.data.status, message: result.data.message }]);
+        setLiveStage(result.data.stage);
+        liveStageRef.current = result.data.stage;
+        setLog((prev) => [...prev, { status: result.data.status, stage: result.data.stage, message: result.data.message }]);
         if (result.data.status === "blocked") setStoppedForInput(true);
         if (result.data.status !== "advanced") break;
       }
@@ -127,7 +144,7 @@ export function AutoModePanel({
   }
 
   /** The stage the last completed step belonged to, for the Stop button. */
-  const stageInFlight = stopAfterRef.current;
+  const stageInFlight = liveStageRef.current;
 
   // Nothing left for it to do — an approved request is past every stage
   // auto mode is allowed to touch, and an empty dropdown beside a dead Run
@@ -190,6 +207,7 @@ export function AutoModePanel({
                 <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
               )}
               <span className={cn(entry.status === "blocked" ? "text-amber-900 dark:text-amber-200" : "text-muted-foreground")}>
+                <span className="font-medium text-foreground">{entry.stage}: </span>
                 {entry.message}
               </span>
             </li>
@@ -200,7 +218,10 @@ export function AutoModePanel({
       {running ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 aria-hidden className="size-4 animate-spin" />
-          Working on the next step…
+          <span>
+            <span className="font-medium text-foreground">{liveStage}</span> — working on the next step…
+            {stopRequested ? " It will stop once this stage is done." : null}
+          </span>
         </p>
       ) : null}
 
@@ -211,9 +232,14 @@ export function AutoModePanel({
         </p>
       ) : null}
 
+      {/* Named with the stage it failed in: a run is a dozen steps long,
+          and an error with no stage on it leaves you guessing which one
+          of them stopped. */}
       {error ? (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            Stopped in {liveStage}: {error}
+          </AlertDescription>
         </Alert>
       ) : null}
     </div>

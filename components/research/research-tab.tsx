@@ -78,7 +78,15 @@ export function ResearchTab({
    * buy another search; neither is true.
    */
   const webSearchDone = researchedSuppliedOnly === false;
-  const canChangeScope = (status === "draft" || status === "source_review") && !webSearchDone;
+  /**
+   * The source set is still open: sources can be added and research can be
+   * run again. It closes when the set is confirmed, and from then on there
+   * is no adding and no researching — the plan is built from what was
+   * confirmed.
+   */
+  const sourceSetOpen = status === "draft" || status === "source_review";
+  /** Narrower: the scope only decides anything until a web search has run. */
+  const canChangeScope = sourceSetOpen && !webSearchDone;
 
   /**
    * A researched source is out of scope while "supplied only" is ticked:
@@ -176,8 +184,12 @@ export function ResearchTab({
           someone wondering whether searching again is possible at all;
           showing it greyed out, with the reason beside it, answers that
           without their having to ask. A re-run is additive — everything
-          already retrieved keeps whatever decision has been made about it. */}
-      {
+          already retrieved keeps whatever decision has been made about it.
+
+          Once the source set is confirmed it goes entirely: there is no
+          more research to run against a set that is closed, and a greyed
+          button there would only invite the question of how to ungrey it. */}
+      {sourceSetOpen ? (
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <h3 className="text-sm font-medium">{runAvailability.canRun ? runAvailability.label : "Research"}</h3>
           {isStarting ? (
@@ -231,9 +243,9 @@ export function ResearchTab({
             ) : null}
           </div>
         </div>
-      }
+      ) : null}
 
-      {canChangeScope ? <AddSources requestId={requestId} disabled={locked} /> : null}
+      {sourceSetOpen ? <AddSources requestId={requestId} disabled={locked} /> : null}
 
       {sources.length === 0 ? (
         <EmptyState title="No sources yet" description="Start research to gather sources for this topic." />
