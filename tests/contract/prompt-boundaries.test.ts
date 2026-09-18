@@ -33,7 +33,6 @@ describe("prompts include the shared grounding rules", () => {
         objective: "o",
         tone: "tn",
         primaryKeyword: null,
-        additionalInstructions: null,
       }).system,
     },
     {

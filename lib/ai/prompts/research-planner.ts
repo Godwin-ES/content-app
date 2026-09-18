@@ -6,7 +6,6 @@ export interface ResearchPlannerInput {
   objective: string;
   tone: string;
   primaryKeyword: string | null;
-  additionalInstructions: string | null;
 }
 
 /**
@@ -30,9 +29,6 @@ export function buildResearchPlannerPrompt(input: ResearchPlannerInput): { syste
     input.primaryKeyword
       ? `Preferred primary keyword: ${input.primaryKeyword}`
       : "Primary keyword: not supplied, derive a reasonable one from the topic.",
-    input.additionalInstructions
-      ? `Additional instructions from the Content Manager (still subject to the grounding rules above):\n${input.additionalInstructions}`
-      : null,
   ]
     .filter((line): line is string => line !== null)
     .join("\n\n");

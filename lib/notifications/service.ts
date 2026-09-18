@@ -12,8 +12,43 @@ import { getInjectedFailureMode } from "@/lib/test-support/failure-injection";
 type NotificationChannel = "content_manager" | "system_errors";
 
 /**
- * Sends a Discord message for one role-specific channel/event, and records
- * whether the supplementary notification was sent, failed, or skipped
+ * The webhook a request's notifications should go to: the owner's own, if
+ * they have set one in settings, otherwise the deployment's.
+ *
+ * Read with the admin client because notifications are sent from server
+ * code that has no session — the pipeline, a best-effort side effect after
+ * an action has already returned. A webhook is only ever resolved from a
+ * request the notification is about, so nothing can be addressed to an
+ * account that has nothing to do with it.
+ *
+ * Returns undefined rather than throwing on any failure. This lookup is
+ * the means of delivering a notification, not part of it: a database blip
+ * here should fall back to the deployment's webhook, not silently discard
+ * a message about something that did happen.
+ */
+async function ownerWebhookUrl(requestId: string | null): Promise<string | undefined> {
+  if (!requestId) return undefined;
+
+  try {
+    const admin = createSupabaseAdminClient();
+    const { data: request } = await admin.from("content_requests").select("owner_id").eq("id", requestId).maybeSingle();
+    if (!request) return undefined;
+
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("discord_webhook_url")
+      .eq("user_id", request.owner_id)
+      .maybeSingle();
+
+    return profile?.discord_webhook_url ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Sends a Discord message for one channel/event, and records whether the
+ * supplementary notification was sent, failed, or skipped
  * (SYSTEM-DESIGN-NEXTJS.md §28.2, §28.4). Never throws: the workflow must
  * never depend on Discord delivery for correctness, so callers can treat
  * this as fire-and-forget (wrap with bestEffort() at the call site as
@@ -30,13 +65,17 @@ async function notify(params: {
   let status: "sent" | "failed" | "skipped" = "skipped";
   let error: string | null = null;
 
+  // The account's own webhook wins over the deployment's, so notifications
+  // about your content reach your Discord rather than the operator's.
+  const webhookUrl = (await ownerWebhookUrl(params.requestId)) ?? params.webhookUrl;
+
   const injectedMode = await getInjectedFailureMode();
   if (injectedMode === "notification_failure") {
     status = "failed";
     error = "Injected failure: notification_failure";
-  } else if (params.webhookUrl) {
+  } else if (webhookUrl) {
     try {
-      await sendDiscordMessage(params.webhookUrl, params.message);
+      await sendDiscordMessage(webhookUrl, params.message);
       status = "sent";
     } catch (err) {
       status = "failed";

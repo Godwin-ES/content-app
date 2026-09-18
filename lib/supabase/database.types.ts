@@ -473,7 +473,6 @@ export type Database = {
       }
       content_requests: {
         Row: {
-          additional_instructions: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
@@ -481,14 +480,12 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
-          publication_date: string | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string
           resolved_primary_keyword: string | null
           resolved_tone: string
           selected_article_version_id: string | null
-          source_urls: Json
           status: string
           supplied_audience: string | null
           supplied_cta: string | null
@@ -501,7 +498,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          additional_instructions?: string | null
           created_at?: string
           current_package_id?: string | null
           current_plan_id?: string | null
@@ -509,14 +505,12 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           owner_id: string
-          publication_date?: string | null
           resolved_audience: string
           resolved_cta?: string | null
           resolved_objective: string
           resolved_primary_keyword?: string | null
           resolved_tone: string
           selected_article_version_id?: string | null
-          source_urls?: Json
           status?: string
           supplied_audience?: string | null
           supplied_cta?: string | null
@@ -529,7 +523,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          additional_instructions?: string | null
           created_at?: string
           current_package_id?: string | null
           current_plan_id?: string | null
@@ -537,14 +530,12 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           owner_id?: string
-          publication_date?: string | null
           resolved_audience?: string
           resolved_cta?: string | null
           resolved_objective?: string
           resolved_primary_keyword?: string | null
           resolved_tone?: string
           selected_article_version_id?: string | null
-          source_urls?: Json
           status?: string
           supplied_audience?: string | null
           supplied_cta?: string | null
@@ -871,18 +862,21 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          discord_webhook_url: string | null
           display_name: string
           role: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          discord_webhook_url?: string | null
           display_name: string
           role?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          discord_webhook_url?: string | null
           display_name?: string
           role?: string
           user_id?: string
@@ -1603,7 +1597,6 @@ export type Database = {
       restore_request: {
         Args: { p_request_id: string }
         Returns: {
-          additional_instructions: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
@@ -1611,14 +1604,12 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
-          publication_date: string | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string
           resolved_primary_keyword: string | null
           resolved_tone: string
           selected_article_version_id: string | null
-          source_urls: Json
           status: string
           supplied_audience: string | null
           supplied_cta: string | null
@@ -1637,10 +1628,27 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_discord_webhook_url: {
+        Args: { p_url: string }
+        Returns: {
+          created_at: string
+          discord_webhook_url: string | null
+          display_name: string
+          role: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_display_name: {
         Args: { p_display_name: string }
         Returns: {
           created_at: string
+          discord_webhook_url: string | null
           display_name: string
           role: string
           user_id: string
@@ -1655,7 +1663,6 @@ export type Database = {
       set_request_cta: {
         Args: { p_cta: string; p_request_id: string }
         Returns: {
-          additional_instructions: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
@@ -1663,14 +1670,12 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
-          publication_date: string | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string
           resolved_primary_keyword: string | null
           resolved_tone: string
           selected_article_version_id: string | null
-          source_urls: Json
           status: string
           supplied_audience: string | null
           supplied_cta: string | null
@@ -1692,7 +1697,6 @@ export type Database = {
       set_request_primary_keyword: {
         Args: { p_primary_keyword: string; p_request_id: string }
         Returns: {
-          additional_instructions: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
@@ -1700,14 +1704,12 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
-          publication_date: string | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string
           resolved_primary_keyword: string | null
           resolved_tone: string
           selected_article_version_id: string | null
-          source_urls: Json
           status: string
           supplied_audience: string | null
           supplied_cta: string | null
@@ -1729,7 +1731,6 @@ export type Database = {
       set_supplied_sources_only: {
         Args: { p_request_id: string; p_value: boolean }
         Returns: {
-          additional_instructions: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
@@ -1737,14 +1738,12 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
-          publication_date: string | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string
           resolved_primary_keyword: string | null
           resolved_tone: string
           selected_article_version_id: string | null
-          source_urls: Json
           status: string
           supplied_audience: string | null
           supplied_cta: string | null

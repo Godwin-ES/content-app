@@ -220,7 +220,6 @@ export async function runResearchPipeline(
     objective: request.resolved_objective,
     tone: request.resolved_tone,
     primaryKeyword: request.resolved_primary_keyword,
-    additionalInstructions: request.additional_instructions,
   }).catch(async (error) => {
     await updateOperationRun(supabase, planRun.id, {
       status: "failed",
@@ -275,11 +274,6 @@ export async function runResearchPipeline(
   for (const source of pendingSupplied) {
     if (source.origin !== "user_url" || !source.original_url) continue;
     candidates.push({ url: source.original_url, title: null, snippet: null, origin: "user_url", existingSourceId: source.id });
-  }
-
-  const userUrls = Array.isArray(request.source_urls) ? (request.source_urls as unknown as string[]) : [];
-  for (const url of userUrls) {
-    candidates.push({ url, title: null, snippet: null, origin: "user_url" });
   }
 
   candidates.push(...searchResultsByQuery.flat().map((r) => ({ ...r, origin: "researched" as const })));

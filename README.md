@@ -26,6 +26,10 @@ The code path is in place (`/signup`, `/login` → `signInWithOAuth` → `/auth/
 
 Three tabs: **In Progress**, **Published**, and **Deleted**. Deleting is a bin — a request can be restored for 30 days and is removed for good after that, including its uploaded files. Queued publishing items are cancelled when a request is binned, and are not un-cancelled by a restore: whether the content should go out again is a decision, not a side effect of undoing a delete.
 
+### Notifications
+
+Settings takes a Discord webhook URL, and notifications about your content go there — a package approved, research that found nothing covering your primary keyword, an unexpected error. Without one they fall back to the deployment's own `DISCORD_*` webhooks, which is right for a single operator and wrong for anyone else. The URL is validated against Discord's webhook endpoint in both the action and the RPC, because the server makes an outbound POST to whatever is stored.
+
 ### Channels
 
 Settings holds one destination per channel: a LinkedIn profile or page, an X handle, and a newsletter list with its recipients. These are destinations, not OAuth connections — see the publishing boundary above. The publishing queue warns when something is queued for a channel with nowhere to go.

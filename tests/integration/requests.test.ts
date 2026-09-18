@@ -154,10 +154,16 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
     });
   });
 
-  it("rejects an invalid source URL", async () => {
-    await expect(
-      createContentRequest(owner.client, owner.userId, { topic: "AI agents", sourceUrls: ["not-a-url"] })
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  it("no longer takes source URLs at all — they are sources, not a request property", async () => {
+    // Supplied URLs become research_sources rows with origin 'user_url' as
+    // they are added, so they can be retried and excluded like any other
+    // source. Passing them here is ignored rather than stored.
+    const request = await createContentRequest(owner.client, owner.userId, {
+      topic: "AI agents",
+      sourceUrls: ["https://example.com/a"],
+    });
+    requestIds.push(request.id);
+    expect(request).not.toHaveProperty("source_urls");
   });
 
   it("records the selected test model only when AI test mode is enabled", async () => {

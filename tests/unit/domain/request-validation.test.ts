@@ -20,39 +20,12 @@ describe("contentRequestInputSchema", () => {
     expect(result.topic).toBe("AI agents");
   });
 
-  it("rejects an invalid source URL", () => {
-    expect(() =>
-      contentRequestInputSchema.parse({ topic: "AI agents", sourceUrls: ["not-a-url"] })
-    ).toThrow();
-  });
-
-  it("accepts valid source URLs", () => {
-    const result = contentRequestInputSchema.parse({
-      topic: "AI agents",
-      sourceUrls: ["https://example.com/article"],
-    });
-    expect(result.sourceUrls).toEqual(["https://example.com/article"]);
-  });
-
-  it("rejects more than 10 source URLs", () => {
-    const urls = Array.from({ length: 11 }, (_, i) => `https://example.com/${i}`);
-    expect(() => contentRequestInputSchema.parse({ topic: "AI agents", sourceUrls: urls })).toThrow();
-  });
-
-  it("rejects additional instructions over 8000 characters", () => {
-    const tooLong = "a".repeat(8001);
-    expect(() =>
-      contentRequestInputSchema.parse({ topic: "AI agents", additionalInstructions: tooLong })
-    ).toThrow();
-  });
-
-  it("accepts additional instructions at the 8000 character limit", () => {
-    const atLimit = "a".repeat(8000);
-    const result = contentRequestInputSchema.parse({
-      topic: "AI agents",
-      additionalInstructions: atLimit,
-    });
-    expect(result.additionalInstructions).toHaveLength(8000);
+  it("ignores a supplied-URL list, which is no longer a property of the request", () => {
+    // Supplied URLs became research_sources rows with origin 'user_url' at
+    // intake. An old caller passing them here must not have them silently
+    // accepted into a column that no longer exists.
+    const result = contentRequestInputSchema.parse({ topic: "AI agents", sourceUrls: ["https://example.com/a"] });
+    expect(result).not.toHaveProperty("sourceUrls");
   });
 
   it("rejects an empty CTA string as distinct from omitted CTA", () => {

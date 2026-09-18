@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireSignedIn } from "@/lib/auth/guards";
-import { saveChannelConnection, setDisplayName, type ChannelConnection } from "@/lib/repositories/settings";
+import {
+  saveChannelConnection,
+  setDisplayName,
+  setDiscordWebhookUrl,
+  type ChannelConnection,
+} from "@/lib/repositories/settings";
 import { parseUserSuppliedUrl } from "@/lib/research/url";
 import { DomainError } from "@/lib/domain/errors";
 import { toLoggedActionError } from "@/lib/notifications/action-error";
@@ -17,6 +22,27 @@ export async function setDisplayNameAction(displayName: string): Promise<ActionR
   try {
     await requireSignedIn(supabase);
     await setDisplayName(supabase, displayName);
+    revalidatePath("/settings");
+    return { ok: true, data: null };
+  } catch (error) {
+    return { ok: false, error: await toLoggedActionError(error, "settings") };
+  }
+}
+
+/**
+ * Points this account's notifications at its own Discord server.
+ *
+ * Without one, notifications fall back to whatever webhook the deployment
+ * is configured with — fine for a single operator, wrong for anyone else:
+ * the person who should hear that their package was approved is the person
+ * who owns it.
+ */
+export async function setDiscordWebhookAction(url: string): Promise<ActionResult<null>> {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    await requireSignedIn(supabase);
+    await setDiscordWebhookUrl(supabase, url);
     revalidatePath("/settings");
     return { ok: true, data: null };
   } catch (error) {

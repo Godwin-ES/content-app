@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Json } from "@/lib/supabase/database.types";
+import type { Database } from "@/lib/supabase/database.types";
 import { contentRequestInputSchema } from "@/lib/domain/schemas";
 import { resolveRequestSettings } from "@/lib/domain/defaults";
 import { assertAllowedAIModel } from "@/lib/ai/model-config";
@@ -54,9 +54,6 @@ export async function createContentRequest(
       resolved_tone: resolved.tone.value,
       resolved_cta: resolved.cta.value,
       resolved_primary_keyword: resolved.primaryKeyword.value,
-      additional_instructions: input.additionalInstructions ?? null,
-      source_urls: (input.sourceUrls ?? []) as Json,
-      publication_date: input.publicationDate ?? null,
       supplied_sources_only: input.suppliedSourcesOnly ?? false,
       test_model_choice: testModelChoice,
       status: "draft",

@@ -47,17 +47,21 @@ async function queueChannelDirect(requestId: string, packageId: string, channel:
   return item as { id: string; status: string };
 }
 
+// Queueing goes through a server action and a router.refresh() against
+// hosted Supabase. 15s was enough when this spec ran alone and not when it
+// ran beside five others, which made the assertion flaky for reasons that
+// had nothing to do with what it asserts.
 test("queues a channel through the UI, then a second attempt on the same channel is rejected as a duplicate", async ({ page }) => {
   const { requestId } = await approvedRequest("E2E publishing queue request");
 
   await login(page, owner.email, owner.password);
   await page.goto(`/requests/${requestId}`);
   await page.getByRole("tab", { name: "Publishing" }).click();
-  await expect(page.locator("#queue-channel")).toBeVisible({ timeout: 15000 });
+  await expect(page.locator("#queue-channel")).toBeVisible({ timeout: 30000 });
 
   await page.selectOption("#queue-channel", "linkedin");
   await page.click('button:has-text("Queue Now")');
-  await expect(page.getByText("queued", { exact: true }).first()).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("queued", { exact: true }).first()).toBeVisible({ timeout: 30000 });
 
   const { data: items } = await admin.from("publishing_queue_items").select().eq("request_id", requestId);
   expect(items).toHaveLength(1);
@@ -79,7 +83,7 @@ test("preserves upstream work: cancelling one queued item never touches another 
   await login(page, owner.email, owner.password);
   await page.goto(`/requests/${requestId}`);
   await page.getByRole("tab", { name: "Publishing" }).click();
-  await expect(page.getByText("LinkedIn")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("LinkedIn")).toBeVisible({ timeout: 30000 });
 
   const linkedinCard = page.locator("li", { hasText: "LinkedIn" }).first();
   await linkedinCard.getByRole("button", { name: "Cancel", exact: true }).click();

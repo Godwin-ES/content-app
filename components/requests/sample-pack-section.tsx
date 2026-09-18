@@ -77,46 +77,72 @@ export function EvaluationVerdict({ status, evaluation }: { status: string; eval
 }
 
 /**
- * The packaged article: title, meta description and verdict above the fold,
- * the body itself behind "See full article". An article is thousands of
- * words — printing it inline is what made the old Approval tab something
- * you scrolled past rather than read.
+ * A long-form asset: its headline and opening always visible, everything
+ * else behind one button.
  *
- * Takes the article's text rather than rendered children so nothing has to
- * cross the server/client boundary as an element.
+ * Used by the article and the newsletter, which are the two that run to
+ * hundreds or thousands of words. Character truncation is the wrong tool
+ * for both — it cuts markdown in the middle of a heading or a list, and it
+ * strands whatever follows the body (a newsletter's call to action and
+ * signoff) outside the thing being collapsed. Splitting at a structural
+ * boundary instead means the preview is always a complete thought and the
+ * disclosure always contains the whole remainder.
+ *
+ * Takes text rather than rendered children so nothing has to cross the
+ * server/client boundary as an element.
  */
-export function ArticleCard({
+export function DisclosureCard({
+  label,
   status,
   evaluation,
   title,
-  metaDescription,
+  lead,
   bodyMarkdown,
+  footer,
+  expandLabel,
+  collapseLabel,
 }: {
+  label: string;
   status: string;
   evaluation: EvaluationRow | null;
   title: string;
-  metaDescription: string;
+  /** The one paragraph worth reading before deciding to open it. */
+  lead: string;
   bodyMarkdown: string;
+  /** Anything that follows the body and belongs inside the disclosure. */
+  footer?: { callToAction: string; signoff: string };
+  expandLabel: string;
+  collapseLabel: string;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <section className="flex flex-col gap-3 rounded-lg border p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">Article</h3>
+        <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">{label}</h3>
         <EvaluationVerdict status={status} evaluation={evaluation} />
       </div>
 
       <div className="flex flex-col gap-1">
         <h4 className="font-medium break-words">{title}</h4>
-        <p className="text-sm text-muted-foreground">{metaDescription}</p>
+        <p className="text-sm text-muted-foreground">{lead}</p>
       </div>
 
-      {open ? <MarkdownBody>{bodyMarkdown}</MarkdownBody> : null}
+      {open ? (
+        <div className="flex flex-col gap-3">
+          <MarkdownBody>{bodyMarkdown}</MarkdownBody>
+          {footer ? (
+            <>
+              <p className="text-sm font-medium">{footer.callToAction}</p>
+              <p className="text-sm">{footer.signoff}</p>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <ChevronDown aria-hidden className={cn("size-4 transition-transform", open && "rotate-180")} />
-        {open ? "Hide article" : "See full article"}
+        {open ? collapseLabel : expandLabel}
       </Button>
     </section>
   );
@@ -126,18 +152,19 @@ export function ArticleCard({
  * A channel body that shows itself in full when it is short enough to read
  * at a glance and otherwise cuts to a preview with "See more".
  *
- * `markdown` decides how it is rendered: the newsletter body is markdown
- * and must come out formatted, while a LinkedIn or X post is plain text
- * whose own line breaks are load-bearing.
+ * Only used for LinkedIn and X, whose posts are plain text with
+ * load-bearing line breaks and are usually short enough to read whole. The
+ * newsletter and the article split at a structural boundary instead — see
+ * DisclosureCard for why character truncation is wrong for markdown.
  */
-export function ExpandableText({ text, markdown = false }: { text: string; markdown?: boolean }) {
+export function ExpandableText({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   const truncatable = needsTruncating(text);
   const shown = open || !truncatable ? text.trim() : previewOf(text);
 
   return (
     <div className="flex flex-col gap-2">
-      {markdown ? <MarkdownBody>{shown}</MarkdownBody> : <p className="text-sm whitespace-pre-wrap">{shown}</p>}
+      <p className="text-sm whitespace-pre-wrap">{shown}</p>
       {truncatable ? (
         <Button type="button" variant="link" size="sm" className="w-fit px-0" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
           {open ? "See less" : "See more"}

@@ -71,3 +71,50 @@ export async function setDisplayName(supabase: SupabaseClient<Database>, display
   const { error } = await supabase.rpc("set_display_name", { p_display_name: trimmed });
   if (error) throwFromRpcError(error, "settings");
 }
+
+/** The Discord webhook that must be matched before anything is stored. */
+export const DISCORD_WEBHOOK_PATTERN = /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
+
+export interface AccountSettings {
+  displayName: string;
+  discordWebhookUrl: string | null;
+}
+
+export async function getAccountSettings(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<AccountSettings> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("display_name, discord_webhook_url")
+    .eq("user_id", userId)
+    .single();
+  if (error) throw error;
+  return { displayName: data.display_name, discordWebhookUrl: data.discord_webhook_url };
+}
+
+/**
+ * Sets (or clears) the account's own Discord webhook.
+ *
+ * Validated here as well as in the RPC. The server makes an outbound POST
+ * to whatever is stored, so anything that is not a Discord webhook
+ * endpoint is a request the app should not be tricked into making on
+ * someone's behalf — and a check in exactly one place is a check that can
+ * be bypassed by the other caller.
+ */
+export async function setDiscordWebhookUrl(
+  supabase: SupabaseClient<Database>,
+  url: string | null
+): Promise<void> {
+  const trimmed = url?.trim() ?? "";
+  if (trimmed && !DISCORD_WEBHOOK_PATTERN.test(trimmed)) {
+    throw new DomainError(
+      "VALIDATION_ERROR",
+      "settings",
+      "That is not a Discord webhook URL. Copy it from Server Settings \u2192 Integrations \u2192 Webhooks; it looks like https://discord.com/api/webhooks/\u2026"
+    );
+  }
+
+  const { error } = await supabase.rpc("set_discord_webhook_url", { p_url: trimmed });
+  if (error) throwFromRpcError(error, "settings");
+}

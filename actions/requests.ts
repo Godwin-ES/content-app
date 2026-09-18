@@ -44,7 +44,6 @@ export async function createContentRequestAction(
       tone: emptyToUndefined(formData.get("tone")),
       primaryKeyword: emptyToUndefined(formData.get("primaryKeyword")),
       cta: emptyToUndefined(formData.get("cta")),
-      sourceUrls: [],
     };
 
     // URLs arrive as one entry per link from the Add URL control. They are

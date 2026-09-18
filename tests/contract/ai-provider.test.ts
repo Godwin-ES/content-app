@@ -58,7 +58,6 @@ describe("generateStructured (fake provider)", () => {
       objective: "Educate",
       tone: "Professional",
       primaryKeyword: null,
-      additionalInstructions: null,
     });
     expect(plan.primaryKeyword).toBe("ai agents in recruiting");
     expect(plan.searchQueries.length).toBeGreaterThanOrEqual(3);
@@ -73,7 +72,6 @@ describe("generateStructured (fake provider)", () => {
         objective: "Educate",
         tone: "Professional",
         primaryKeyword: null,
-        additionalInstructions: null,
       })
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });

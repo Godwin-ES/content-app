@@ -3,7 +3,7 @@ import { ExternalLink } from "lucide-react";
 import type { SamplePack, SamplePackReviewedSource } from "@/lib/sample-pack/service";
 import { articleBodyMarkdown } from "@/lib/ai/schemas/article";
 import { MarkdownBody } from "@/components/shared/markdown-body";
-import { ArticleCard, ExpandableText, EvaluationVerdict } from "@/components/requests/sample-pack-section";
+import { DisclosureCard, ExpandableText, EvaluationVerdict } from "@/components/requests/sample-pack-section";
 import { LocalDateTime } from "@/components/shared/local-date-time";
 
 /**
@@ -77,12 +77,15 @@ export function SamplePackView({ pack, interactive = false }: { pack: SamplePack
 
       {interactive ? (
         <div className="flex flex-col gap-4">
-          <ArticleCard
+          <DisclosureCard
+            label="Article"
             status={pack.evaluationSummary.article}
             evaluation={pack.evaluations.article}
             title={pack.article.title}
-            metaDescription={pack.article.metaDescription}
+            lead={pack.article.metaDescription}
             bodyMarkdown={articleBodyMarkdown(pack.article)}
+            expandLabel="See full article"
+            collapseLabel="Hide article"
           />
 
           <ChannelCard label="LinkedIn" status={pack.evaluationSummary.linkedin} evaluation={pack.evaluations.linkedin}>
@@ -94,13 +97,19 @@ export function SamplePackView({ pack, interactive = false }: { pack: SamplePack
             {pack.x.hashtags.length > 0 ? <p className="text-sm text-muted-foreground">{pack.x.hashtags.join(" ")}</p> : null}
           </ChannelCard>
 
-          <ChannelCard label="Newsletter" status={pack.evaluationSummary.newsletter} evaluation={pack.evaluations.newsletter}>
-            <p className="font-medium">{pack.newsletter.subject}</p>
-            <p className="text-sm">{pack.newsletter.introduction}</p>
-            <ExpandableText text={pack.newsletter.bodyMarkdown} markdown />
-            <p className="text-sm font-medium">{pack.newsletter.callToAction}</p>
-            <p className="text-sm">{pack.newsletter.signoff}</p>
-          </ChannelCard>
+          {/* Subject and introduction above the fold, everything else —
+              body, call to action, signoff — inside the disclosure. */}
+          <DisclosureCard
+            label="Newsletter"
+            status={pack.evaluationSummary.newsletter}
+            evaluation={pack.evaluations.newsletter}
+            title={pack.newsletter.subject}
+            lead={pack.newsletter.introduction}
+            bodyMarkdown={pack.newsletter.bodyMarkdown}
+            footer={{ callToAction: pack.newsletter.callToAction, signoff: pack.newsletter.signoff }}
+            expandLabel="See full newsletter"
+            collapseLabel="Hide newsletter"
+          />
         </div>
       ) : (
         <>

@@ -4,11 +4,22 @@ const insertErrorLog = vi.fn().mockResolvedValue({ error: null });
 const insertNotificationAttempt = vi.fn().mockResolvedValue({ error: null });
 const sendDiscordMessage = vi.fn().mockResolvedValue(undefined);
 
+// notify() resolves the request owner's own Discord webhook before
+// falling back to the deployment's, which means two extra reads.
+const ownerLookup = { data: { owner_id: "u1" } };
+const profileLookup: { data: { discord_webhook_url: string | null } | null } = { data: { discord_webhook_url: null } };
+
+function selectChain(result: unknown) {
+  return { select: () => ({ eq: () => ({ maybeSingle: async () => result }) }) };
+}
+
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => ({
     from: (table: string) => {
       if (table === "error_logs") return { insert: insertErrorLog };
       if (table === "notification_attempts") return { insert: insertNotificationAttempt };
+      if (table === "content_requests") return selectChain(ownerLookup);
+      if (table === "profiles") return selectChain(profileLookup);
       throw new Error(`unexpected table ${table}`);
     },
   }),
@@ -26,6 +37,7 @@ describe("toLoggedActionError", () => {
     insertErrorLog.mockClear();
     insertNotificationAttempt.mockClear();
     sendDiscordMessage.mockClear();
+    profileLookup.data = { discord_webhook_url: null };
   });
 
   it("rethrows Next.js redirect control-flow signals unchanged", async () => {
@@ -63,6 +75,30 @@ describe("toLoggedActionError", () => {
     expect(result.message).not.toContain("connection reset by peer");
     expect(insertErrorLog).toHaveBeenCalledTimes(1);
     expect(sendDiscordMessage).toHaveBeenCalledTimes(1);
+
+    process.env.DISCORD_ERRORS_WEBHOOK_URL = originalWebhook;
+  });
+
+  it("prefers the request owner's own webhook over the deployment's", async () => {
+    const originalWebhook = process.env.DISCORD_ERRORS_WEBHOOK_URL;
+    process.env.DISCORD_ERRORS_WEBHOOK_URL = "https://discord.test/deployment";
+    profileLookup.data = { discord_webhook_url: "https://discord.test/mine" };
+
+    await toLoggedActionError(new Error("boom"), "provider_call", { requestId: "r1" });
+
+    expect(sendDiscordMessage).toHaveBeenCalledWith("https://discord.test/mine", expect.any(String));
+
+    process.env.DISCORD_ERRORS_WEBHOOK_URL = originalWebhook;
+  });
+
+  it("falls back to the deployment webhook when the owner lookup fails, rather than dropping the message", async () => {
+    const originalWebhook = process.env.DISCORD_ERRORS_WEBHOOK_URL;
+    process.env.DISCORD_ERRORS_WEBHOOK_URL = "https://discord.test/deployment";
+    profileLookup.data = null;
+
+    await toLoggedActionError(new Error("boom"), "provider_call", { requestId: "r1" });
+
+    expect(sendDiscordMessage).toHaveBeenCalledWith("https://discord.test/deployment", expect.any(String));
 
     process.env.DISCORD_ERRORS_WEBHOOK_URL = originalWebhook;
   });

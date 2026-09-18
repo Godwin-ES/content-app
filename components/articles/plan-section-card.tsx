@@ -30,8 +30,43 @@ interface PlanSectionCardProps {
  * persists as one new plan version. Evidence sits on its own line below
  * the heading (previously crammed beside it, overflowing the card on a
  * long title) and the level/heading no longer compete for the same row's
- * width.
+ * width. See EvidenceList for why the IDs are chips rather than one
+ * comma-separated badge.
  */
+/**
+ * The evidence backing a section, one chip per ID.
+ *
+ * These used to be joined into a comma-separated string inside a single
+ * Badge. A Badge is a pill: `h-5`, `overflow-hidden`, built for one or two
+ * words. A section citing eight evidence IDs therefore wrapped onto lines
+ * the fixed height then clipped, leaving a cramped, half-legible strip —
+ * and adding `whitespace-normal` had made it worse, because wrapping
+ * inside something that cannot grow just hides more of it.
+ *
+ * One chip per ID is the honest unit: each is short, they wrap as a group,
+ * and the container grows with however many there are.
+ */
+function EvidenceList({ evidenceIds }: { evidenceIds: string[] }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        Evidence ({evidenceIds.length})
+      </span>
+      <ul className="flex flex-wrap gap-1.5">
+        {evidenceIds.map((id) => (
+          <li key={id}>
+            {/* h-auto and whitespace-normal together: a single ID long
+                enough to wrap must be able to take the height it needs. */}
+            <Badge variant="outline" className="h-auto max-w-full py-0.5 font-mono break-all whitespace-normal">
+              {id}
+            </Badge>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function PlanSectionCard({ requestId, section, index, currentDraft, locked = false, onChange, onRegenerated, onBusyChange }: PlanSectionCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(section);
@@ -140,9 +175,7 @@ export function PlanSectionCard({ requestId, section, index, currentDraft, locke
           <>
             {section.hasFactualClaims ? (
               section.evidenceIds.length > 0 ? (
-                <Badge variant="outline" className="w-fit whitespace-normal text-left">
-                  Evidence: {section.evidenceIds.join(", ")}
-                </Badge>
+                <EvidenceList evidenceIds={section.evidenceIds} />
               ) : (
                 <Badge variant="destructive" className="w-fit">
                   Missing evidence
