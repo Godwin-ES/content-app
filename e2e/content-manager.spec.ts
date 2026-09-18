@@ -41,6 +41,17 @@ async function login(page: import("@playwright/test").Page) {
   await page.waitForURL(/dashboard/, { timeout: 15000 });
 }
 
+test("sign out ends the session and returns to login", async ({ page }) => {
+  await login(page);
+
+  await page.getByRole("button", { name: /E2E Owner/ }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+
+  await page.waitForURL(/\/login/, { timeout: 15000 });
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/login/);
+});
+
 test("dashboard shows an empty state before any request exists", async ({ page }) => {
   await login(page);
   // The dashboard groups by stage now, so the empty state belongs to the
