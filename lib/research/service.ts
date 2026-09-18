@@ -541,7 +541,7 @@ export type ResearchRunAvailability =
    * time, be thrown away by the dedupe, and still cost a research plan and
    * a round of searches to get there.
    */
-  | { canRun: true; kind: "initial" | "added" | "widened"; label: string; detail: string }
+  | { canRun: true; kind: "initial" | "added" | "widened"; label: string; detail: string; hint?: string }
   /** `reason` explains at length; `hint` is the few words that sit beside the disabled button. */
   | { canRun: false; reason: string; hint: string };
 
@@ -622,6 +622,10 @@ export function researchRunAvailability(request: {
       canRun: true,
       kind: "added",
       label: "Research added sources",
+      // Beside the button as well as above it: this is the moment someone
+      // is deciding whether to press it, and "will this search again?" is
+      // the question the button alone cannot answer.
+      hint: "Web search already run — only your added sources are analysed",
       detail:
         `Analyses the ${pendingSourceCount} source${pendingSourceCount === 1 ? "" : "s"} you have added. ` +
         "No new web search — the searches have already run, and repeating them would return the same pages.",

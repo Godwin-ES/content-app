@@ -230,7 +230,7 @@ export function ResearchTab({
                 (runAvailability.canRun && runAvailability.label) || "Start research"
               )}
             </Button>
-            {!runAvailability.canRun && !isStarting ? (
+            {runAvailability.hint && !isStarting ? (
               <span className="text-sm text-muted-foreground">{runAvailability.hint}</span>
             ) : null}
           </div>
