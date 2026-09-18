@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useFormStatus } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { signOut } from "@/actions/auth";
 import {
@@ -16,6 +17,21 @@ import {
 interface UserMenuProps {
   displayName: string;
   email: string;
+}
+
+function SignOutMenuItem() {
+  const { pending } = useFormStatus();
+
+  return (
+    <DropdownMenuItem
+      render={<button type="submit" className="w-full" />}
+      nativeButton
+      closeOnClick={false}
+      disabled={pending}
+    >
+      {pending ? "Signing out..." : "Sign out"}
+    </DropdownMenuItem>
+  );
 }
 
 /**
@@ -39,7 +55,9 @@ export function UserMenu({ displayName, email }: UserMenuProps) {
           <DropdownMenuLabel className="text-xs font-normal whitespace-nowrap text-muted-foreground">{email}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem render={<Link href="/settings" />}>Settings</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void signOut()}>Sign out</DropdownMenuItem>
+          <form action={signOut} className="w-full">
+            <SignOutMenuItem />
+          </form>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
