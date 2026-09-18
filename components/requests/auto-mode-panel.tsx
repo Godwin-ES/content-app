@@ -62,7 +62,14 @@ export function AutoModePanel({
    * looks like it would start over.
    */
   const [stoppedForInput, setStoppedForInput] = useState(false);
-  const { running, setRunning } = useAutoMode();
+  /**
+   * `autoRunning` is this panel's own loop; `running` is anything working
+   * on the request at all, including a manual operation started in another
+   * tab. The panel shows Stop for the first and refuses to start for the
+   * second — offering Run beside someone else's running operation is how
+   * two writers end up on one request.
+   */
+  const { autoRunning: running, running: anythingRunning, setRunning } = useAutoMode();
   const [error, setError] = useState<string | null>(null);
   /**
    * What the running loop actually sends, so pressing Stop takes effect on
@@ -183,7 +190,7 @@ export function AutoModePanel({
               {stopRequested ? "Stopping after this stage" : "Stop after this stage"}
             </Button>
           ) : (
-            <Button type="button" size="sm" onClick={run} disabled={!canRun}>
+            <Button type="button" size="sm" onClick={run} disabled={!canRun || anythingRunning}>
               {stoppedForInput ? "Continue" : "Run"}
             </Button>
           )}

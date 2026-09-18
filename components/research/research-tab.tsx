@@ -14,7 +14,7 @@ import { SourceCard } from "@/components/research/source-card";
 import { AddSources } from "@/components/research/add-sources";
 import { ResearchProgress, type ResearchProgressSignals } from "@/components/research/research-progress";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { useAutoMode } from "@/components/requests/auto-mode-context";
+import { useAutoMode, useOperationRunning } from "@/components/requests/auto-mode-context";
 import type { Database } from "@/lib/supabase/database.types";
 
 type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"];
@@ -67,8 +67,16 @@ export function ResearchTab({
 
   // Auto mode drives the same pipeline from the Overview. While it is
   // stepping, every control here is one that would collide with it.
-  const { running: autoModeRunning } = useAutoMode();
-  const locked = busyCount > 0 || autoModeRunning;
+  const { running: somethingRunning } = useAutoMode();
+  /**
+   * Research is running somewhere — this tab, another workspace tab, or
+   * another browser tab. Taken from the operation table rather than from
+   * this component's own transition, so coming back to a research run
+   * already in progress shows it in progress instead of showing a button
+   * that invites starting it again.
+   */
+  const researchRunning = useOperationRunning("research_planning", "source_analysis");
+  const locked = busyCount > 0 || somethingRunning;
   /**
    * A web search has already run, so the scope no longer decides anything.
    *
@@ -138,9 +146,11 @@ export function ResearchTab({
   // it and never land until the whole pipeline finishes — which would
   // defeat the purpose of live progress entirely.
   const [liveSignals, setLiveSignals] = useState<ResearchProgressSignals | null>(null);
+  /** Local transition or an observed server run — either means "in progress". */
+  const showingProgress = isStarting || researchRunning;
 
   useEffect(() => {
-    if (!isStarting) return;
+    if (!showingProgress) return;
     const supabase = createSupabaseBrowserClient();
     let cancelled = false;
 
@@ -166,7 +176,7 @@ export function ResearchTab({
       clearInterval(interval);
       setLiveSignals(null);
     };
-  }, [isStarting, requestId]);
+  }, [showingProgress, requestId]);
 
   const progressSignals: ResearchProgressSignals = liveSignals ?? {
     planCreated: false,
@@ -192,7 +202,7 @@ export function ResearchTab({
       {sourceSetOpen ? (
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <h3 className="text-sm font-medium">{runAvailability.canRun ? runAvailability.label : "Research"}</h3>
-          {isStarting ? (
+          {showingProgress ? (
             <ResearchProgress signals={progressSignals} />
           ) : (
             (runAvailability.canRun ? runAvailability.detail : runAvailability.reason) ? (
@@ -230,7 +240,7 @@ export function ResearchTab({
 
           <div className="flex flex-wrap items-center gap-3">
             <Button type="button" onClick={startResearch} disabled={locked || !runAvailability.canRun} className="w-fit">
-              {isStarting ? (
+              {showingProgress ? (
                 <>
                   <Loader2 className="size-4 animate-spin" /> Researching...
                 </>
@@ -238,7 +248,7 @@ export function ResearchTab({
                 (runAvailability.canRun && runAvailability.label) || "Start research"
               )}
             </Button>
-            {runAvailability.hint && !isStarting ? (
+            {runAvailability.hint && !showingProgress ? (
               <span className="text-sm text-muted-foreground">{runAvailability.hint}</span>
             ) : null}
           </div>

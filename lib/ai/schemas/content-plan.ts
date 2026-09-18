@@ -28,7 +28,14 @@ export const contentPlanSectionSchema = z.object({
  * half-written article two steps later. Manual plan edits validate through
  * validateContentPlan() instead, so an existing longer plan stays editable.
  */
-export const MAX_PLAN_SECTIONS = 16;
+/**
+ * Lowered from 16 once section count was understood to be the main thing
+ * deciding how long an article takes to write: a 16-section article is
+ * four times the output of a four-section one, and nothing about the
+ * deliverable needed sixteen. Six leaves room for a real structure and
+ * bounds the worst case.
+ */
+export const MAX_PLAN_SECTIONS = 6;
 export const MIN_PLAN_SECTIONS = 3;
 
 export const contentPlanSchema = z.object({

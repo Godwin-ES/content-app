@@ -11,6 +11,18 @@ import { buildSourceAnalyzerPrompt, type SourceAnalyzerInput } from "@/lib/ai/pr
 import { buildContentPlannerPrompt, type ContentPlannerInput } from "@/lib/ai/prompts/content-planner";
 import { buildPlanSectionRegeneratePrompt, type PlanSectionRegeneratorInput } from "@/lib/ai/prompts/plan-section-regenerator";
 import { buildArticleWriterPrompt, type ArticleWriterInput } from "@/lib/ai/prompts/article-writer";
+import {
+  buildArticleSectionWriterPrompt,
+  buildArticleFramePrompt,
+  type ArticleSectionWriterInput,
+  type ArticleFrameInput,
+} from "@/lib/ai/prompts/article-section-writer";
+import {
+  articleSectionOutputSchema,
+  articleFrameSchema,
+  type ArticleSectionOutput,
+  type ArticleFrame,
+} from "@/lib/ai/schemas/article-section";
 import { buildArticleEvaluatorPrompt, type ArticleEvaluatorInput } from "@/lib/ai/prompts/article-evaluator";
 import { buildArticleReviserPrompt, type ArticleReviserInput } from "@/lib/ai/prompts/article-reviser";
 import { buildLinkedinAdapterPrompt } from "@/lib/ai/prompts/linkedin-adapter";
@@ -104,6 +116,24 @@ export async function generateArticle(
 ): Promise<ArticleOutput> {
   const { system, user } = buildArticleWriterPrompt(input);
   return provider.generateStructured({ modelId, system, user, schema: articleSchema });
+}
+
+export async function generateArticleSection(
+  provider: AIProvider,
+  modelId: string,
+  input: ArticleSectionWriterInput
+): Promise<ArticleSectionOutput> {
+  const { system, user } = buildArticleSectionWriterPrompt(input);
+  return provider.generateStructured({ modelId, system, user, schema: articleSectionOutputSchema });
+}
+
+export async function generateArticleFrame(
+  provider: AIProvider,
+  modelId: string,
+  input: ArticleFrameInput
+): Promise<ArticleFrame> {
+  const { system, user } = buildArticleFramePrompt(input);
+  return provider.generateStructured({ modelId, system, user, schema: articleFrameSchema });
 }
 
 export async function evaluateArticle(

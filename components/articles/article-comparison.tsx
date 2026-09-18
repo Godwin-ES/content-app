@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ArticleOptionCard } from "@/components/articles/article-option-card";
 import type { Database } from "@/lib/supabase/database.types";
-import { useAutoMode } from "@/components/requests/auto-mode-context";
+import { useAutoMode, useOperationRunning } from "@/components/requests/auto-mode-context";
 
 type ContentArtifactRow = Database["public"]["Tables"]["content_artifacts"]["Row"];
 type ArtifactVersionRow = Database["public"]["Tables"]["artifact_versions"]["Row"];
@@ -40,7 +40,14 @@ export function ArticleComparison({
   canGenerate,
 }: ArticleComparisonProps) {
   const [error, setError] = useState<string | null>(null);
-  const { running: autoModeRunning } = useAutoMode();
+  const { running: somethingRunning } = useAutoMode();
+  /**
+   * Generation is running somewhere, from the operation table rather than
+   * this component's transition — so returning to this tab mid-generation
+   * finds a button that is still generating, not one offering to start
+   * again.
+   */
+  const generating = useOperationRunning("article_generation", "article_evaluation");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -61,8 +68,13 @@ export function ArticleComparison({
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Article Options</h3>
         {articleArtifacts.length === 0 || articleArtifacts.some((a) => !a.current_version_id) ? (
-          <Button type="button" size="sm" onClick={generate} disabled={!canGenerate || isPending || autoModeRunning}>
-            {isPending ? "Generating..." : articleArtifacts.length === 0 ? "Generate article options" : "Retry all"}
+          <Button
+            type="button"
+            size="sm"
+            onClick={generate}
+            disabled={!canGenerate || isPending || somethingRunning || generating}
+          >
+            {isPending || generating ? "Generating..." : articleArtifacts.length === 0 ? "Generate article" : "Retry"}
           </Button>
         ) : null}
       </div>

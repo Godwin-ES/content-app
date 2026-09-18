@@ -27,7 +27,9 @@ const plan = (sectionCount: number) => ({
 describe("content plan section bounds", () => {
   it("accepts a plan within the bounds", () => {
     expect(contentPlanSchema.safeParse(plan(MIN_PLAN_SECTIONS)).success).toBe(true);
-    expect(contentPlanSchema.safeParse(plan(10)).success).toBe(true);
+    // A midpoint, derived rather than hardcoded so lowering the cap does
+    // not turn a valid plan into a failing test.
+    expect(contentPlanSchema.safeParse(plan(Math.floor((MIN_PLAN_SECTIONS + MAX_PLAN_SECTIONS) / 2))).success).toBe(true);
     expect(contentPlanSchema.safeParse(plan(MAX_PLAN_SECTIONS)).success).toBe(true);
   });
 

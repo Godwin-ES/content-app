@@ -5,7 +5,8 @@ import { DomainError, getErrorMessage } from "@/lib/domain/errors";
 import { assertContentEditable } from "@/lib/domain/request-guards";
 import { hashCanonicalJson } from "@/lib/domain/hashing";
 import type { AIProvider } from "@/lib/ai/types";
-import { generateArticle, evaluateArticle as evaluateArticleAI, reviseArticle as reviseArticleAI } from "@/lib/ai/service";
+import { evaluateArticle as evaluateArticleAI, reviseArticle as reviseArticleAI } from "@/lib/ai/service";
+import { composeArticle } from "@/lib/articles/compose";
 import type { ArticleAngle } from "@/lib/ai/prompts/article-writer";
 import type { ContentPlan, ContentPlanSection } from "@/lib/ai/schemas/content-plan";
 import { articleBodyMarkdown, type ArticleOutput } from "@/lib/ai/schemas/article";
@@ -145,7 +146,7 @@ async function generateOneOption(
   }
 
   try {
-    const output = await generateArticle(ai, modelId, {
+    const output = await composeArticle(ai, modelId, {
       angle: ANGLE_BY_SLOT[slot],
       audience: request.resolved_audience,
       objective: request.resolved_objective,
@@ -219,7 +220,17 @@ export async function generateArticleOptions(
   const plan = planRowToContentPlan(planRow);
   const { packets: evidencePackets, validEvidenceIds } = await getEvidenceContextForRequest(supabase, request);
 
-  const slots: ArticleSlot[] = ["A", "B", "C"];
+  /**
+   * One article, not three.
+   *
+   * Three angle-differentiated options were three times the cost and, in
+   * practice, two drafts nobody opened — the plan has already settled the
+   * angle, so the options differed less than their names suggested. Slot A
+   * is kept as the article's identity rather than collapsed away: the
+   * artifact table is keyed on (request_id, slot), and every version,
+   * evaluation, and package already written points at A.
+   */
+  const slots: ArticleSlot[] = ["A"];
   const results = await Promise.all(
     slots.map((slot) =>
       generateOneOption(supabase, ai, modelId, request, plan, planRow.id, evidencePackets, validEvidenceIds, slot)
@@ -230,7 +241,7 @@ export async function generateArticleOptions(
   await recordActivityEvent({
     requestId,
     eventType: "article_options_generated",
-    message: `${succeeded} of 3 article option(s) generated`,
+    message: `${succeeded} of ${slots.length} article(s) generated`,
     actorId: request.owner_id,
   });
 

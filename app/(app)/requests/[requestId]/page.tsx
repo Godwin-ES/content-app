@@ -311,6 +311,7 @@ export default async function RequestWorkspacePage({
       ) : null}
 
       <RequestWorkspace
+        requestId={requestId}
         overview={overviewContent}
         research={researchContent}
         plan={planContent}

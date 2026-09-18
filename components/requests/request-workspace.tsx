@@ -6,6 +6,8 @@ import type { WorkspaceTab } from "@/lib/workspace/tabs";
 import { AutoModeProvider } from "@/components/requests/auto-mode-context";
 
 interface RequestWorkspaceProps {
+  /** Needed to watch this request's running operations, workspace-wide. */
+  requestId: string;
   overview: ReactNode;
   research: ReactNode;
   plan: ReactNode;
@@ -39,6 +41,7 @@ interface RequestWorkspaceProps {
  * separate printable page to see what is being approved.
  */
 export function RequestWorkspace({
+  requestId,
   overview,
   research,
   plan,
@@ -49,7 +52,7 @@ export function RequestWorkspace({
   defaultTab = "overview",
 }: RequestWorkspaceProps) {
   return (
-    <AutoModeProvider>
+    <AutoModeProvider requestId={requestId}>
       <Tabs defaultValue={defaultTab}>
       <div className="overflow-x-auto">
         <TabsList>

@@ -46,6 +46,7 @@ export const articleSchema = z.object({
 });
 
 export type ArticleClaim = z.infer<typeof articleClaimSchema>;
+export type ArticleLink = z.infer<typeof articleLinkSchema>;
 export type ArticleSection = z.infer<typeof articleSectionSchema>;
 export type ArticleOutput = z.infer<typeof articleSchema>;
 

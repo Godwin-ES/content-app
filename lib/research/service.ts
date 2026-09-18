@@ -25,8 +25,23 @@ type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"]
 type SourceSetVersionRow = Database["public"]["Tables"]["source_set_versions"]["Row"];
 
 const MAX_SEARCH_RESULTS_PER_QUERY = 5;
-const MAX_USABLE_SOURCES = 8;
-const MAX_CANDIDATES_ATTEMPTED = 12;
+/**
+ * Five researched sources is the whole research budget.
+ *
+ * Every retained source costs a retrieval and an AI analysis — around 26
+ * seconds each — so this number, more than anything else, is how long
+ * research takes. Eight sources bought breadth nobody read; five is enough
+ * for a grounded article and roughly halves the wait. Supplied URLs and
+ * uploads are not counted against it: those were asked for by name.
+ */
+const MAX_USABLE_SOURCES = 5;
+/**
+ * Headroom over the target, because a candidate can fail to retrieve or
+ * come back unusable. Too tight and a couple of dead links leave the
+ * article short of sources; too loose and the failures cost the time the
+ * cap above exists to save.
+ */
+const MAX_CANDIDATES_ATTEMPTED = 8;
 const RETRIEVAL_CONCURRENCY = 4;
 const SEARCH_CONCURRENCY = 3;
 

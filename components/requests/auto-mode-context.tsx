@@ -1,35 +1,119 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 interface AutoModeState {
+  /**
+   * Whether anything is currently working on this request — auto mode's
+   * loop in this tab, or any operation running on the server, started from
+   * anywhere. Every control in the workspace disables on this.
+   */
   running: boolean;
+  /** Auto mode's own client-side loop, for the auto-mode panel itself. */
+  autoRunning: boolean;
   setRunning: (running: boolean) => void;
+  /**
+   * The operation types running right now (`article_generation`,
+   * `source_analysis`, …), so a control can show its own spinner and say
+   * what is happening rather than only greying out.
+   */
+  runningOperations: string[];
 }
 
-const AutoModeContext = createContext<AutoModeState>({ running: false, setRunning: () => {} });
+const AutoModeContext = createContext<AutoModeState>({
+  running: false,
+  autoRunning: false,
+  setRunning: () => {},
+  runningOperations: [],
+});
 
 /**
- * Whether auto mode is currently stepping this request forward.
+ * How long a `running` operation row is believed before it is treated as
+ * wreckage.
  *
- * Shared so the rest of the workspace can stand down while it runs. Auto
- * mode and, say, a manual "Start research" both drive the same pipeline;
- * letting someone press one while the other is mid-step invites two
- * writers on one request, and the resulting mess is the kind that is
- * obvious afterwards and invisible at the time.
- *
- * Client state rather than anything persisted: the loop lives in the
- * browser, so closing the page stops the run and there is nothing to
- * unwind. A second tab does not see it, which is a real gap — but the
- * server's own guards (an active operation run, a status check) are what
- * actually prevent the damage; this only stops the obvious mistake.
+ * A server that dies mid-operation leaves its row saying `running` for
+ * ever, and a UI that trusts that row without question is a UI that can
+ * be locked permanently by one crash. The longest legitimate operation is
+ * a few minutes, so anything past this is not slow, it is gone.
  */
-export function AutoModeProvider({ children }: { children: ReactNode }) {
-  const [running, setRunning] = useState(false);
-  const value = useMemo(() => ({ running, setRunning }), [running]);
+const STALE_RUN_MS = 10 * 60 * 1000;
+const POLL_MS = 2500;
+
+/**
+ * Whether anything is currently working on this request.
+ *
+ * This was client state alone, which meant it was per-tab: switching to
+ * another workspace tab and back, or opening the request in a second
+ * browser tab, showed idle buttons over a running operation — and an idle
+ * button gets pressed. The server's idempotency guards did stop the
+ * duplicate work, but silently, so the interface was telling one story
+ * and the database another.
+ *
+ * So the truth now comes from where the work actually is: `operation_runs`
+ * has a row per operation with a status, written before the work starts
+ * and updated when it ends. Polling it means any tab, freshly opened or
+ * long since abandoned, sees the same thing — and it survives a reload,
+ * which client state never could.
+ *
+ * Local auto-mode state is still ORed in, because it covers the moments
+ * the table cannot: the gap between pressing Run and the first row
+ * appearing, and the pauses between steps when nothing is running yet the
+ * loop is very much still going.
+ */
+export function AutoModeProvider({ requestId, children }: { requestId: string; children: ReactNode }) {
+  const [autoRunning, setRunning] = useState(false);
+  const [runningOperations, setRunningOperations] = useState<string[]>([]);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    let cancelled = false;
+
+    async function poll() {
+      const { data } = await supabase
+        .from("operation_runs")
+        .select("operation_type, started_at, created_at")
+        .eq("request_id", requestId)
+        .in("status", ["queued", "running"]);
+      if (cancelled) return;
+      const cutoff = Date.now() - STALE_RUN_MS;
+      setRunningOperations(
+        (data ?? [])
+          .filter((row) => new Date(row.started_at ?? row.created_at).getTime() > cutoff)
+          .map((row) => row.operation_type)
+      );
+    }
+
+    poll();
+    const interval = setInterval(poll, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [requestId]);
+
+  const value = useMemo(
+    () => ({
+      running: autoRunning || runningOperations.length > 0,
+      autoRunning,
+      setRunning,
+      runningOperations,
+    }),
+    [autoRunning, runningOperations]
+  );
+
   return <AutoModeContext.Provider value={value}>{children}</AutoModeContext.Provider>;
 }
 
 export function useAutoMode(): AutoModeState {
   return useContext(AutoModeContext);
+}
+
+/**
+ * Whether one named operation is running, for a control that should show
+ * its own progress rather than merely standing down for someone else's.
+ */
+export function useOperationRunning(...operationTypes: string[]): boolean {
+  const { runningOperations } = useAutoMode();
+  return operationTypes.some((type) => runningOperations.includes(type));
 }
