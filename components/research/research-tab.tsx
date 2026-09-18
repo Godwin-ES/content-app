@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { EditableSetting } from "@/components/shared/editable-setting";
 import { TriangleAlert } from "lucide-react";
 import type { KeywordCoverage } from "@/lib/research/keyword-coverage";
+import type { ResearchRunAvailability } from "@/lib/research/service";
 import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
 import { SourceCard } from "@/components/research/source-card";
 import { ResearchProgress, type ResearchProgressSignals } from "@/components/research/research-progress";
@@ -32,6 +33,7 @@ interface ResearchTabProps {
   primaryKeyword: string | null;
   canEditSettings: boolean;
   keywordCoverage: KeywordCoverage | null;
+  runAvailability: ResearchRunAvailability;
 }
 
 /**
@@ -54,6 +56,7 @@ export function ResearchTab({
   primaryKeyword,
   canEditSettings,
   keywordCoverage,
+  runAvailability,
 }: ResearchTabProps) {
   const [busyCount, setBusyCount] = useState(0);
   const [suppliedOnly, setSuppliedOnly] = useState(suppliedSourcesOnly);
@@ -168,14 +171,22 @@ export function ResearchTab({
         </Alert>
       ) : null}
 
-      {status === "draft" ? (
+      {/* Shown while research can still change the source set: as the
+          first run on a draft, and as a re-run once the keyword has been
+          changed. A re-run is additive — everything already retrieved
+          keeps whatever decision has been made about it. */}
+      {runAvailability.canRun || status === "source_review" ? (
         <div className="flex flex-col gap-3 rounded-lg border p-4">
-          <h3 className="text-sm font-medium">Research</h3>
+          <h3 className="text-sm font-medium">{runAvailability.canRun && runAvailability.kind === "rerun" ? "Research again" : "Research"}</h3>
           {isStarting ? (
             <ResearchProgress signals={progressSignals} />
           ) : (
             <p className="text-sm text-muted-foreground">
-              Research runs over the materials and URLs supplied with this request, plus a general web search of the topic.
+              {!runAvailability.canRun
+                ? runAvailability.reason
+                : runAvailability.kind === "rerun"
+                  ? "The primary keyword has changed since the last run. Searching again adds anything new it finds; sources you already have are left exactly as they are."
+                  : "Research runs over the materials and URLs supplied with this request, plus a general web search of the topic."}
             </p>
           )}
           {error ? (
@@ -183,7 +194,7 @@ export function ResearchTab({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
-          {hasSuppliedSources ? (
+          {hasSuppliedSources && status === "draft" ? (
             <label className="flex w-fit items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -196,11 +207,13 @@ export function ResearchTab({
             </label>
           ) : null}
 
-          <Button type="button" onClick={startResearch} disabled={locked} className="w-fit">
+          <Button type="button" onClick={startResearch} disabled={locked || !runAvailability.canRun} className="w-fit">
             {isStarting ? (
               <>
                 <Loader2 className="size-4 animate-spin" /> Researching...
               </>
+            ) : runAvailability.canRun && runAvailability.kind === "rerun" ? (
+              "Research again"
             ) : (
               "Start research"
             )}

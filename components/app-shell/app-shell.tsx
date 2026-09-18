@@ -17,7 +17,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
   const links: { href: string; label: string }[] = user
     ? [
         { href: "/dashboard", label: "Dashboard" },
-        { href: "/publishing", label: "Publishing Queue" },
+        { href: "/publishing", label: "Schedule" },
       ]
     : [];
 

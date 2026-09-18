@@ -58,7 +58,7 @@ export async function cancelQueueItem(
 
 /**
  * All queue items visible to the current session (RLS scopes this to the
- * Content Manager's own requests), for the global Publishing Queue nav
+ * account's own requests), for the Schedule nav
  * page (SYSTEM-DESIGN-NEXTJS.md §34.1, §34.10) rather than one request at
  * a time.
  */

@@ -153,9 +153,9 @@ export interface GlobalQueueEntry {
 }
 
 /**
- * The global Publishing Queue nav page (SYSTEM-DESIGN-NEXTJS.md §34.1,
- * §34.10): every queue item across the Content Manager's own requests,
- * each labeled with its request and exact package version.
+ * The Schedule page (SYSTEM-DESIGN-NEXTJS.md §34.1,
+ * §34.10): every queue item across the account's own requests, each
+ * labeled with its request and exact package version.
  */
 export async function getGlobalPublishingQueue(supabase: SupabaseClient<Database>): Promise<GlobalQueueEntry[]> {
   const items = await listQueueItemsForCurrentUser(supabase);

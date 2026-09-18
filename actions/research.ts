@@ -4,7 +4,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireSignedIn } from "@/lib/auth/guards";
 import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai/provider";
 import { getResearchProvider } from "@/lib/research/provider";
-import { runResearchPipeline, retryResearchSource, addPendingSourceUrl, analyzeUploadedMaterialSource } from "@/lib/research/service";
+import {
+  runResearchPipeline,
+  retryResearchSource,
+  addPendingSourceUrl,
+  analyzeUploadedMaterialSource,
+  researchRunAvailability,
+} from "@/lib/research/service";
 import { toLoggedActionError } from "@/lib/notifications/action-error";
 import { DomainError, type ActionResult } from "@/lib/domain/errors";
 
@@ -16,8 +22,9 @@ export async function startResearchAction(requestId: string): Promise<ActionResu
 
     const { data: request, error } = await supabase.from("content_requests").select().eq("id", requestId).single();
     if (error || !request) throw new DomainError("NOT_FOUND", "start_research", "Request not found.");
-    if (request.status !== "draft") {
-      throw new DomainError("INVALID_STATE", "start_research", "Research has already been started for this request.");
+    const availability = researchRunAvailability(request);
+    if (!availability.canRun) {
+      throw new DomainError("INVALID_STATE", "start_research", availability.reason);
     }
 
     const { data: activeRun } = await supabase

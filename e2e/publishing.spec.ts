@@ -95,3 +95,24 @@ test("preserves upstream work: cancelling one queued item never touches another 
   expect(linkedinAfter?.status).toBe("cancelled");
   expect(xAfter?.status).toBe("queued");
 });
+
+test("the Schedule page lists everything queued and can cancel it there", async ({ page }) => {
+  const { requestId, packageId } = await approvedRequest("E2E schedule page request");
+  const item = await queueChannelDirect(requestId, packageId, "newsletter");
+
+  await login(page, owner.email, owner.password);
+  await page.goto("/publishing");
+
+  // Unscheduled items are the queue proper, so they lead.
+  await expect(page.getByText("Queued to go out now")).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText("E2E schedule page request")).toBeVisible();
+
+  // The page used to be read-only: this is the part that was missing.
+  await page.getByRole("button", { name: "Cancel" }).first().click();
+
+  await expect
+    .poll(async () => (await admin.from("publishing_queue_items").select("status").eq("id", item.id).single()).data?.status, {
+      timeout: 30000,
+    })
+    .toBe("cancelled");
+});

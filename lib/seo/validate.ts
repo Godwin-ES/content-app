@@ -1,3 +1,5 @@
+import { normalizeForKeywordMatch } from "@/lib/domain/keyword";
+
 export interface SeoCheckResult {
   key: string;
   ok: boolean;
@@ -15,22 +17,6 @@ const FIRST_WORDS_WINDOW = 100;
 
 function stripMarkdown(markdown: string): string {
   return markdown.replace(/[#*_`>[\]()]/g, " ");
-}
-
-/**
- * Lowercases and flattens the punctuation that separates words, so
- * "four-day work week" still matches "Four Day Work Week" in a title. It
- * deliberately does NOT reorder or drop words: the SEO spec requires the
- * primary keyword itself in the title, and a title that merely reuses its
- * words scattered around ("AI Agents Are Transforming Recruiting" for "AI
- * agents in recruiting") has not met that, so it must still fail.
- */
-function normalizeForKeywordMatch(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[\u2010-\u2015]/g, "-")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
 }
 
 function countHeadings(markdown: string, level: number): number {

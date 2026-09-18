@@ -22,9 +22,17 @@ Every action re-reads who you are from `auth.uid()` server-side and checks owner
 
 The code path is in place (`/signup`, `/login` → `signInWithOAuth` → `/auth/callback`), but the Google provider has to be enabled on the Supabase project with a client ID and secret before it works — that is dashboard configuration, not code. Until it is, the button surfaces Supabase's own "provider is not enabled" message rather than failing silently.
 
+### Intake checks
+
+Optional fields are checked in two layers before a request is created. Deterministic rules run instantly and cost nothing — length, keyboard walks, and the primary keyword's single-phrase rule. An AI reviewer then makes one call for all five fields, asking only whether each reads like a plausible answer to its own question; one call catches mismatches *between* fields and costs a fifth of one call per field.
+
+Almost every flag is advisory and carries **Use it anyway**, because these are guesses about subject matter the app does not know — a coinage, an internal audience name, a deliberately terse tone. The exception is the keyword single-phrase rule, which is enforced again on create: a keyword containing a comma can never be found in a title, so waving it through only moves the failure somewhere less visible. Typos are left to the browser's own spellchecker, which is a better speller than anything shipped here and has no opinions about five-word answers.
+
 ### The dashboard
 
 Three tabs: **In Progress**, **Published**, and **Deleted**. Deleting is a bin — a request can be restored for 30 days and is removed for good after that, including its uploaded files. Queued publishing items are cancelled when a request is binned, and are not un-cancelled by a restore: whether the content should go out again is a decision, not a side effect of undoing a delete.
+
+The **Schedule** nav page shows everything queued across every request, grouped by when it goes out, and is where it is rescheduled or cancelled. It was called Publishing Queue and was read-only, which made the one page named after the queue the one place the queue could not be managed.
 
 ### Notifications
 

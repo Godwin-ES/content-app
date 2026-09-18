@@ -59,7 +59,7 @@ export function QueueControls({ requestId, queueableChannels }: QueueControlsPro
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border p-4">
-      <h4 className="text-sm font-medium">Add to Publishing Queue</h4>
+      <h4 className="text-sm font-medium">Add to the schedule</h4>
       <div className="flex flex-col gap-2">
         <Label htmlFor="queue-channel">Channel</Label>
         <select

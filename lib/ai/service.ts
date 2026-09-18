@@ -18,6 +18,10 @@ import { buildXAdapterPrompt } from "@/lib/ai/prompts/x-adapter";
 import { buildNewsletterAdapterPrompt } from "@/lib/ai/prompts/newsletter-adapter";
 import type { ChannelAdapterInput } from "@/lib/ai/prompts/linkedin-adapter";
 import { buildChannelEvaluatorPrompt, type ChannelEvaluatorInput } from "@/lib/ai/prompts/channel-evaluator";
+import { textCoversKeyword } from "@/lib/domain/keyword";
+import { DomainError } from "@/lib/domain/errors";
+import { buildIntakeReviewerPrompt, type IntakeReviewerInput } from "@/lib/ai/prompts/intake-reviewer";
+import { intakeReviewSchema, type IntakeReview } from "@/lib/ai/schemas/intake-review";
 
 /**
  * Narrow, task-specific AI operations (SYSTEM-DESIGN-NEXTJS.md §13). Each
@@ -27,13 +31,43 @@ import { buildChannelEvaluatorPrompt, type ChannelEvaluatorInput } from "@/lib/a
  * later if benchmarking justifies it (§12.5).
  */
 
+/**
+ * How many times a plan may be re-asked for before its keyword/query
+ * mismatch is treated as a real failure. Non-deterministic output usually
+ * satisfies the rule on a second attempt, and asking twice is far cheaper
+ * than researching against a keyword nothing searched for.
+ */
+const RESEARCH_PLAN_ATTEMPTS = 3;
+
 export async function createResearchPlan(
   provider: AIProvider,
   modelId: string,
   input: ResearchPlannerInput
 ): Promise<ResearchPlan> {
   const { system, user } = buildResearchPlannerPrompt(input);
-  return provider.generateStructured({ modelId, system, user, schema: researchPlanSchema });
+
+  let lastPlan: ResearchPlan | null = null;
+  for (let attempt = 1; attempt <= RESEARCH_PLAN_ATTEMPTS; attempt++) {
+    const plan = await provider.generateStructured({ modelId, system, user, schema: researchPlanSchema });
+    lastPlan = plan;
+
+    // The schema can only say these fields are present, not that they
+    // agree. Without this the planner was free to emit a keyword and a set
+    // of queries with nothing in common — and since only the queries are
+    // ever searched, the keyword became a label rather than a constraint,
+    // discovered later by the coverage check or, later still, by the SEO
+    // check on the finished article.
+    if (plan.searchQueries.some((query) => textCoversKeyword(query, plan.primaryKeyword))) {
+      return plan;
+    }
+  }
+
+  throw new DomainError(
+    "VALIDATION_ERROR",
+    "research_planning",
+    `The research plan kept searching for something other than its own primary keyword ("${lastPlan?.primaryKeyword ?? ""}"). ` +
+      "Try a more specific topic, or set the primary keyword yourself."
+  );
 }
 
 export async function analyzeSource(
@@ -112,4 +146,17 @@ export async function evaluateChannel(
 ): Promise<ChannelEvaluation> {
   const { system, user } = buildChannelEvaluatorPrompt(input);
   return provider.generateStructured({ modelId, system, user, schema: channelEvaluationSchema });
+}
+
+/**
+ * Reviews a whole intake in one call. See buildIntakeReviewerPrompt for
+ * why it is one call and why the bar is deliberately low.
+ */
+export async function reviewIntake(
+  provider: AIProvider,
+  modelId: string,
+  input: IntakeReviewerInput
+): Promise<IntakeReview> {
+  const { system, user } = buildIntakeReviewerPrompt(input);
+  return provider.generateStructured({ modelId, system, user, schema: intakeReviewSchema });
 }

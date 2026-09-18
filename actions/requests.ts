@@ -15,6 +15,7 @@ import {
 import { uploadSupportingMaterial } from "@/lib/materials/service";
 import { addPendingSourceUrl } from "@/lib/research/service";
 import { parseUserSuppliedUrl } from "@/lib/research/url";
+import { blockingIntakeFlags } from "@/lib/domain/intake-checks";
 import { DomainError } from "@/lib/domain/errors";
 import { toLoggedActionError } from "@/lib/notifications/action-error";
 import type { ActionResult } from "@/lib/domain/errors";
@@ -63,6 +64,15 @@ export async function createContentRequestAction(
     const files = formData.getAll("materials").filter((v): v is File => v instanceof File && v.size > 0);
 
     const aiModelChoice = emptyToUndefined(formData.get("aiModelChoice"));
+
+    // Re-checked here, not only in reviewIntakeAction: a check that lives
+    // solely in an action the client chooses to call is not a check. Only
+    // the blocking ones — everything else is advisory by design and the
+    // writer may have deliberately overridden it.
+    const blocking = blockingIntakeFlags(rawInput);
+    if (blocking.length > 0) {
+      throw new DomainError("VALIDATION_ERROR", "create_content_request", blocking[0].message);
+    }
 
     const request = await createContentRequest(supabase, user.userId, rawInput, aiModelChoice);
 

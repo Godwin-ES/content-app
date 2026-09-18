@@ -12,6 +12,7 @@ import { getPublishingQueue } from "@/lib/publishing/service";
 import { listActivityEvents } from "@/lib/repositories/activity";
 import { filterDisplayedActivity } from "@/lib/activity/display";
 import { assessKeywordCoverage } from "@/lib/research/keyword-coverage";
+import { researchRunAvailability } from "@/lib/research/service";
 import { deriveNextAction } from "@/lib/workspace/next-action";
 import { buildWorkspaceSnapshot } from "@/lib/workspace/snapshot";
 import { articlesStaleAgainstPlan, channelsStaleAgainstArticle } from "@/lib/workspace/staleness";
@@ -216,6 +217,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       primaryKeyword={request.resolved_primary_keyword}
       canEditSettings={canEditSettings}
       keywordCoverage={keywordCoverage}
+      runAvailability={researchRunAvailability(request)}
     />
   );
 

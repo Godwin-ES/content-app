@@ -481,6 +481,7 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
+          researched_keyword: string | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string
@@ -506,6 +507,7 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           owner_id: string
+          researched_keyword?: string | null
           resolved_audience: string
           resolved_cta?: string | null
           resolved_objective: string
@@ -531,6 +533,7 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           owner_id?: string
+          researched_keyword?: string | null
           resolved_audience?: string
           resolved_cta?: string | null
           resolved_objective?: string
@@ -1605,6 +1608,7 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
+          researched_keyword: string | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string
@@ -1671,6 +1675,7 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
+          researched_keyword: string | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string
@@ -1705,6 +1710,7 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
+          researched_keyword: string | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string
@@ -1739,6 +1745,7 @@ export type Database = {
           deleted_at: string | null
           id: string
           owner_id: string
+          researched_keyword: string | null
           resolved_audience: string
           resolved_cta: string | null
           resolved_objective: string

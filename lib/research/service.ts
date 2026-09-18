@@ -21,6 +21,7 @@ import {
 import { assessKeywordCoverage, type KeywordCoverage } from "@/lib/research/keyword-coverage";
 import { bestEffort } from "@/lib/notifications/action-error";
 import { notifyKeywordCoverageGap } from "@/lib/notifications/service";
+import { textCoversKeyword } from "@/lib/domain/keyword";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
 type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"];
@@ -243,9 +244,15 @@ export async function runResearchPipeline(
   // matching the existing pattern for activity_events (lib/repositories/activity.ts).
   const admin = createSupabaseAdminClient();
 
-  if (!request.resolved_primary_keyword && plan.primaryKeyword) {
-    await admin.from("content_requests").update({ resolved_primary_keyword: plan.primaryKeyword }).eq("id", requestId);
-  }
+  // The keyword the rest of the pipeline works from, and the one this run
+  // actually searched for. They are the same value, stored separately: the
+  // first is editable, and comparing them is what tells the Research tab
+  // whether re-running would do anything.
+  const researchedKeyword = request.resolved_primary_keyword ?? plan.primaryKeyword;
+  await admin
+    .from("content_requests")
+    .update({ resolved_primary_keyword: researchedKeyword, researched_keyword: researchedKeyword })
+    .eq("id", requestId);
 
   // "Only use supplied materials" (Phase 1 intake option): skip AI-generated
   // web search entirely rather than merely excluding its results, since the
@@ -288,7 +295,17 @@ export async function runResearchPipeline(
     })
     .filter((c): c is NonNullable<typeof c> => c !== null);
 
-  const deduped = dedupeByCanonicalUrl(canonicalized).slice(0, MAX_CANDIDATES_ATTEMPTED);
+  // A re-run must be additive: sources already retrieved keep whatever
+  // decision has been made about them, and only genuinely new URLs are
+  // fetched. Without this, re-running after a keyword change would create
+  // a second row for every page the first run already found.
+  const alreadyKnown = new Set(
+    allSources.map((source) => source.canonical_url ?? source.original_url).filter((url): url is string => Boolean(url))
+  );
+
+  const deduped = dedupeByCanonicalUrl(canonicalized)
+    .filter((candidate) => candidate.existingSourceId || !alreadyKnown.has(candidate.canonicalUrl))
+    .slice(0, MAX_CANDIDATES_ATTEMPTED);
 
   const processedSources: ResearchSourceRow[] = await mapWithConcurrency(deduped, RETRIEVAL_CONCURRENCY, (candidate) =>
     retrieveAndAnalyze(
@@ -581,4 +598,55 @@ export async function confirmReviewedSourceSet(
     throw new DomainError("VALIDATION_ERROR", "confirm_source_set", coverage.message);
   }
   return confirmSourceSet(supabase, requestId);
+}
+
+export type ResearchRunAvailability =
+  | { canRun: true; kind: "initial" | "rerun" }
+  | { canRun: false; reason: string };
+
+/**
+ * Whether research can be started or started again, and why not.
+ *
+ * Research used to be a once-only act: the action refused unless the
+ * request was still a draft, and running it is what ends draft. That left
+ * a dead end — change the keyword afterwards and the sources stay whatever
+ * the first run found, with nothing to do about it.
+ *
+ * A re-run is offered only when the keyword has actually changed, because
+ * re-running the same searches mostly re-fetches the same pages and
+ * spends a pipeline to do it. It stops being offered once the source set
+ * is confirmed: from that point the confirmed set is what the plan and
+ * article are built on, and replacing the evidence underneath finished
+ * work is a different operation from gathering it.
+ */
+export function researchRunAvailability(request: {
+  status: string;
+  resolved_primary_keyword: string | null;
+  researched_keyword: string | null;
+  deleted_at?: string | null;
+}): ResearchRunAvailability {
+  if (request.deleted_at) {
+    return { canRun: false, reason: "This request is in the bin. Restore it before researching." };
+  }
+
+  if (request.status === "draft") return { canRun: true, kind: "initial" };
+
+  if (request.status !== "source_review") {
+    return {
+      canRun: false,
+      reason: "The source set is confirmed, so research is settled for this request. Add a URL to bring in anything it missed.",
+    };
+  }
+
+  const current = request.resolved_primary_keyword?.trim() ?? "";
+  const researched = request.researched_keyword?.trim() ?? "";
+
+  if (current && researched && !textCoversKeyword(current, researched) && !textCoversKeyword(researched, current)) {
+    return { canRun: true, kind: "rerun" };
+  }
+
+  return {
+    canRun: false,
+    reason: `Research already ran for "${researched || current}". Change the primary keyword to search for something different.`,
+  };
 }

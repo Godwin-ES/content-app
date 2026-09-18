@@ -16,32 +16,7 @@
  * should not itself depend on a generation.
  */
 
-/**
- * Words too common to carry meaning in a keyword phrase. Left out of the
- * term check so "AI agents in recruiting" is not judged covered merely
- * because a source contains the word "in".
- */
-const STOP_WORDS = new Set(["a", "an", "and", "the", "for", "of", "in", "on", "to", "with", "at", "by", "or", "your", "how"]);
-
-/**
- * Lowercases and flattens punctuation to single spaces so "four-day work
- * week" matches "Four Day Work Week". Deliberately the same normalization
- * the deterministic SEO check uses (lib/seo/validate.ts), so a source set
- * this accepts cannot be rejected later by a different spelling rule.
- */
-function normalize(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[‐-―]/g, "-")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function contentWords(keyword: string): string[] {
-  return normalize(keyword)
-    .split(" ")
-    .filter((word) => word.length > 0 && !STOP_WORDS.has(word));
-}
+import { keywordContentWords, normalizeForKeywordMatch, textCoversKeyword } from "@/lib/domain/keyword";
 
 export interface KeywordCoverageSource {
   id: string;
@@ -79,7 +54,7 @@ export interface KeywordCoverage {
  * accepted ones at source review — not every candidate retrieved.
  */
 export function assessKeywordCoverage(keyword: string | null, sources: KeywordCoverageSource[]): KeywordCoverage {
-  const words = keyword ? contentWords(keyword) : [];
+  const words = keyword ? keywordContentWords(keyword) : [];
   const suppliedOnly = sources.length > 0 && sources.every((s) => s.origin !== "researched");
 
   if (!keyword || words.length === 0 || sources.length === 0) {
@@ -102,12 +77,12 @@ export function assessKeywordCoverage(keyword: string | null, sources: KeywordCo
   const termMatchIds: string[] = [];
 
   for (const source of sources) {
-    const haystack = normalize(`${source.title ?? ""} ${source.extractedText ?? ""}`);
+    const haystack = normalizeForKeywordMatch(`${source.title ?? ""} ${source.extractedText ?? ""}`);
     if (haystack.length === 0) continue;
 
     if (haystack.includes(phrase)) {
       phraseMatchIds.push(source.id);
-    } else if (words.every((word) => haystack.includes(word))) {
+    } else if (textCoversKeyword(haystack, keyword)) {
       termMatchIds.push(source.id);
     }
   }
