@@ -167,7 +167,7 @@ export function ResearchTab({
           already retrieved keeps whatever decision has been made about it. */}
       {
         <div className="flex flex-col gap-3 rounded-lg border p-4">
-          <h3 className="text-sm font-medium">{runAvailability.canRun && runAvailability.kind === "rerun" ? "Research again" : "Research"}</h3>
+          <h3 className="text-sm font-medium">{runAvailability.canRun ? runAvailability.label : "Research"}</h3>
           {isStarting ? (
             <ResearchProgress signals={progressSignals} />
           ) : (
@@ -210,10 +210,8 @@ export function ResearchTab({
                 <>
                   <Loader2 className="size-4 animate-spin" /> Researching...
                 </>
-              ) : runAvailability.canRun && runAvailability.kind === "rerun" ? (
-                "Research again"
               ) : (
-                "Start research"
+                (runAvailability.canRun && runAvailability.label) || "Start research"
               )}
             </Button>
             {!runAvailability.canRun && !isStarting ? (

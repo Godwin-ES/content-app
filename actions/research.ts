@@ -6,6 +6,7 @@ import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai
 import { getResearchProvider } from "@/lib/research/provider";
 import {
   runResearchPipeline,
+  researchAddedSources,
   retryResearchSource,
   addPendingSourceUrl,
   analyzeUploadedMaterialSource,
@@ -43,7 +44,15 @@ export async function startResearchAction(requestId: string): Promise<ActionResu
     const research = await getResearchProvider();
     const modelId = getModelIdFor(modelChoice);
 
-    const result = await runResearchPipeline(supabase, ai, research, modelId, requestId);
+    // Adding a source only ever earns the cheap half of the pipeline: read
+    // what was added, and leave the searches alone. Decided from the same
+    // availability the button's label comes from, so what runs and what it
+    // says it will do cannot drift apart.
+    const result =
+      availability.kind === "added"
+        ? await researchAddedSources(supabase, ai, research, modelId, requestId)
+        : await runResearchPipeline(supabase, ai, research, modelId, requestId);
+
     return { ok: true, data: { usableSourceCount: result.usableSourceCount } };
   } catch (error) {
     const actionError = await toLoggedActionError(error, "start_research", { requestId });

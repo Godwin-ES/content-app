@@ -22,18 +22,28 @@ describe("researchRunAvailability", () => {
     expect(open.canRun && open.detail).toContain("searches the web");
   });
 
-  it("offers a re-run once a source has been added", () => {
+  it("reads an added source as a reason to read it, not to search again", () => {
+    // Redoing the searches would return substantially the same pages, have
+    // them thrown away by the dedupe, and still cost a research plan and a
+    // round of search calls to get there.
     const result = researchRunAvailability(base, 2);
-    expect(result.canRun && result.kind).toBe("rerun");
-    expect(result.canRun && result.detail).toContain("2 sources added");
+    expect(result.canRun && result.kind).toBe("added");
+    expect(result.canRun && result.label).toBe("Research added sources");
+    expect(result.canRun && result.detail).toContain("No new web search");
   });
 
-  it("offers a re-run once a web search has been allowed", () => {
+  it("offers a web search once one has been allowed", () => {
     // The one change that makes the same searches produce different
     // results, because previously there were none.
     const result = researchRunAvailability({ ...base, researched_supplied_only: true, supplied_sources_only: false });
-    expect(result.canRun && result.kind).toBe("rerun");
-    expect(result.canRun && result.detail).toContain("Web search is allowed now");
+    expect(result.canRun && result.kind).toBe("widened");
+    expect(result.canRun && result.label).toBe("Search the web too");
+  });
+
+  it("prefers the full run when both apply, since it picks up added sources anyway", () => {
+    const result = researchRunAvailability({ ...base, researched_supplied_only: true, supplied_sources_only: false }, 3);
+    expect(result.canRun && result.kind).toBe("widened");
+    expect(result.canRun && result.detail).toContain("3 source(s) you have added");
   });
 
   it("refuses a re-run that would repeat the same searches over the same scope", () => {

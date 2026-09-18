@@ -533,7 +533,15 @@ export async function confirmReviewedSourceSet(
 }
 
 export type ResearchRunAvailability =
-  | { canRun: true; kind: "initial" | "rerun"; detail: string }
+  /**
+   * `initial` and `widened` search the web; `added` deliberately does not.
+   *
+   * Adding a URL is a reason to analyse that URL, not a reason to redo the
+   * searches — those would return substantially what they returned last
+   * time, be thrown away by the dedupe, and still cost a research plan and
+   * a round of searches to get there.
+   */
+  | { canRun: true; kind: "initial" | "added" | "widened"; label: string; detail: string }
   /** `reason` explains at length; `hint` is the few words that sit beside the disabled button. */
   | { canRun: false; reason: string; hint: string };
 
@@ -575,6 +583,7 @@ export function researchRunAvailability(request: {
     return {
       canRun: true,
       kind: "initial",
+      label: "Start research",
       detail: request.supplied_sources_only
         ? "Analyses the materials and URLs supplied with this request. No web search, because you asked for supplied sources only."
         : "Analyses the materials and URLs supplied with this request, and searches the web for more.",
@@ -593,21 +602,29 @@ export function researchRunAvailability(request: {
   // produce different results, because previously there were none.
   const scopeWidened = request.researched_supplied_only === true && !request.supplied_sources_only;
 
-  if (pendingSourceCount > 0) {
-    return {
-      canRun: true,
-      kind: "rerun",
-      detail:
-        `${pendingSourceCount} source${pendingSourceCount === 1 ? "" : "s"} added since the last run will be analysed` +
-        (scopeWidened ? ", and the web will be searched now that it is allowed." : ". Sources you already have are left exactly as they are."),
-    };
-  }
-
+  // Checked before the added-sources case: a full run picks pending
+  // sources up anyway, so when both apply there is no reason to do the
+  // cheap one and leave the search undone.
   if (scopeWidened) {
     return {
       canRun: true,
-      kind: "rerun",
-      detail: "Web search is allowed now, so this will look beyond the supplied materials. What you already have is left as it is.",
+      kind: "widened",
+      label: "Search the web too",
+      detail:
+        "Web search is allowed now, so this searches beyond the supplied materials" +
+        (pendingSourceCount > 0 ? ` and analyses the ${pendingSourceCount} source(s) you have added.` : ".") +
+        " What you already have is left exactly as it is.",
+    };
+  }
+
+  if (pendingSourceCount > 0) {
+    return {
+      canRun: true,
+      kind: "added",
+      label: "Research added sources",
+      detail:
+        `Analyses the ${pendingSourceCount} source${pendingSourceCount === 1 ? "" : "s"} you have added. ` +
+        "No new web search — the searches have already run, and repeating them would return the same pages.",
     };
   }
 
@@ -618,4 +635,54 @@ export function researchRunAvailability(request: {
       : "Research has run for this request. Add a source to bring in anything it missed.",
     hint: request.supplied_sources_only ? "Add a source, or allow a web search" : "Add a source to find more",
   };
+}
+
+/**
+ * Analyses the sources added since the last run, and nothing else.
+ *
+ * The cheap half of the pipeline. Adding a URL is a reason to read that
+ * URL, not a reason to redo the searches: those would return substantially
+ * what they returned before, be discarded by the dedupe, and still cost a
+ * research plan and a round of search calls to get there. So this skips
+ * planning and searching entirely and does only the part that has anything
+ * new to do.
+ *
+ * Each source is analysed on its own, exactly as a single retry is, so one
+ * unreadable page never stops the rest.
+ */
+export async function researchAddedSources(
+  supabase: SupabaseClient<Database>,
+  ai: AIProvider,
+  research: ResearchProvider,
+  modelId: string,
+  requestId: string
+): Promise<ResearchPipelineResult> {
+  const request = await getRequestOrThrow(supabase, requestId);
+  const all = await listResearchSources(supabase, requestId);
+  const pending = all.filter((source) => source.retrieval_status === "pending");
+
+  const processed = await mapWithConcurrency(pending, RETRIEVAL_CONCURRENCY, async (source) => {
+    try {
+      if (source.origin === "uploaded_material") {
+        return await analyzeUploadedMaterialSource(supabase, ai, modelId, source.id);
+      }
+      return await retryResearchSource(supabase, ai, research, modelId, source.id);
+    } catch {
+      // A source that cannot be read is a result, not a failure of the
+      // run: it stays on the list with its reason, and the others go on.
+      return source;
+    }
+  });
+
+  const usableSourceCount = all.filter((s) => s.retrieval_status === "usable").length +
+    processed.filter((s) => s.retrieval_status === "usable").length;
+
+  await recordActivityEvent({
+    requestId,
+    eventType: "research_retrieval_completed",
+    message: `Analysed ${pending.length} added source${pending.length === 1 ? "" : "s"}`,
+    actorId: request.owner_id,
+  });
+
+  return { usableSourceCount, transitioned: false };
 }

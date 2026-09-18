@@ -44,7 +44,7 @@ Sources can be added at any point before the source set is confirmed — a link 
 
 Research skips the sites whose substance sits behind a sign-in — LinkedIn, Reddit, X, Medium and a handful of others — before anything is fetched, because a login wall costs a retrieval and an AI analysis call to conclude it is a login wall. Only pages research finds for itself are filtered: a link you supply is never touched, since you may well be able to read what a crawler cannot.
 
-Research can run again when a source has been added since the last run, or when the scope has been widened to allow a web search. Nothing else re-opens it: the same queries over the same scope mostly re-fetch the same pages. Re-runs are additive and deduplicated by canonical URL, so a supplied link the web search also happens to find is never added twice.
+Research can run again when a source has been added since the last run, or when the scope has been widened to allow a web search — and the button says which, because the two do different amounts of work. **Research added sources** reads what you added and searches nothing: repeating the searches would return substantially the same pages, have them thrown away by the dedupe, and still cost a research plan and a round of search calls to get there. **Search the web too** does the full run, and picks up anything added along the way. Nothing else re-opens research. Re-runs are additive and deduplicated by canonical URL, so a supplied link the web search also happens to find is never added twice.
 
 ### Notifications
 
