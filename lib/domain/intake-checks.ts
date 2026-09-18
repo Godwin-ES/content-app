@@ -15,7 +15,7 @@ import { keywordContentWords, normalizeForKeywordMatch } from "@/lib/domain/keyw
  * audience.
  */
 
-export type IntakeField = "audience" | "objective" | "tone" | "primaryKeyword" | "cta";
+export type IntakeField = "topic" | "audience" | "objective" | "tone" | "primaryKeyword" | "cta";
 
 export interface IntakeFlag {
   field: IntakeField;
@@ -36,10 +36,17 @@ export interface IntakeFlag {
 /** Below this, an answer is too short to have said anything. */
 const MIN_FIELD_LENGTH = 3;
 
+/**
+ * A topic has to carry a subject, not just a word fragment. "AI" is a
+ * field, not something to write a piece about; "AI agents" is.
+ */
+const MIN_TOPIC_LENGTH = 6;
+
 /** A keyword is a phrase, not a sentence. */
 const MAX_KEYWORD_WORDS = 6;
 
 const FIELD_LABEL: Record<IntakeField, string> = {
+  topic: "Topic",
   audience: "Audience",
   objective: "Objective",
   tone: "Tone",
@@ -140,11 +147,46 @@ function checkPrimaryKeyword(value: string): IntakeFlag[] {
 }
 
 export interface IntakeValues {
+  topic?: string | null;
   audience?: string | null;
   objective?: string | null;
   tone?: string | null;
   primaryKeyword?: string | null;
   cta?: string | null;
+}
+
+/**
+ * The topic is the one required field, and everything downstream is built
+ * from it: the research plan, the sources, three article options, four
+ * channel assets. A topic that is not language does not produce bad
+ * content, it spends an entire pipeline producing nothing.
+ *
+ * So unlike the optional fields, a mechanically broken topic blocks. That
+ * is safe precisely because these rules are mechanical — a keyboard walk
+ * or a row of one repeated character is a slip, never a coinage. Judging
+ * whether a real phrase is too vague stays with the AI reviewer, and stays
+ * dismissible, because that judgement can be wrong about someone's
+ * subject.
+ */
+function checkTopic(value: string): IntakeFlag[] {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return [];
+
+  if (trimmed.length < MIN_TOPIC_LENGTH) {
+    return [
+      {
+        field: "topic",
+        message: `A topic needs to say what the content is about — "${trimmed}" is too short to research.`,
+        blocking: true,
+      },
+    ];
+  }
+
+  if (looksLikeMashedKeys(trimmed)) {
+    return [{ field: "topic", message: "The topic does not look like real words.", blocking: true }];
+  }
+
+  return [];
 }
 
 /**
@@ -154,6 +196,7 @@ export interface IntakeValues {
  */
 export function checkIntakeFields(values: IntakeValues): IntakeFlag[] {
   return [
+    ...checkTopic(values.topic ?? ""),
     ...checkFreeText("audience", values.audience ?? ""),
     ...checkFreeText("objective", values.objective ?? ""),
     ...checkFreeText("tone", values.tone ?? ""),

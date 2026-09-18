@@ -1,4 +1,5 @@
 export interface IntakeReviewerInput {
+  /** Required, and checked like the rest — everything else is built from it. */
   topic: string;
   audience: string | null;
   objective: string | null;
@@ -30,13 +31,14 @@ export function buildIntakeReviewerPrompt(input: IntakeReviewerInput): { system:
     "Flag a field ONLY when it is one of:",
     "- incoherent, or clearly not language (random characters, keyboard mashing)",
     "- an answer to a different question (a topic typed into the tone field, a call to action typed into the audience field)",
-    "- so vague it says nothing at all (\"stuff\", \"good\", \"people\")",
+    "- so vague it says nothing at all (\"stuff\", \"good\", \"people\", a topic of \"business\" or \"things\")",
     "- contradicted by another field in a way that cannot be intentional",
     "",
     "Do NOT flag a field for being: unusual, niche, brief, informal, a brand or product name, jargon you do not recognise, a coinage, or a market you have not heard of. Unfamiliar is not implausible.",
     "When in doubt, mark it plausible. A false flag costs the writer more than a missed one.",
     "",
     "Field questions:",
+    "- topic: what is this piece of content about? It is the only required field, and the research, the article and every channel asset are built from it.",
     "- audience: who is this piece of content for?",
     "- objective: what should it achieve?",
     "- tone: how should it read?",
@@ -49,6 +51,7 @@ export function buildIntakeReviewerPrompt(input: IntakeReviewerInput): { system:
   ].join("\n");
 
   const supplied = [
+    ["topic", input.topic],
     ["audience", input.audience],
     ["objective", input.objective],
     ["tone", input.tone],
@@ -56,12 +59,7 @@ export function buildIntakeReviewerPrompt(input: IntakeReviewerInput): { system:
     ["cta", input.cta],
   ].filter(([, value]) => Boolean(value && String(value).trim()));
 
-  const user = [
-    `Topic of the content request: ${input.topic}`,
-    "",
-    "Fields to check:",
-    ...supplied.map(([field, value]) => `- ${field}: ${value}`),
-  ].join("\n");
+  const user = ["Fields to check:", ...supplied.map(([field, value]) => `- ${field}: ${value}`)].join("\n");
 
   return { system, user };
 }

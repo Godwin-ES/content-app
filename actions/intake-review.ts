@@ -33,6 +33,7 @@ export async function reviewIntakeAction(values: IntakeValues & { topic: string 
     const alreadyFlagged = new Set(deterministic.map((flag) => flag.field));
 
     const remaining: IntakeValues = {
+      topic: alreadyFlagged.has("topic") ? null : values.topic,
       audience: alreadyFlagged.has("audience") ? null : values.audience,
       objective: alreadyFlagged.has("objective") ? null : values.objective,
       tone: alreadyFlagged.has("tone") ? null : values.tone,
@@ -49,7 +50,7 @@ export async function reviewIntakeAction(values: IntakeValues & { topic: string 
     const ai = await getAIProvider(modelChoice);
 
     const review = await reviewIntake(ai, getModelIdFor(modelChoice), {
-      topic: values.topic,
+      topic: remaining.topic ?? "",
       audience: remaining.audience ?? null,
       objective: remaining.objective ?? null,
       tone: remaining.tone ?? null,

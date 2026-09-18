@@ -7,6 +7,7 @@ describe("checkIntakeFields", () => {
   it("passes a sensible intake with nothing to say", () => {
     expect(
       checkIntakeFields({
+        topic: "How AI agents are changing recruiting workflows",
         audience: "HR leaders at mid-size firms",
         objective: "Educate and build authority",
         tone: "Professional, practical",
@@ -67,5 +68,41 @@ describe("checkIntakeFields", () => {
     expect(flags).toHaveLength(1);
     expect(flags[0].blocking).toBe(false);
     expect(blockingIntakeFlags({ audience: "qqqqqq" })).toEqual([]);
+  });
+});
+
+describe("the topic, which is required and spends the whole pipeline", () => {
+  it("blocks a topic that is not language", () => {
+    // Unlike the optional fields these are blocking, because a keyboard
+    // walk is a slip rather than a coinage, and the topic is what the
+    // research, three article options and four channel assets are built
+    // from.
+    for (const topic of ["asdfghjk", "aaaaaaaa", "qwertyui"]) {
+      const flags = blockingIntakeFlags({ topic });
+      expect(flags, topic).toHaveLength(1);
+      expect(flags[0].field).toBe("topic");
+    }
+  });
+
+  it("blocks a topic too short to research", () => {
+    const flags = blockingIntakeFlags({ topic: "AI" });
+    expect(flags).toHaveLength(1);
+    expect(flags[0].message).toContain("too short");
+  });
+
+  it("accepts a short but real topic", () => {
+    expect(checkIntakeFields({ topic: "AI agents" })).toEqual([]);
+    expect(checkIntakeFields({ topic: "Recruiting automation" })).toEqual([]);
+  });
+
+  it("leaves a vague-but-real topic to the AI reviewer", () => {
+    // "business" is a real word, so no mechanical rule can tell it is too
+    // vague to research. That judgement can be wrong, so it stays with the
+    // reviewer and stays dismissible.
+    expect(checkIntakeFields({ topic: "business" })).toEqual([]);
+  });
+
+  it("does not flag an empty topic — zod already requires it", () => {
+    expect(checkIntakeFields({ topic: "" })).toEqual([]);
   });
 });

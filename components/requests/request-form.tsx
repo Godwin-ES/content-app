@@ -50,7 +50,7 @@ export function RequestForm({ canChooseModel = false }: { canChooseModel?: boole
   const [reviewError, setReviewError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  const values = { audience, objective, tone, primaryKeyword, cta };
+  const values = { topic, audience, objective, tone, primaryKeyword, cta };
   const valuesKey = JSON.stringify(values);
 
   // A blocking flag survives dismissal because it cannot be dismissed:
@@ -79,41 +79,47 @@ export function RequestForm({ canChooseModel = false }: { canChooseModel?: boole
   }
 
   /**
-   * Checks before submitting, and submits when there is nothing left to
-   * say — so a clean intake still takes one click.
+   * Checks everything in one pass, then either submits or shows every flag
+   * at once.
+   *
+   * It used to return as soon as the deterministic checks found anything,
+   * so a form with a broken topic and a mis-typed audience reported the
+   * topic, waited for a fix, and only then mentioned the audience. Being
+   * corrected one field at a time is worse than being corrected once: you
+   * cannot see how much work is left, and each round costs another click.
+   *
+   * The server action runs both layers and returns their union, so the one
+   * call it makes is all it takes. A clean intake still submits on the
+   * first click.
    */
   function reviewThenSubmit() {
     setReviewError(null);
 
-    const instant = checkIntakeFields(values).filter((flag) => flag.blocking || !dismissed.has(flag.field));
-    if (instant.length > 0) {
-      setFlags(instant);
-      return;
-    }
-
-    // Already reviewed, and everything it raised has been waved through.
-    if (reviewedValues === valuesKey) {
+    // Already checked this exact text, and everything it raised has been
+    // waved through — asking again would buy the same answer twice.
+    if (reviewedValues === valuesKey && visibleFlags.length === 0) {
       formRef.current?.requestSubmit();
       return;
     }
 
     startReview(async () => {
-      const result = await reviewIntakeAction({ topic, ...values });
+      const result = await reviewIntakeAction({ ...values, topic });
       if (!result.ok) {
-        // The reviewer is a convenience, not a gate. If it cannot run,
-        // submitting is still the right outcome.
+        // The reviewer is a convenience, not a gate. If it cannot run, the
+        // deterministic half still has to hold, and submitting is the
+        // right outcome when it does.
         setReviewError(result.error.message);
-        formRef.current?.requestSubmit();
+        const instant = checkIntakeFields(values).filter((flag) => flag.blocking || !dismissed.has(flag.field));
+        setFlags(instant);
+        if (instant.length === 0) formRef.current?.requestSubmit();
         return;
       }
 
       setReviewedValues(valuesKey);
-      const raised = result.data.flags.filter((flag) => flag.blocking || !dismissed.has(flag.field));
-      if (raised.length > 0) {
-        setFlags(result.data.flags);
-        return;
-      }
-      formRef.current?.requestSubmit();
+      setFlags(result.data.flags);
+
+      const unresolved = result.data.flags.filter((flag) => flag.blocking || !dismissed.has(flag.field));
+      if (unresolved.length === 0) formRef.current?.requestSubmit();
     });
   }
 
@@ -123,15 +129,18 @@ export function RequestForm({ canChooseModel = false }: { canChooseModel?: boole
     <form ref={formRef} action={formAction} className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <Label htmlFor="topic">Topic</Label>
+        {flagsFor("topic").map((flag) => (
+          <IntakeFieldFlag key={flag.message} flag={flag} onDismiss={() => setDismissed((d) => new Set(d).add("topic"))} />
+        ))}
         <Textarea
           id="topic"
           name="topic"
           required
           rows={3}
-          spellCheck
           value={topic}
-          onChange={(e) => setTopic(e.target.value)}
+          onChange={(e) => updateField("topic", e.target.value, setTopic)}
           placeholder="What should this piece of content be about?"
+          aria-invalid={flagsFor("topic").length > 0 || undefined}
         />
         <p className="text-sm text-muted-foreground">
           This is the only required field. Everything else uses a visible brand default unless you fill it in.
@@ -166,9 +175,10 @@ export function RequestForm({ canChooseModel = false }: { canChooseModel?: boole
           Optional context {optionalOpen ? "−" : "+"}
         </Button>
 
-        {/* A flag on a collapsed field would be invisible, so any flag
-            opens the section that holds it. */}
-        {optionalOpen || visibleFlags.length > 0 ? (
+        {/* A flag on a collapsed field would be invisible, so any flag on
+            one of these opens the section that holds it. The topic's own
+            flag renders above, outside this section. */}
+        {optionalOpen || visibleFlags.some((flag) => flag.field !== "topic") ? (
           <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
             <IntakeField
               id="audience"
@@ -247,10 +257,10 @@ export function RequestForm({ canChooseModel = false }: { canChooseModel?: boole
 /**
  * One optional field, its flags above it.
  *
- * `spellCheck` is the browser's own — native red squiggles, in the
- * reader's own dictionary and language, for free. It is a better speller
- * than anything this app could ship, and unlike a grammar checker it does
- * not have opinions about five-word answers.
+ * Spellchecking is the browser's own and comes from the Input primitive,
+ * which turns it on for text fields by default: native red squiggles, in
+ * the reader's own dictionary and language, for free. Unlike a grammar
+ * checker it has no opinions about five-word answers.
  */
 function IntakeField({
   id,
@@ -283,7 +293,6 @@ function IntakeField({
         id={id}
         name={id}
         value={value}
-        spellCheck
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-invalid={flags.length > 0 || undefined}
