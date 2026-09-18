@@ -8,11 +8,10 @@ import { listContentPlanVersions } from "@/lib/planning/service";
 import { getLatestEvaluation } from "@/lib/repositories/evaluations";
 import { getPackageReadiness } from "@/lib/packages/service";
 import { getSamplePack } from "@/lib/sample-pack/service";
-import { getPublishingQueue } from "@/lib/publishing/service";
 import { listActivityEvents } from "@/lib/repositories/activity";
 import { filterDisplayedActivity } from "@/lib/activity/display";
 import { researchRunAvailability } from "@/lib/research/service";
-import { deriveNextAction, derivePipelineProgress } from "@/lib/workspace/next-action";
+import { deriveNextAction } from "@/lib/workspace/next-action";
 import { buildWorkspaceSnapshot } from "@/lib/workspace/snapshot";
 import { articlesStaleAgainstPlan, channelsStaleAgainstArticle } from "@/lib/workspace/staleness";
 
@@ -30,17 +29,14 @@ import { PackageReadiness } from "@/components/approvals/package-readiness";
 import { ContentPackagePreview } from "@/components/approvals/content-package-preview";
 import { SamplePackView } from "@/components/requests/sample-pack-view";
 import { ApprovalPanel } from "@/components/approvals/approval-panel";
-import { QueueControls } from "@/components/publishing/queue-controls";
-import { PublishingList } from "@/components/publishing/publishing-list";
 import { ActivityHistory } from "@/components/activity/activity-history";
 import { StaleNotice } from "@/components/shared/stale-notice";
-import { AutoModePanel } from "@/components/requests/auto-mode-panel";
 import { RestoreRequestButton } from "@/components/dashboard/restore-request-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 /**
  * Request workspace (SYSTEM-DESIGN-NEXTJS.md §34.3): Overview / Research /
- * Articles / Channels / Package / Publishing / Activity tabs, a single
+ * Articles / Channels / Package tabs, a single
  * derived next-action stepper, and explicit empty states rather than a
  * flat page of conditionally-appearing sections.
  */
@@ -134,7 +130,6 @@ export default async function RequestWorkspacePage({
   }
 
   const readiness = request.selected_article_version_id ? await getPackageReadiness(supabase, requestId) : null;
-  const queue = request.current_package_id ? await getPublishingQueue(supabase, requestId) : null;
   // The Package tab shows the assembled pack in place, so what gets
   // approved is what the approver actually reads. Assembling it dereferences
   // the package's pinned version and evaluation rows; if any of those cannot
@@ -160,7 +155,6 @@ export default async function RequestWorkspacePage({
     channelArtifacts,
     channelEvaluations: channelEvaluationsByArtifact,
     packageReady: readiness?.ready ?? false,
-    hasActiveQueueItems: queue ? queue.entries.some((e) => e.item.status !== "cancelled") : false,
   });
   const nextAction = deriveNextAction(snapshot);
 
@@ -168,11 +162,6 @@ export default async function RequestWorkspacePage({
   const overviewContent = (
     <>
       <RequestStepper nextAction={nextAction} />
-      <AutoModePanel
-        requestId={requestId}
-        canRun={request.status === "draft" || request.status === "source_review" || request.status === "content_development"}
-        currentStage={derivePipelineProgress(snapshot).stage}
-      />
       <div className="grid gap-3 sm:grid-cols-2">
         <EmptyState
           title="Sources"
@@ -305,27 +294,12 @@ export default async function RequestWorkspacePage({
           package carries is better than showing nothing. */}
       {currentPackage && !samplePack ? <ContentPackagePreview contentPackage={currentPackage} /> : null}
       <ApprovalPanel requestId={requestId} requestStatus={request.status} hasCurrentPackage={Boolean(request.current_package_id)} />
-      {samplePack ? (
-        <>
-          <SamplePackView pack={samplePack} interactive />
-          <a href={`/requests/${requestId}/sample-pack`} className="w-fit text-sm underline" target="_blank" rel="noreferrer">
-            Open printable version
-          </a>
-        </>
-      ) : null}
+      {samplePack ? <SamplePackView pack={samplePack} interactive /> : null}
     </>
   ) : (
     <EmptyState title="No package yet" description="Select an article and generate channel assets first." />
   );
 
-  const publishingContent = queue ? (
-    <>
-      {request.status === "approved" ? <QueueControls requestId={requestId} queueableChannels={queue.queueableChannels} /> : null}
-      <PublishingList entries={queue.entries} />
-    </>
-  ) : (
-    <EmptyState title="No approved package yet" description="Publishing becomes available once a package is approved." />
-  );
 
 
   return (
@@ -356,7 +330,6 @@ export default async function RequestWorkspacePage({
         channels={channelsContent}
         packageTab={packageContent}
         defaultTab={parseWorkspaceTab(tab)}
-        publishing={publishingContent}
       />
     </div>
   );

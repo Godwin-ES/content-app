@@ -30,11 +30,10 @@ export async function buildDashboardProgress(
   if (requests.length === 0) return {};
   const requestIds = requests.map((r) => r.id);
 
-  const [sourcesResult, plansResult, artifactsResult, queueResult] = await Promise.all([
+  const [sourcesResult, plansResult, artifactsResult] = await Promise.all([
     supabase.from("research_sources").select("request_id, retrieval_status").in("request_id", requestIds),
     supabase.from("content_plans").select("request_id").in("request_id", requestIds),
     supabase.from("content_artifacts").select("id, request_id, kind, current_version_id").in("request_id", requestIds),
-    supabase.from("publishing_queue_items").select("request_id, status").in("request_id", requestIds),
   ]);
 
   const artifacts = artifactsResult.data ?? [];
@@ -83,7 +82,6 @@ export async function buildDashboardProgress(
         },
         packageReady: channelsAllPassing,
         hasCurrentPackage: Boolean(request.current_package_id),
-        hasActiveQueueItems: (queueResult.data ?? []).some((q) => q.request_id === request.id && q.status !== "cancelled"),
       };
 
       return [request.id, derivePipelineProgress(snapshot)];

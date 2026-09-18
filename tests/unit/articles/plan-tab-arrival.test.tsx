@@ -7,8 +7,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
 }));
 
-vi.mock("@/components/requests/auto-mode-context", () => ({
-  useAutoMode: () => ({ running: false, autoRunning: false, setRunning: vi.fn(), runningOperations: [] }),
+vi.mock("@/components/requests/request-activity-context", () => ({
+  useRequestActivity: () => ({ running: false, autoRunning: false, setRunning: vi.fn(), runningOperations: [] }),
   useOperationRunning: () => false,
 }));
 

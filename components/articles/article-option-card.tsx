@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useAutoMode } from "@/components/requests/auto-mode-context";
+import { useRequestActivity } from "@/components/requests/request-activity-context";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { retryArticleOptionAction, evaluateArticleAction, selectArticleAction, autoReviseArticleAction } from "@/actions/articles";
@@ -65,7 +65,7 @@ export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluat
    * this card. Retrying, evaluating, revising or selecting an article
    * while it is being regenerated are all writers racing each other.
    */
-  const { running: somethingRunning } = useAutoMode();
+  const { running: somethingRunning } = useRequestActivity();
   const locked = isPending || busyCount > 0 || somethingRunning;
   const handleBusyChange = (busy: boolean) => setBusyCount((c) => Math.max(0, c + (busy ? 1 : -1)));
 

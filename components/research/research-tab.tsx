@@ -14,7 +14,7 @@ import { SourceCard } from "@/components/research/source-card";
 import { AddSources } from "@/components/research/add-sources";
 import { ResearchProgress, type ResearchProgressSignals } from "@/components/research/research-progress";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { useAutoMode, useOperationRunning } from "@/components/requests/auto-mode-context";
+import { useRequestActivity, useOperationRunning } from "@/components/requests/request-activity-context";
 import type { Database } from "@/lib/supabase/database.types";
 
 type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"];
@@ -67,7 +67,7 @@ export function ResearchTab({
 
   // Auto mode drives the same pipeline from the Overview. While it is
   // stepping, every control here is one that would collide with it.
-  const { running: somethingRunning } = useAutoMode();
+  const { running: somethingRunning } = useRequestActivity();
   /**
    * Research is running somewhere — this tab, another workspace tab, or
    * another browser tab. Taken from the operation table rather than from

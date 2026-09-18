@@ -30,9 +30,9 @@ test("the owner approves their own package from the Package tab, in one act", as
   await login(page, owner.email, owner.password);
   await page.goto(`/requests/${requestId}`);
   await page.getByRole("tab", { name: "Package" }).click();
-  await page.getByRole("button", { name: "Approve for publishing" }).click();
+  await page.getByRole("button", { name: "Mark package ready" }).click();
 
-  await expect(page.getByText("Approved. This package can be queued for publishing.")).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText("Marked ready. Copy each piece below into wherever you publish it.")).toBeVisible({ timeout: 30000 });
 
   const { data: after } = await admin.from("content_requests").select("status").eq("id", requestId).single();
   expect(after?.status).toBe("approved");
@@ -48,6 +48,33 @@ test("the owner approves their own package from the Package tab, in one act", as
   await page.goto("/dashboard");
   await page.getByRole("tab", { name: /^Published/ }).click();
   await expect(page.getByText("E2E approval flow request")).toBeVisible({ timeout: 15000 });
+});
+
+/**
+ * The package is the deliverable, so the things that get content out of it
+ * are the things worth testing: a copy button per piece, and a preview
+ * that renders the article the way its reader will see it.
+ */
+test("the package offers each piece for copying, and previews the article in full", async ({ page }) => {
+  const { requestId } = await seedFullyReadyRequest(admin, owner.client, owner.userId, "E2E package copy request");
+  requestIds.push(requestId);
+
+  await login(page, owner.email, owner.password);
+  await page.goto(`/requests/${requestId}?tab=package`);
+
+  await expect(page.getByRole("button", { name: "Copy post" }).first()).toBeVisible({ timeout: 30000 });
+  await expect(page.getByRole("button", { name: "Copy markdown" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy subject" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy body" })).toBeVisible();
+
+  // Nothing here should suggest the app can publish.
+  await expect(page.getByRole("link", { name: /printable/i })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Publishing" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "See full article" }).click();
+  const preview = page.getByRole("dialog");
+  await expect(preview.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(preview.getByRole("button", { name: "Copy article" })).toBeVisible();
 });
 
 test("deleting moves a request to the bin, and restoring brings it back", async ({ page }) => {

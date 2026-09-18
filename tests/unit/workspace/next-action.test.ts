@@ -11,7 +11,6 @@ function base(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
     channels: { total: 0, anyMissing: false, anyNotPassing: false },
     packageReady: false,
     hasCurrentPackage: false,
-    hasActiveQueueItems: false,
     ...overrides,
   };
 }
@@ -134,12 +133,11 @@ describe("deriveNextAction", () => {
     expect(result.key).toBe("approve_package");
   });
 
-  it("asks to queue approved content when nothing is queued yet", () => {
-    expect(deriveNextAction(base({ status: "approved", hasActiveQueueItems: false })).key).toBe("queue_approved_content");
-  });
-
-  it("shows nothing pending when everything approved is already queued", () => {
-    expect(deriveNextAction(base({ status: "approved", hasActiveQueueItems: true })).key).toBe("none");
+  // The pipeline ends at the package: an approved request has nothing
+  // outstanding, because what happens to the content next happens
+  // somewhere this application does not reach.
+  it("shows nothing pending once the package is approved", () => {
+    expect(deriveNextAction(base({ status: "approved" })).key).toBe("none");
   });
 
   it("shows nothing pending for a status it does not recognise", () => {
@@ -171,13 +169,13 @@ describe("derivePipelineProgress", () => {
         stage: "Package",
         step: 5,
       },
-      { snapshot: base({ status: "approved" }), stage: "Publishing", step: 6 },
+      { snapshot: base({ status: "approved" }), stage: "Package", step: 5 },
     ];
 
     for (const { snapshot, stage, step } of cases) {
       const progress = derivePipelineProgress(snapshot);
       expect({ stage: progress.stage, step: progress.step }).toEqual({ stage, step });
-      expect(progress.totalSteps).toBe(6);
+      expect(progress.totalSteps).toBe(5);
       // The dashboard shows this label; it must match what the Overview's
       // stepper shows for the same request.
       expect(progress.label).toBe(deriveNextAction(snapshot).label);

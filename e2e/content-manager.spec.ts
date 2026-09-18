@@ -107,7 +107,8 @@ test("a new request lands in the workspace showing the Overview tab and a next-s
   await expect(page.getByRole("tab", { name: "Articles" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Channels" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Package" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Publishing" })).toBeVisible();
+  // The pipeline ends at the package; there is no Publishing tab.
+  await expect(page.getByRole("tab", { name: "Publishing" })).toHaveCount(0);
   // Activity is no longer a tab — it lives on the Overview as collapsible history.
   await expect(page.getByRole("tab", { name: "Activity" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Show activity/ })).toBeVisible();
@@ -139,9 +140,6 @@ test("switching tabs reveals each section's own empty state", async ({ page }) =
 
   await page.getByRole("tab", { name: "Package" }).click();
   await expect(page.getByText("No package yet")).toBeVisible();
-
-  await page.getByRole("tab", { name: "Publishing" }).click();
-  await expect(page.getByText("No approved package yet")).toBeVisible();
 
   // Seeded straight into the database, so it has no recorded history —
   // the activity section should say so rather than render an empty list.

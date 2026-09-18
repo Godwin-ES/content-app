@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ArticleOptionCard } from "@/components/articles/article-option-card";
 import type { Database } from "@/lib/supabase/database.types";
-import { useAutoMode, useOperationRunning } from "@/components/requests/auto-mode-context";
+import { useRequestActivity, useOperationRunning } from "@/components/requests/request-activity-context";
 
 type ContentArtifactRow = Database["public"]["Tables"]["content_artifacts"]["Row"];
 type ArtifactVersionRow = Database["public"]["Tables"]["artifact_versions"]["Row"];
@@ -40,7 +40,7 @@ export function ArticleComparison({
   canGenerate,
 }: ArticleComparisonProps) {
   const [error, setError] = useState<string | null>(null);
-  const { running: somethingRunning } = useAutoMode();
+  const { running: somethingRunning } = useRequestActivity();
   /**
    * Generation is running somewhere, from the operation table rather than
    * this component's transition — so returning to this tab mid-generation

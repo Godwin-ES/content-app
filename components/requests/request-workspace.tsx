@@ -3,7 +3,7 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { parseWorkspaceTab, type WorkspaceTab } from "@/lib/workspace/tabs";
-import { AutoModeProvider } from "@/components/requests/auto-mode-context";
+import { RequestActivityProvider } from "@/components/requests/request-activity-context";
 
 interface RequestWorkspaceProps {
   /** Needed to watch this request's running operations, workspace-wide. */
@@ -15,7 +15,6 @@ interface RequestWorkspaceProps {
   channels: ReactNode;
   /** The finished package — named `packageTab` because `package` is reserved. */
   packageTab: ReactNode;
-  publishing: ReactNode;
   /**
    * Which tab to open on. Comes from `?tab=` so a link can land someone on
    * the thing it is about — auto mode's notifications point at the stage
@@ -27,7 +26,7 @@ interface RequestWorkspaceProps {
 
 /**
  * Request workspace tabs (SYSTEM-DESIGN-NEXTJS.md §34.3): Overview,
- * Research, Plan, Articles, Channels, Package, Publishing — the six
+ * Research, Plan, Articles, Channels, Package — the five
  * pipeline stages plus the Overview. Activity moved onto the Overview as a
  * collapsible history rather than holding a tab of its own: it is context
  * about the request, not a stage of work. Each
@@ -48,7 +47,6 @@ export function RequestWorkspace({
   articles,
   channels,
   packageTab,
-  publishing,
   defaultTab = "overview",
 }: RequestWorkspaceProps) {
   /**
@@ -77,7 +75,7 @@ export function RequestWorkspace({
   }, []);
 
   return (
-    <AutoModeProvider requestId={requestId}>
+    <RequestActivityProvider requestId={requestId}>
       <Tabs value={tab} onValueChange={(value) => selectTab(String(value))}>
       <div className="overflow-x-auto">
         <TabsList>
@@ -87,7 +85,6 @@ export function RequestWorkspace({
           <TabsTrigger value="articles">Articles</TabsTrigger>
           <TabsTrigger value="channels">Channels</TabsTrigger>
           <TabsTrigger value="package">Package</TabsTrigger>
-          <TabsTrigger value="publishing">Publishing</TabsTrigger>
         </TabsList>
       </div>
       <TabsContent value="overview">
@@ -108,10 +105,7 @@ export function RequestWorkspace({
       <TabsContent value="package">
         <div className="flex flex-col gap-6 pt-4">{packageTab}</div>
       </TabsContent>
-      <TabsContent value="publishing">
-        <div className="flex flex-col gap-6 pt-4">{publishing}</div>
-      </TabsContent>
       </Tabs>
-    </AutoModeProvider>
+    </RequestActivityProvider>
   );
 }

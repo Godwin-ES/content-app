@@ -2,12 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Check, Loader2 } from "lucide-react";
 import { approvePackageAction } from "@/actions/approvals";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useAutoMode } from "@/components/requests/auto-mode-context";
+import { useRequestActivity } from "@/components/requests/request-activity-context";
 
 /**
  * The approval gate, as one person experiences it: one button.
@@ -33,7 +32,7 @@ export function ApprovalPanel({
   hasCurrentPackage: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
-  const { running: autoModeRunning } = useAutoMode();
+  const { running: somethingRunning } = useRequestActivity();
   const [busy, startTransition] = useTransition();
   const router = useRouter();
 
@@ -51,15 +50,12 @@ export function ApprovalPanel({
       <div className="flex flex-col gap-2 rounded-lg border p-4">
         <p className="flex items-center gap-2 text-sm font-medium">
           <Check aria-hidden className="size-4" />
-          Approved. This package can be queued for publishing.
+          Marked ready. Copy each piece below into wherever you publish it.
         </p>
         <p className="text-sm text-muted-foreground">
-          Editing anything below starts a new version and returns the request to development — the approved package stays exactly
-          as it was.
+          Editing anything below starts a new version and returns the request to development — the package you marked ready
+          stays exactly as it was.
         </p>
-        <Link href="/publishing" className="w-fit text-sm underline">
-          Go to the publishing queue
-        </Link>
       </div>
     );
   }
@@ -69,7 +65,7 @@ export function ApprovalPanel({
   return (
     <div className="flex flex-col gap-3 rounded-lg border p-4">
       <p className="text-sm text-muted-foreground">
-        Approving locks this exact package version and makes it available to publish. If something needs changing, edit it
+        Marking this ready locks this exact package version as the one you signed off. If something needs changing, edit it
         instead — that starts a new version and there is nothing to undo.
       </p>
 
@@ -79,9 +75,9 @@ export function ApprovalPanel({
         </Alert>
       ) : null}
 
-      <Button type="button" size="sm" className="w-fit" onClick={approve} disabled={busy || autoModeRunning}>
+      <Button type="button" size="sm" className="w-fit" onClick={approve} disabled={busy || somethingRunning}>
         {busy ? <Loader2 aria-hidden className="size-4 animate-spin" /> : <Check aria-hidden className="size-4" />}
-        Approve for publishing
+        Mark package ready
       </Button>
     </div>
   );

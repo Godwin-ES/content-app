@@ -2,8 +2,6 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { DomainError } from "@/lib/domain/errors";
-import { bestEffort } from "@/lib/notifications/action-error";
-import { notifyPackageApproved } from "@/lib/notifications/service";
 import { approvePackage } from "@/lib/repositories/approvals";
 
 type PackageApprovalRow = Database["public"]["Tables"]["package_approvals"]["Row"];
@@ -50,6 +48,5 @@ export async function approveCurrentPackage(
   }
 
   const approval = await approvePackage(supabase, requestId, request.current_package_id);
-  await bestEffort(() => notifyPackageApproved({ requestId, topic: request.topic }));
   return approval;
 }

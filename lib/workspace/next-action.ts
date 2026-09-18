@@ -12,7 +12,6 @@ export type NextActionKey =
   | "resolve_channel_issue"
   | "create_package"
   | "approve_package"
-  | "queue_approved_content"
   | "none";
 
 export interface NextAction {
@@ -30,7 +29,6 @@ export interface WorkspaceSnapshot {
   channels: { total: number; anyMissing: boolean; anyNotPassing: boolean };
   packageReady: boolean;
   hasCurrentPackage: boolean;
-  hasActiveQueueItems: boolean;
 }
 
 function action(key: NextActionKey, label: string, description: string): NextAction {
@@ -94,14 +92,15 @@ export function deriveNextAction(snapshot: WorkspaceSnapshot): NextAction {
         }
         return action("resolve_channel_issue", "Channels: Resolve remaining readiness issues", "Check the package readiness checklist for what remains.");
       }
-      return action("approve_package", "Package: Approve for publishing", "Read the assembled package and approve it, or edit anything that is not right.");
+      return action("approve_package", "Package: Mark as ready", "Read the assembled package and mark it ready, or edit anything that is not right.");
     }
 
     case "approved":
-      if (!snapshot.hasActiveQueueItems) {
-        return action("queue_approved_content", "Publishing: Queue approved content", "Queue or schedule the approved package's channels.");
-      }
-      return action("none", "Nothing pending", "This request has no outstanding action right now.");
+      // The pipeline ends here. The package is the deliverable: its
+      // contents are written to be copied out into whatever platform
+      // actually publishes them, which this application deliberately does
+      // not pretend to do.
+      return action("none", "Package ready", "The package is ready to copy into your publishing tools.");
 
     default:
       return action("none", "Nothing pending", "This request has no outstanding action right now.");
@@ -109,22 +108,15 @@ export function deriveNextAction(snapshot: WorkspaceSnapshot): NextAction {
 }
 
 /**
- * The six stages of the pipeline, in order — the same six the request
+ * The five stages of the pipeline, in order — the same five the request
  * workspace has tabs for. Every next action belongs to exactly one of
  * them, and each action's label is already prefixed with its stage name
  * ("Articles: Select an article"), so this mapping is what that prefix
  * has been saying all along, made explicit and reusable.
  */
-export const PIPELINE_STAGES = ["Research", "Plan", "Articles", "Channels", "Package", "Publishing"] as const;
+export const PIPELINE_STAGES = ["Research", "Plan", "Articles", "Channels", "Package"] as const;
 
 export type PipelineStage = (typeof PIPELINE_STAGES)[number];
-
-/**
- * Stages auto mode can be told to stop after. Publishing is absent by
- * design: the package is the furthest anything automatic goes, and what
- * happens past it is a person's decision.
- */
-export const AUTO_MODE_STAGES = PIPELINE_STAGES.filter((stage) => stage !== "Publishing");
 
 const STAGE_FOR_ACTION: Record<NextActionKey, PipelineStage> = {
   add_sources: "Research",
@@ -140,9 +132,8 @@ const STAGE_FOR_ACTION: Record<NextActionKey, PipelineStage> = {
   resolve_channel_issue: "Channels",
   create_package: "Package",
   approve_package: "Package",
-  queue_approved_content: "Publishing",
   // Nothing outstanding only ever happens at the end of the line.
-  none: "Publishing",
+  none: "Package",
 };
 
 export interface PipelineProgress {

@@ -3,7 +3,9 @@ import { ExternalLink } from "lucide-react";
 import type { SamplePack, SamplePackReviewedSource } from "@/lib/sample-pack/service";
 import { articleBodyMarkdown } from "@/lib/ai/schemas/article";
 import { MarkdownBody } from "@/components/shared/markdown-body";
-import { DisclosureCard, ExpandableText, EvaluationVerdict } from "@/components/requests/sample-pack-section";
+import { EvaluationVerdict } from "@/components/requests/sample-pack-section";
+import { CopyButton } from "@/components/requests/copy-button";
+import { ArticlePreviewDialog, NewsletterPreviewDialog } from "@/components/requests/content-preview-dialog";
 import { LocalDateTime } from "@/components/shared/local-date-time";
 
 /**
@@ -77,39 +79,79 @@ export function SamplePackView({ pack, interactive = false }: { pack: SamplePack
 
       {interactive ? (
         <div className="flex flex-col gap-4">
-          <DisclosureCard
+          {/* Each deliverable is a thing you will paste somewhere, so each
+              one owns its own copy button rather than sharing a single
+              "copy everything" that would hand over four documents at
+              once. The article and the newsletter also open properly
+              rendered, because what they look like is part of deciding
+              whether they are finished. */}
+          <DeliverableCard
             label="Article"
             status={pack.evaluationSummary.article}
             evaluation={pack.evaluations.article}
-            title={pack.article.title}
-            lead={pack.article.metaDescription}
-            bodyMarkdown={articleBodyMarkdown(pack.article)}
-            expandLabel="See full article"
-            collapseLabel="Hide article"
-          />
+            actions={
+              <>
+                <ArticlePreviewDialog
+                  title={pack.article.title}
+                  metaDescription={pack.article.metaDescription}
+                  bodyMarkdown={articleBodyMarkdown(pack.article)}
+                  copyText={articleBodyMarkdown(pack.article)}
+                />
+                <CopyButton text={articleBodyMarkdown(pack.article)} label="Copy markdown" />
+              </>
+            }
+          >
+            <h3 className="font-medium">{pack.article.title}</h3>
+            <p className="text-sm text-muted-foreground">{pack.article.metaDescription}</p>
+          </DeliverableCard>
 
-          <ChannelCard label="LinkedIn" status={pack.evaluationSummary.linkedin} evaluation={pack.evaluations.linkedin}>
-            <ExpandableText text={pack.linkedin.body} />
-          </ChannelCard>
+          <DeliverableCard
+            label="LinkedIn"
+            status={pack.evaluationSummary.linkedin}
+            evaluation={pack.evaluations.linkedin}
+            actions={<CopyButton text={pack.linkedin.body} label="Copy post" />}
+          >
+            {/* Shown whole and in its own whitespace: a LinkedIn post is
+                short, and its line breaks are part of it. Truncating the
+                thing you are about to copy helps nobody. */}
+            <p className="text-sm whitespace-pre-wrap">{pack.linkedin.body}</p>
+          </DeliverableCard>
 
-          <ChannelCard label="X" status={pack.evaluationSummary.x} evaluation={pack.evaluations.x}>
-            <ExpandableText text={pack.x.body} />
-            {pack.x.hashtags.length > 0 ? <p className="text-sm text-muted-foreground">{pack.x.hashtags.join(" ")}</p> : null}
-          </ChannelCard>
+          <DeliverableCard
+            label="X"
+            status={pack.evaluationSummary.x}
+            evaluation={pack.evaluations.x}
+            actions={<CopyButton text={xPostText(pack)} label="Copy post" />}
+          >
+            <p className="text-sm whitespace-pre-wrap">{pack.x.body}</p>
+            {pack.x.hashtags.length > 0 ? (
+              <p className="text-sm text-muted-foreground">{pack.x.hashtags.map((tag) => `#${tag}`).join(" ")}</p>
+            ) : null}
+            <p className="text-xs text-muted-foreground">{xPostText(pack).length} characters, including hashtags</p>
+          </DeliverableCard>
 
-          {/* Subject and introduction above the fold, everything else —
-              body, call to action, signoff — inside the disclosure. */}
-          <DisclosureCard
+          <DeliverableCard
             label="Newsletter"
             status={pack.evaluationSummary.newsletter}
             evaluation={pack.evaluations.newsletter}
-            title={pack.newsletter.subject}
-            lead={pack.newsletter.introduction}
-            bodyMarkdown={pack.newsletter.bodyMarkdown}
-            footer={{ callToAction: pack.newsletter.callToAction, signoff: pack.newsletter.signoff }}
-            expandLabel="See full newsletter"
-            collapseLabel="Hide newsletter"
-          />
+            actions={
+              <>
+                <NewsletterPreviewDialog
+                  subject={pack.newsletter.subject}
+                  introduction={pack.newsletter.introduction}
+                  bodyMarkdown={pack.newsletter.bodyMarkdown}
+                  callToAction={pack.newsletter.callToAction}
+                  signoff={pack.newsletter.signoff}
+                  copyText={newsletterText(pack)}
+                />
+                <CopyButton text={pack.newsletter.subject} label="Copy subject" variant="ghost" />
+                <CopyButton text={newsletterBodyText(pack)} label="Copy body" />
+              </>
+            }
+          >
+            <h3 className="font-medium">{pack.newsletter.subject}</h3>
+            <p className="text-sm text-muted-foreground">{pack.newsletter.introduction}</p>
+          </DeliverableCard>
         </div>
       ) : (
         <>
@@ -154,15 +196,21 @@ export function SamplePackView({ pack, interactive = false }: { pack: SamplePack
  * the fold — the post *is* the gist — so the body sits open and truncates
  * itself only when it is genuinely long.
  */
-function ChannelCard({
+/**
+ * One deliverable: what it is, whether it passed, what it says, and the
+ * buttons that get it out of here.
+ */
+function DeliverableCard({
   label,
   status,
   evaluation,
+  actions,
   children,
 }: {
   label: string;
   status: string;
   evaluation: SamplePack["evaluations"]["linkedin"];
+  actions: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -171,9 +219,29 @@ function ChannelCard({
         <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">{label}</h3>
         <EvaluationVerdict status={status} evaluation={evaluation} />
       </div>
-      {children}
+      <div className="flex flex-col gap-2">{children}</div>
+      <div className="flex flex-wrap items-center gap-2">{actions}</div>
     </section>
   );
+}
+
+/**
+ * The X post as it would be pasted: hashtags belong at the end of the
+ * post on X, not in a separate field, however they are stored.
+ */
+function xPostText(pack: SamplePack): string {
+  const tags = pack.x.hashtags.map((tag) => `#${tag}`).join(" ");
+  return tags ? [pack.x.body, tags].join("\n\n") : pack.x.body;
+}
+
+/** Everything below the subject line, in reading order. */
+function newsletterBodyText(pack: SamplePack): string {
+  return [pack.newsletter.introduction, pack.newsletter.bodyMarkdown, pack.newsletter.callToAction, pack.newsletter.signoff].join("\n\n");
+}
+
+/** Subject and body together, for pasting into a tool that takes both. */
+function newsletterText(pack: SamplePack): string {
+  return [pack.newsletter.subject, newsletterBodyText(pack)].join("\n\n");
 }
 
 const ORIGIN_LABEL: Record<SamplePackReviewedSource["origin"], string> = {

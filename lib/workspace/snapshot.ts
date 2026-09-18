@@ -5,7 +5,6 @@ import { listResearchSources, getLatestSourceDecision } from "@/lib/repositories
 import { listContentArtifacts } from "@/lib/repositories/content";
 import { getLatestEvaluation } from "@/lib/repositories/evaluations";
 import { getPackageReadiness } from "@/lib/packages/service";
-import { getPublishingQueue } from "@/lib/publishing/service";
 import type { WorkspaceSnapshot } from "@/lib/workspace/next-action";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
@@ -16,7 +15,7 @@ type EvaluationRow = Database["public"]["Tables"]["evaluations"]["Row"];
 /**
  * Builds the snapshot `deriveNextAction` reads, from data the caller has
  * already loaded. Pure, so the request page (which holds all of this for
- * rendering anyway) and the auto-mode driver (which fetches its own) cannot
+ * rendering anyway) cannot
  * end up describing the same request differently — the page and the
  * dashboard had already drifted once, which is what let a draft disappear.
  */
@@ -29,7 +28,6 @@ export function buildWorkspaceSnapshot(parts: {
   channelArtifacts: ContentArtifactRow[];
   channelEvaluations: Record<string, EvaluationRow | null>;
   packageReady: boolean;
-  hasActiveQueueItems: boolean;
 }): WorkspaceSnapshot {
   const { request, sources, articleArtifacts, articleEvaluations, channelArtifacts, channelEvaluations } = parts;
 
@@ -60,13 +58,12 @@ export function buildWorkspaceSnapshot(parts: {
     },
     packageReady: parts.packageReady,
     hasCurrentPackage: Boolean(request.current_package_id),
-    hasActiveQueueItems: parts.hasActiveQueueItems,
   };
 }
 
 export interface LoadedWorkspace {
   request: ContentRequestRow;
-  /** The latest decision on each source, so auto mode can leave yours alone. */
+  /** The latest decision on each source. */
   sourceDecisions: Record<string, "accepted" | "excluded" | null>;
   snapshot: WorkspaceSnapshot;
   articleArtifacts: ContentArtifactRow[];
@@ -103,7 +100,6 @@ export async function loadWorkspace(supabase: SupabaseClient<Database>, requestI
   ]);
 
   const readiness = request.selected_article_version_id ? await getPackageReadiness(supabase, requestId) : null;
-  const queue = request.current_package_id ? await getPublishingQueue(supabase, requestId) : null;
 
   const sourceDecisions = Object.fromEntries(
     await Promise.all(sources.map(async (s) => [s.id, await getLatestSourceDecision(supabase, s.id)] as const))
@@ -126,7 +122,6 @@ export async function loadWorkspace(supabase: SupabaseClient<Database>, requestI
       channelArtifacts,
       channelEvaluations,
       packageReady: readiness?.ready ?? false,
-      hasActiveQueueItems: queue ? queue.entries.some((e) => e.item.status !== "cancelled") : false,
     }),
   };
 }

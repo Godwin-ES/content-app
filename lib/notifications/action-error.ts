@@ -1,7 +1,6 @@
 import "server-only";
 import { DomainError, type ActionError } from "@/lib/domain/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { notifySystemError } from "@/lib/notifications/service";
 import type { Json } from "@/lib/supabase/database.types";
 
 /**
@@ -60,7 +59,6 @@ export async function toLoggedActionError(
     if (insertError) throw insertError;
   });
 
-  await bestEffort(() => notifySystemError({ stage, message, context }));
 
   return {
     code: "INTERNAL_ERROR",

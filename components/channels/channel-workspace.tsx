@@ -15,7 +15,7 @@ import { XEditor } from "@/components/channels/x-editor";
 import { NewsletterEditor } from "@/components/channels/newsletter-editor";
 import type { Database } from "@/lib/supabase/database.types";
 import type { LinkedinPost, XPost, Newsletter } from "@/lib/ai/schemas/channel";
-import { useAutoMode, useOperationRunning } from "@/components/requests/auto-mode-context";
+import { useRequestActivity, useOperationRunning } from "@/components/requests/request-activity-context";
 
 type ContentArtifactRow = Database["public"]["Tables"]["content_artifacts"]["Row"];
 type ArtifactVersionRow = Database["public"]["Tables"]["artifact_versions"]["Row"];
@@ -54,7 +54,7 @@ function ChannelCard({
    * started from this card — editing a channel asset while it is being
    * re-adapted is two writers on one document.
    */
-  const { running: somethingRunning } = useAutoMode();
+  const { running: somethingRunning } = useRequestActivity();
   const locked = isPending || busyCount > 0 || somethingRunning;
   const handleBusyChange = (busy: boolean) => setBusyCount((c) => Math.max(0, c + (busy ? 1 : -1)));
 
@@ -169,7 +169,7 @@ export function ChannelWorkspace({
   versionsByArtifact,
   canGenerate,
 }: ChannelWorkspaceProps) {
-  const { running: autoModeRunning } = useAutoMode();
+  const { running: somethingRunning } = useRequestActivity();
   /** Adaptation running anywhere, so this button keeps its spinner across tabs. */
   const adapting = useOperationRunning("channel_adaptation", "channel_evaluation");
   const [error, setError] = useState<string | null>(null);
@@ -191,7 +191,7 @@ export function ChannelWorkspace({
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Channel Assets</h3>
         {channelArtifacts.length === 0 || channelArtifacts.some((a) => !a.current_version_id) ? (
-          <Button type="button" size="sm" onClick={generate} disabled={!canGenerate || isPending || autoModeRunning || adapting}>
+          <Button type="button" size="sm" onClick={generate} disabled={!canGenerate || isPending || somethingRunning || adapting}>
             {isPending || adapting ? (
               <>
                 <Loader2 className="size-4 animate-spin" /> Generating...

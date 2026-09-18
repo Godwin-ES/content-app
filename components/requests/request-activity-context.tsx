@@ -3,16 +3,12 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-interface AutoModeState {
+interface RequestActivityState {
   /**
-   * Whether anything is currently working on this request — auto mode's
-   * loop in this tab, or any operation running on the server, started from
-   * anywhere. Every control in the workspace disables on this.
+   * Whether any operation is currently running on this request, started
+   * from anywhere. Every control in the workspace disables on this.
    */
   running: boolean;
-  /** Auto mode's own client-side loop, for the auto-mode panel itself. */
-  autoRunning: boolean;
-  setRunning: (running: boolean) => void;
   /**
    * The operation types running right now (`article_generation`,
    * `source_analysis`, …), so a control can show its own spinner and say
@@ -21,10 +17,8 @@ interface AutoModeState {
   runningOperations: string[];
 }
 
-const AutoModeContext = createContext<AutoModeState>({
+const RequestActivityContext = createContext<RequestActivityState>({
   running: false,
-  autoRunning: false,
-  setRunning: () => {},
   runningOperations: [],
 });
 
@@ -56,13 +50,8 @@ const POLL_MS = 2500;
  * long since abandoned, sees the same thing — and it survives a reload,
  * which client state never could.
  *
- * Local auto-mode state is still ORed in, because it covers the moments
- * the table cannot: the gap between pressing Run and the first row
- * appearing, and the pauses between steps when nothing is running yet the
- * loop is very much still going.
  */
-export function AutoModeProvider({ requestId, children }: { requestId: string; children: ReactNode }) {
-  const [autoRunning, setRunning] = useState(false);
+export function RequestActivityProvider({ requestId, children }: { requestId: string; children: ReactNode }) {
   const [runningOperations, setRunningOperations] = useState<string[]>([]);
 
   useEffect(() => {
@@ -94,19 +83,17 @@ export function AutoModeProvider({ requestId, children }: { requestId: string; c
 
   const value = useMemo(
     () => ({
-      running: autoRunning || runningOperations.length > 0,
-      autoRunning,
-      setRunning,
+      running: runningOperations.length > 0,
       runningOperations,
     }),
-    [autoRunning, runningOperations]
+    [runningOperations]
   );
 
-  return <AutoModeContext.Provider value={value}>{children}</AutoModeContext.Provider>;
+  return <RequestActivityContext.Provider value={value}>{children}</RequestActivityContext.Provider>;
 }
 
-export function useAutoMode(): AutoModeState {
-  return useContext(AutoModeContext);
+export function useRequestActivity(): RequestActivityState {
+  return useContext(RequestActivityContext);
 }
 
 /**
@@ -114,6 +101,6 @@ export function useAutoMode(): AutoModeState {
  * its own progress rather than merely standing down for someone else's.
  */
 export function useOperationRunning(...operationTypes: string[]): boolean {
-  const { runningOperations } = useAutoMode();
+  const { runningOperations } = useRequestActivity();
   return operationTypes.some((type) => runningOperations.includes(type));
 }

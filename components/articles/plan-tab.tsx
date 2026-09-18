@@ -15,7 +15,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import type { ContentPlanSection } from "@/lib/ai/schemas/content-plan";
 import type { ManualContentPlanInput } from "@/lib/planning/service";
 import type { EvidencePreview } from "@/components/articles/evidence-chip";
-import { useAutoMode, useOperationRunning } from "@/components/requests/auto-mode-context";
+import { useRequestActivity, useOperationRunning } from "@/components/requests/request-activity-context";
 
 type ContentPlanRow = Database["public"]["Tables"]["content_plans"]["Row"];
 
@@ -50,7 +50,7 @@ function toDraft(plan: ContentPlanRow): ManualContentPlanInput {
  * one it's based on).
  */
 export function PlanTab({ requestId, plan, versions, canGenerate, evidenceById }: PlanTabProps) {
-  const { running: autoModeRunning } = useAutoMode();
+  const { running: somethingRunning } = useRequestActivity();
   /**
    * Planning running anywhere — generation or a regeneration — read from
    * the operation table, so leaving this tab and coming back finds the
@@ -85,7 +85,7 @@ export function PlanTab({ requestId, plan, versions, canGenerate, evidenceById }
    * started from this component — editing or reverting a plan while the
    * planner is rewriting it is two writers on one document.
    */
-  const locked = busyCount > 0 || isPending || revertingId !== null || autoModeRunning || planning;
+  const locked = busyCount > 0 || isPending || revertingId !== null || somethingRunning || planning;
   const handleBusyChange = (busy: boolean) => setBusyCount((c) => Math.max(0, c + (busy ? 1 : -1)));
 
   if ((plan?.id ?? null) !== draftFromVersion) {
@@ -155,7 +155,7 @@ export function PlanTab({ requestId, plan, versions, canGenerate, evidenceById }
         <Button
           type="button"
           onClick={generate}
-          disabled={!canGenerate || isPending || autoModeRunning || planning}
+          disabled={!canGenerate || isPending || somethingRunning || planning}
           className="w-fit"
         >
           {isPending || planning ? (
