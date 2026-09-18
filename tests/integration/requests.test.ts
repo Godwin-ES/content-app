@@ -25,7 +25,6 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
   let admin: SupabaseClient<Database>;
   let owner: { client: SupabaseClient<Database>; userId: string };
   const requestIds: string[] = [];
-  const originalModelSelection = process.env.ALLOW_MODEL_SELECTION;
   const originalProdModel = process.env.PRODUCTION_AI_MODEL;
 
   beforeAll(async () => {
@@ -34,7 +33,6 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
   });
 
   afterEach(() => {
-    process.env.ALLOW_MODEL_SELECTION = originalModelSelection;
     process.env.PRODUCTION_AI_MODEL = originalProdModel;
   });
 
@@ -166,20 +164,16 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
     expect(request).not.toHaveProperty("source_urls");
   });
 
-  it("records the selected model only when the deployment allows choosing one", async () => {
-    process.env.ALLOW_MODEL_SELECTION = "true";
+  it("records the model the request picked", async () => {
     const request = await createContentRequest(owner.client, owner.userId, { topic: "Topic" }, "gemini");
     requestIds.push(request.id);
     expect(request.ai_model_choice).toBe("gemini");
   });
 
-  it("rejects a client-supplied model choice when the deployment does not allow choosing", async () => {
-    process.env.ALLOW_MODEL_SELECTION = "false";
-    process.env.PRODUCTION_AI_MODEL = "claude_sonnet_5";
-
-    await expect(
-      createContentRequest(owner.client, owner.userId, { topic: "Topic" }, "gemini")
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  it("rejects a model this app does not support, whatever the client sends", async () => {
+    await expect(createContentRequest(owner.client, owner.userId, { topic: "Topic" }, "gpt-4o")).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
   });
 
   it("returns every owned request, including one still at draft", async () => {

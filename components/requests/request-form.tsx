@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useRef, useState, useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, TriangleAlert } from "lucide-react";
 import { createContentRequestAction } from "@/actions/requests";
 import { reviewIntakeAction } from "@/actions/intake-review";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { IntakeFieldFlag } from "@/components/requests/intake-field-flag";
 import { checkIntakeFields, type IntakeField, type IntakeFlag } from "@/lib/domain/intake-checks";
 import type { AIModelChoice } from "@/lib/domain/types";
 
-export function RequestForm({ canChooseModel = false }: { canChooseModel?: boolean }) {
+export function RequestForm() {
   const [state, formAction, pending] = useActionState(createContentRequestAction, null);
   const [optionalOpen, setOptionalOpen] = useState(false);
   const [topic, setTopic] = useState("");
@@ -125,6 +125,15 @@ export function RequestForm({ canChooseModel = false }: { canChooseModel?: boole
 
   const busy = pending || reviewing;
 
+  /**
+   * Nothing to submit while a flag is still standing. Leaving the button
+   * live meant the only way to learn a flag had not been dealt with was to
+   * press Confirm and watch nothing happen — the form silently refused and
+   * looked broken. Editing the field or dismissing the flag re-enables it,
+   * which is exactly the two ways out the flags themselves offer.
+   */
+  const blockedByFlags = visibleFlags.length > 0;
+
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -157,12 +166,10 @@ export function RequestForm({ canChooseModel = false }: { canChooseModel?: boole
         urlCount={urls.length}
       />
 
-      {canChooseModel ? (
-        <div className="rounded-lg border p-4">
-          <ModelSelector id="ai-model-choice" value={aiModelChoice} onChange={setAiModelChoice} label="AI model" />
-          <input type="hidden" name="aiModelChoice" value={aiModelChoice} />
-        </div>
-      ) : null}
+      <div className="rounded-lg border p-4">
+        <ModelSelector id="ai-model-choice" value={aiModelChoice} onChange={setAiModelChoice} label="AI model" />
+        <input type="hidden" name="aiModelChoice" value={aiModelChoice} />
+      </div>
 
       <div className="flex flex-col gap-4">
         <Button
@@ -246,10 +253,18 @@ export function RequestForm({ canChooseModel = false }: { canChooseModel?: boole
         </Alert>
       ) : null}
 
-      <Button type="button" onClick={reviewThenSubmit} disabled={busy} className="w-fit">
-        {busy ? <Loader2 aria-hidden className="size-4 animate-spin" /> : null}
-        {reviewing ? "Checking..." : pending ? "Confirming..." : "Confirm request"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" onClick={reviewThenSubmit} disabled={busy || blockedByFlags} className="w-fit">
+          {busy ? <Loader2 aria-hidden className="size-4 animate-spin" /> : null}
+          {reviewing ? "Checking..." : pending ? "Confirming..." : "Confirm request"}
+        </Button>
+        {blockedByFlags ? (
+          <p className="flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-500">
+            <TriangleAlert aria-hidden className="size-4 shrink-0" />
+            Resolve the {visibleFlags.length === 1 ? "flag" : `${visibleFlags.length} flags`} above before confirming.
+          </p>
+        ) : null}
+      </div>
     </form>
   );
 }

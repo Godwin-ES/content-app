@@ -21,6 +21,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RequestStepper } from "@/components/requests/request-stepper";
 import { RequestWorkspace } from "@/components/requests/request-workspace";
+import { parseWorkspaceTab } from "@/lib/workspace/tabs";
 import { ResearchTab } from "@/components/research/research-tab";
 import { PlanTab } from "@/components/articles/plan-tab";
 import { ArticleComparison } from "@/components/articles/article-comparison";
@@ -43,8 +44,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
  * derived next-action stepper, and explicit empty states rather than a
  * flat page of conditionally-appearing sections.
  */
-export default async function RequestWorkspacePage({ params }: { params: Promise<{ requestId: string }> }) {
+export default async function RequestWorkspacePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ requestId: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { requestId } = await params;
+  const { tab } = await searchParams;
   await requireCurrentUser();
   const supabase = await createSupabaseServerClient();
   const request = await getContentRequest(supabase, requestId);
@@ -328,6 +336,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
         articles={articlesContent}
         channels={channelsContent}
         packageTab={packageContent}
+        defaultTab={parseWorkspaceTab(tab)}
         publishing={publishingContent}
       />
     </div>

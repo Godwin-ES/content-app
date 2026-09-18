@@ -4,8 +4,8 @@ const insertErrorLog = vi.fn().mockResolvedValue({ error: null });
 const insertNotificationAttempt = vi.fn().mockResolvedValue({ error: null });
 const sendDiscordMessage = vi.fn().mockResolvedValue(undefined);
 
-// notify() resolves the request owner's own Discord webhook before
-// falling back to the deployment's, which means two extra reads.
+// notify() resolves the webhook from the request's owner, which means two
+// extra reads before anything is sent.
 const ownerLookup = { data: { owner_id: "u1" } };
 const profileLookup: { data: { discord_webhook_url: string | null } | null } = { data: { discord_webhook_url: null } };
 
@@ -65,8 +65,7 @@ describe("toLoggedActionError", () => {
   );
 
   it("logs and notifies for an unexpected raw error, and returns a safe generic message", async () => {
-    const originalWebhook = process.env.DISCORD_ERRORS_WEBHOOK_URL;
-    process.env.DISCORD_ERRORS_WEBHOOK_URL = "https://discord.test/webhook";
+    profileLookup.data = { discord_webhook_url: "https://discord.test/mine" };
 
     const error = new Error("connection reset by peer");
     const result = await toLoggedActionError(error, "provider_call", { requestId: "r1" });
@@ -75,46 +74,34 @@ describe("toLoggedActionError", () => {
     expect(result.message).not.toContain("connection reset by peer");
     expect(insertErrorLog).toHaveBeenCalledTimes(1);
     expect(sendDiscordMessage).toHaveBeenCalledTimes(1);
-
-    process.env.DISCORD_ERRORS_WEBHOOK_URL = originalWebhook;
   });
 
-  it("prefers the request owner's own webhook over the deployment's", async () => {
-    const originalWebhook = process.env.DISCORD_ERRORS_WEBHOOK_URL;
-    process.env.DISCORD_ERRORS_WEBHOOK_URL = "https://discord.test/deployment";
+  it("sends to the request owner's own webhook", async () => {
     profileLookup.data = { discord_webhook_url: "https://discord.test/mine" };
 
     await toLoggedActionError(new Error("boom"), "provider_call", { requestId: "r1" });
 
     expect(sendDiscordMessage).toHaveBeenCalledWith("https://discord.test/mine", expect.any(String));
-
-    process.env.DISCORD_ERRORS_WEBHOOK_URL = originalWebhook;
   });
 
-  it("falls back to the deployment webhook when the owner lookup fails, rather than dropping the message", async () => {
-    const originalWebhook = process.env.DISCORD_ERRORS_WEBHOOK_URL;
-    process.env.DISCORD_ERRORS_WEBHOOK_URL = "https://discord.test/deployment";
-    profileLookup.data = null;
+  it("still logs the error when the owner has set no webhook, rather than failing", async () => {
+    profileLookup.data = { discord_webhook_url: null };
 
-    await toLoggedActionError(new Error("boom"), "provider_call", { requestId: "r1" });
-
-    expect(sendDiscordMessage).toHaveBeenCalledWith("https://discord.test/deployment", expect.any(String));
-
-    process.env.DISCORD_ERRORS_WEBHOOK_URL = originalWebhook;
-  });
-
-  it("still logs the error but skips Discord when no errors webhook is configured", async () => {
-    const originalWebhook = process.env.DISCORD_ERRORS_WEBHOOK_URL;
-    delete process.env.DISCORD_ERRORS_WEBHOOK_URL;
-
-    const error = new Error("connection reset by peer");
-    const result = await toLoggedActionError(error, "provider_call");
+    const result = await toLoggedActionError(new Error("boom"), "provider_call", { requestId: "r1" });
 
     expect(result.code).toBe("INTERNAL_ERROR");
     expect(insertErrorLog).toHaveBeenCalledTimes(1);
     expect(sendDiscordMessage).not.toHaveBeenCalled();
+  });
 
-    process.env.DISCORD_ERRORS_WEBHOOK_URL = originalWebhook;
+  it("still logs an error that has no request to attribute it to", async () => {
+    // With no requestId there is no owner to look up, and outside a
+    // request scope there is no session either. The error still has to be
+    // recorded — an unreported crash is the worst outcome here.
+    const result = await toLoggedActionError(new Error("connection reset by peer"), "provider_call");
+
+    expect(result.code).toBe("INTERNAL_ERROR");
+    expect(insertErrorLog).toHaveBeenCalledTimes(1);
   });
 
   it("still returns a safe result when the error log insert itself fails", async () => {

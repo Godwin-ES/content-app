@@ -29,27 +29,34 @@ describe("getAllowedAIModels", () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
-  it("returns all three models when the deployment allows choosing one", async () => {
-    process.env.ALLOW_MODEL_SELECTION = "true";
-    process.env.PRODUCTION_AI_MODEL = "claude_sonnet_5";
-    const { getAllowedAIModels } = await freshModelConfig();
-    expect(getAllowedAIModels().sort()).toEqual(
-      ["claude_haiku_4_5", "claude_sonnet_5", "gemini"].sort()
-    );
-  });
-
-  it("returns only the configured production model when choosing is not allowed", async () => {
-    process.env.ALLOW_MODEL_SELECTION = "false";
+  it("offers every model this app supports, whatever the configured default", async () => {
     process.env.PRODUCTION_AI_MODEL = "claude_haiku_4_5";
     const { getAllowedAIModels } = await freshModelConfig();
-    expect(getAllowedAIModels()).toEqual(["claude_haiku_4_5"]);
+    expect(getAllowedAIModels().sort()).toEqual(["claude_haiku_4_5", "claude_sonnet_5", "gemini"].sort());
+  });
+});
+
+describe("getDefaultAIModel", () => {
+  beforeEach(() => {
+    process.env = { ...ORIGINAL_ENV };
   });
 
-  it("treats a missing ALLOW_MODEL_SELECTION as disabled", async () => {
-    delete process.env.ALLOW_MODEL_SELECTION;
-    process.env.PRODUCTION_AI_MODEL = "claude_sonnet_5";
-    const { getAllowedAIModels } = await freshModelConfig();
-    expect(getAllowedAIModels()).toEqual(["claude_sonnet_5"]);
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+  });
+
+  it("uses PRODUCTION_AI_MODEL for a request that did not pick one", async () => {
+    process.env.PRODUCTION_AI_MODEL = "claude_haiku_4_5";
+    const { getDefaultAIModel } = await freshModelConfig();
+    expect(getDefaultAIModel()).toBe("claude_haiku_4_5");
+  });
+
+  it("falls back to a real model when PRODUCTION_AI_MODEL is unset or nonsense", async () => {
+    delete process.env.PRODUCTION_AI_MODEL;
+    expect((await freshModelConfig()).getDefaultAIModel()).toBe("claude_sonnet_5");
+
+    process.env.PRODUCTION_AI_MODEL = "gpt-4o";
+    expect((await freshModelConfig()).getDefaultAIModel()).toBe("claude_sonnet_5");
   });
 });
 
@@ -63,25 +70,17 @@ describe("assertAllowedAIModel", () => {
   });
 
   it("accepts a model within the allowed set", async () => {
-    process.env.ALLOW_MODEL_SELECTION = "true";
     process.env.PRODUCTION_AI_MODEL = "claude_sonnet_5";
     const { assertAllowedAIModel } = await freshModelConfig();
     expect(() => assertAllowedAIModel("gemini")).not.toThrow();
   });
 
   it("rejects an arbitrary client-supplied model string as a DomainError", async () => {
-    process.env.ALLOW_MODEL_SELECTION = "true";
     process.env.PRODUCTION_AI_MODEL = "claude_sonnet_5";
     const { assertAllowedAIModel } = await freshModelConfig();
     expectDomainError(() => assertAllowedAIModel("gpt-4o"));
   });
 
-  it("rejects a selectable model when choosing is not allowed", async () => {
-    process.env.ALLOW_MODEL_SELECTION = "false";
-    process.env.PRODUCTION_AI_MODEL = "claude_haiku_4_5";
-    const { assertAllowedAIModel } = await freshModelConfig();
-    expectDomainError(() => assertAllowedAIModel("gemini"));
-  });
 });
 
 describe("resolveModelId", () => {
@@ -94,7 +93,6 @@ describe("resolveModelId", () => {
   });
 
   it("maps a model choice to its configured provider model id", async () => {
-    process.env.ALLOW_MODEL_SELECTION = "true";
     process.env.ANTHROPIC_SONNET_MODEL = "claude-sonnet-4-5-test";
     process.env.PRODUCTION_AI_MODEL = "claude_sonnet_5";
     const { resolveModelId } = await freshModelConfig();

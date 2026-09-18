@@ -11,10 +11,9 @@
  * content_requests in the correct dependency order, then deletes the
  * users themselves.
  *
- * Never touches the two dedicated seeded accounts
- * (TEST_CONTENT_MANAGER_EMAIL / TEST_REVIEWER_EMAIL) — only accounts
- * matching the ephemeral `@koya-content-studio.test` pattern used by this
- * project's throwaway integration-test/manual-verification fixtures.
+ * Only touches accounts matching the ephemeral `@koya-content-studio.test`
+ * pattern used by this project's throwaway test fixtures, so an account
+ * someone signed up with is never a target.
  *
  * Usage: pnpm tsx scripts/reset-test-data.ts
  */
@@ -53,10 +52,11 @@ async function main() {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const keepEmails = new Set([process.env.TEST_CONTENT_MANAGER_EMAIL, process.env.TEST_REVIEWER_EMAIL].filter(Boolean));
 
   const allUsers = await listAllUsers(admin);
-  const targets = allUsers.filter((u) => u.email?.includes(EPHEMERAL_EMAIL_MARKER) && !keepEmails.has(u.email));
+  // The marker is the whole rule: an account created by a human through
+  // the signup form can never carry it, so a real sign-in is never a target.
+  const targets = allUsers.filter((u) => u.email?.includes(EPHEMERAL_EMAIL_MARKER));
   console.log(`Found ${targets.length} ephemeral test user(s) out of ${allUsers.length} total.`);
 
   // Phase 1: delete every matching user's owned requests.

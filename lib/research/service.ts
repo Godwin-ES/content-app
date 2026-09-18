@@ -19,8 +19,6 @@ import {
   confirmSourceSet,
 } from "@/lib/repositories/sources";
 import { assessKeywordCoverage, type KeywordCoverage } from "@/lib/research/keyword-coverage";
-import { bestEffort } from "@/lib/notifications/action-error";
-import { notifyKeywordCoverageGap } from "@/lib/notifications/service";
 import { textCoversKeyword } from "@/lib/domain/keyword";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
@@ -346,14 +344,17 @@ export async function runResearchPipeline(
     actorId: request.owner_id,
   });
 
-  // Checked here rather than after the source decisions, so the Content
-  // Manager learns about it while they are still looking at the sources —
+  // Checked here rather than after the source decisions, so it is recorded
+  // while the sources are still on screen —
   // the last point where changing the keyword or adding one source is
   // cheap. It never stops the pipeline: the sources are real and the
   // request should still reach source review, where the gap is shown and
   // confirming is what gets blocked.
   if (usableSourceCount > 0) {
     const coverage = await assessRequestKeywordCoverage(supabase, requestId);
+    // Recorded, not notified: working by hand you are already looking at
+    // the Research tab, where the banner says this. Auto mode notifies,
+    // because nobody is watching it.
     if (coverage.assessed && !coverage.covered && coverage.keyword) {
       await recordActivityEvent({
         requestId,
@@ -361,14 +362,6 @@ export async function runResearchPipeline(
         message: `No usable source mentions the primary keyword "${coverage.keyword}"`,
         actorId: request.owner_id,
       });
-      await bestEffort(() =>
-        notifyKeywordCoverageGap({
-          requestId,
-          topic: request.topic,
-          keyword: coverage.keyword!,
-          blocking: coverage.blocking,
-        })
-      );
     }
   }
 

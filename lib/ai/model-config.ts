@@ -4,19 +4,10 @@ import type { AIModelChoice, AIProviderName } from "@/lib/domain/types";
 const SELECTABLE_MODELS: AIModelChoice[] = ["gemini", "claude_haiku_4_5", "claude_sonnet_5"];
 
 /**
- * Whether this deployment lets a request pick its own model. Off by
- * default: model identifiers and their cost are a server concern, and a
- * browser that can choose one can choose the most expensive one.
+ * The model a request uses when it does not pick one (PRODUCTION_AI_MODEL).
+ * Falls back to claude_sonnet_5 if unset, so the app always has a model.
  */
-function isModelSelectionAllowed(): boolean {
-  return process.env.ALLOW_MODEL_SELECTION === "true";
-}
-
-/**
- * The production model is configured server-side only. Falls back to
- * claude_sonnet_5 if unset so the app never silently has zero allowed models.
- */
-function getProductionModelChoice(): AIModelChoice {
+export function getDefaultAIModel(): AIModelChoice {
   const configured = process.env.PRODUCTION_AI_MODEL;
   if (configured === "gemini" || configured === "claude_haiku_4_5" || configured === "claude_sonnet_5") {
     return configured;
@@ -25,15 +16,16 @@ function getProductionModelChoice(): AIModelChoice {
 }
 
 /**
- * Production safety boundary (SYSTEM-DESIGN-NEXTJS.md #4.9, #12.4): unless
- * the deployment allows model selection, only the server-configured
- * production model is permitted and the browser cannot override it.
+ * Which models a request may be created with.
+ *
+ * This used to be gated on a deployment flag, so that a browser could not
+ * choose an expensive model in production. One account owns the workspace
+ * and the API keys it spends, so that protection was protecting them from
+ * themselves. The server still re-validates every choice against this
+ * list, which is what stops an arbitrary model id being posted.
  */
 export function getAllowedAIModels(): AIModelChoice[] {
-  if (isModelSelectionAllowed()) {
-    return SELECTABLE_MODELS;
-  }
-  return [getProductionModelChoice()];
+  return SELECTABLE_MODELS;
 }
 
 export function assertAllowedAIModel(model: string): asserts model is AIModelChoice {

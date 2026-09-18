@@ -21,12 +21,8 @@ interface ModelSelectorProps {
 /**
  * Which model a request is generated with.
  *
- * Only rendered when the deployment permits choosing one
- * (ALLOW_MODEL_SELECTION; SYSTEM-DESIGN-NEXTJS.md §4.9, §12.4) — the
- * enclosing page owns that gate. Otherwise every request uses the
- * server-configured production model and the browser has no say. The
- * server re-validates whatever comes back regardless, so choosing freely
- * here bypasses nothing.
+ * The server re-validates whatever comes back against its own allowed
+ * list, so choosing freely here cannot post an arbitrary model id.
  */
 export function ModelSelector({ id, value, onChange, label = "AI model" }: ModelSelectorProps) {
   return (

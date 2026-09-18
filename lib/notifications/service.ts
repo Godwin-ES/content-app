@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { sendDiscordMessage } from "@/lib/notifications/discord";
-import { getInjectedFailureMode } from "@/lib/test-support/failure-injection";
 
 /**
  * Which Discord channel a notification goes to. "content_manager" is a
@@ -10,6 +10,18 @@ import { getInjectedFailureMode } from "@/lib/test-support/failure-injection";
  * owner's own channel.
  */
 type NotificationChannel = "content_manager" | "system_errors";
+
+/**
+ * A link straight to the part of the app a notification is about.
+ *
+ * A notification that says something happened and leaves you to find it is
+ * half a notification — and these arrive while you are elsewhere, which is
+ * the whole reason for sending them.
+ */
+function requestUrl(requestId: string, tab?: string): string {
+  const origin = process.env.APP_URL ?? "http://localhost:3000";
+  return `${origin}/requests/${requestId}${tab ? `?tab=${tab}` : ""}`;
+}
 
 /**
  * The webhook a request's notifications should go to: the owner's own, if
@@ -26,21 +38,44 @@ type NotificationChannel = "content_manager" | "system_errors";
  * here should fall back to the deployment's webhook, not silently discard
  * a message about something that did happen.
  */
-async function ownerWebhookUrl(requestId: string | null): Promise<string | undefined> {
-  if (!requestId) return undefined;
+async function webhookForUser(userId: string): Promise<string | undefined> {
+  const admin = createSupabaseAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("discord_webhook_url")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return profile?.discord_webhook_url ?? undefined;
+}
 
+/**
+ * The webhook a notification should go to: the one set in Settings by the
+ * person it concerns.
+ *
+ * Resolved from the request's owner where there is a request, and from
+ * whoever is signed in where there is not — an unexpected error outside a
+ * request still belongs to the person who hit it. There is no environment
+ * fallback: every notification this app sends is about someone's own
+ * content, and a deployment-wide webhook would send it to the wrong place.
+ *
+ * Returns undefined rather than throwing on any failure. This lookup is
+ * the means of delivering a notification, not part of it: a database blip
+ * here should skip the message, not take down the operation that prompted
+ * it.
+ */
+async function resolveWebhookUrl(requestId: string | null): Promise<string | undefined> {
   try {
-    const admin = createSupabaseAdminClient();
-    const { data: request } = await admin.from("content_requests").select("owner_id").eq("id", requestId).maybeSingle();
-    if (!request) return undefined;
+    if (requestId) {
+      const admin = createSupabaseAdminClient();
+      const { data: request } = await admin.from("content_requests").select("owner_id").eq("id", requestId).maybeSingle();
+      if (request) return await webhookForUser(request.owner_id);
+    }
 
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("discord_webhook_url")
-      .eq("user_id", request.owner_id)
-      .maybeSingle();
-
-    return profile?.discord_webhook_url ?? undefined;
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return user ? await webhookForUser(user.id) : undefined;
   } catch {
     return undefined;
   }
@@ -58,22 +93,15 @@ async function notify(params: {
   requestId: string | null;
   channel: NotificationChannel;
   eventType: string;
-  webhookUrl: string | undefined;
   message: string;
 }): Promise<void> {
   const admin = createSupabaseAdminClient();
   let status: "sent" | "failed" | "skipped" = "skipped";
   let error: string | null = null;
 
-  // The account's own webhook wins over the deployment's, so notifications
-  // about your content reach your Discord rather than the operator's.
-  const webhookUrl = (await ownerWebhookUrl(params.requestId)) ?? params.webhookUrl;
+  const webhookUrl = await resolveWebhookUrl(params.requestId);
 
-  const injectedMode = await getInjectedFailureMode();
-  if (injectedMode === "notification_failure") {
-    status = "failed";
-    error = "Injected failure: notification_failure";
-  } else if (webhookUrl) {
+  if (webhookUrl) {
     try {
       await sendDiscordMessage(webhookUrl, params.message);
       status = "sent";
@@ -103,8 +131,52 @@ export async function notifyPackageApproved(params: { requestId: string; topic: 
     requestId: params.requestId,
     channel: "content_manager",
     eventType: "package_approved",
-    webhookUrl: process.env.DISCORD_CONTENT_WEBHOOK_URL,
-    message: `**${params.topic}** was approved and is ready to queue.`,
+    message: `✅ **${params.topic}** — approved and ready to queue.\n${requestUrl(params.requestId, "package")}`,
+  });
+}
+
+/**
+ * One completed step of an auto-mode run.
+ *
+ * Auto mode is the case where notifications earn their place: the run takes
+ * minutes, does seven or eight things in a row, and the whole point is that
+ * nobody is sitting over it. Working by hand needs none of this — you are
+ * already looking at the thing that just happened, and a Discord message
+ * about a button you pressed a second ago is noise.
+ *
+ * Deliberately brief: what it is, what just finished, and a link to the
+ * tab where it landed.
+ */
+export async function notifyAutoModeStep(params: {
+  requestId: string;
+  topic: string;
+  stage: string;
+  detail: string;
+  tab: string;
+  blocked?: boolean;
+}): Promise<void> {
+  const mark = params.blocked ? "⏸️" : "▸";
+  await notify({
+    requestId: params.requestId,
+    channel: "content_manager",
+    eventType: params.blocked ? "auto_mode_blocked" : "auto_mode_step",
+    message:
+      `${mark} **${params.topic}** — ${params.stage}\n${params.detail}\n` +
+      `${requestUrl(params.requestId, params.tab)}`,
+  });
+}
+
+/** An auto-mode run reached the end of what it is allowed to do. */
+export async function notifyAutoModeFinished(params: {
+  requestId: string;
+  topic: string;
+  detail: string;
+}): Promise<void> {
+  await notify({
+    requestId: params.requestId,
+    channel: "content_manager",
+    eventType: "auto_mode_finished",
+    message: `🏁 **${params.topic}** — auto mode finished.\n${params.detail}\n${requestUrl(params.requestId, "package")}`,
   });
 }
 
@@ -129,8 +201,9 @@ export async function notifyKeywordCoverageGap(params: {
     requestId: params.requestId,
     channel: "content_manager",
     eventType: "keyword_coverage_gap",
-    webhookUrl: process.env.DISCORD_CONTENT_WEBHOOK_URL,
-    message: `No source for **${params.topic}** mentions its primary keyword "${params.keyword}". ${suffix}`,
+    message:
+      `⚠️ **${params.topic}** — no source mentions the primary keyword "${params.keyword}".\n${suffix}\n` +
+      `${requestUrl(params.requestId, "research")}`,
   });
 }
 
@@ -139,11 +212,12 @@ export async function notifySystemError(params: {
   message: string;
   context?: Record<string, unknown>;
 }): Promise<void> {
+  const requestId = typeof params.context?.requestId === "string" ? (params.context.requestId as string) : null;
+
   await notify({
-    requestId: typeof params.context?.requestId === "string" ? (params.context.requestId as string) : null,
+    requestId,
     channel: "system_errors",
     eventType: "system_error",
-    webhookUrl: process.env.DISCORD_ERRORS_WEBHOOK_URL,
-    message: `Unexpected system error at **${params.stage}**: ${params.message}`,
+    message: `🛑 Something went wrong at **${params.stage}**: ${params.message}${requestId ? `\n${requestUrl(requestId)}` : ""}`,
   });
 }

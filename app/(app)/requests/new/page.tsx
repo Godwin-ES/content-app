@@ -12,7 +12,7 @@ export default async function NewRequestPage() {
           Give us a topic and we will research it, find sources, and prepare article options for your review.
         </p>
       </div>
-      <RequestForm canChooseModel={process.env.ALLOW_MODEL_SELECTION === "true"} />
+      <RequestForm />
     </div>
   );
 }

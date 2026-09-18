@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { DomainError } from "@/lib/domain/errors";
-import { assertNoInjectedPersistenceFailure } from "@/lib/test-support/failure-injection";
 import {
   createQueueItem,
   rescheduleQueueItem,
@@ -60,7 +59,6 @@ export async function queueChannel(
 ): Promise<QueueItemRow> {
   const request = await getRequestOrThrow(supabase, requestId);
   const pkg = await getApprovedPackageOrThrow(supabase, request);
-  await assertNoInjectedPersistenceFailure("queue_persistence_failure", "publishing");
 
   return createQueueItem(supabase, {
     packageId: pkg.id,

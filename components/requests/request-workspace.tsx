@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import type { WorkspaceTab } from "@/lib/workspace/tabs";
 
 interface RequestWorkspaceProps {
   overview: ReactNode;
@@ -12,6 +13,13 @@ interface RequestWorkspaceProps {
   /** The finished package — named `packageTab` because `package` is reserved. */
   packageTab: ReactNode;
   publishing: ReactNode;
+  /**
+   * Which tab to open on. Comes from `?tab=` so a link can land someone on
+   * the thing it is about — auto mode's notifications point at the stage
+   * that just finished, and arriving on the Overview instead would make
+   * the reader hunt for it.
+   */
+  defaultTab?: WorkspaceTab;
 }
 
 /**
@@ -29,9 +37,18 @@ interface RequestWorkspaceProps {
  * with approval submission alongside it, rather than linking out to a
  * separate printable page to see what is being approved.
  */
-export function RequestWorkspace({ overview, research, plan, articles, channels, packageTab, publishing }: RequestWorkspaceProps) {
+export function RequestWorkspace({
+  overview,
+  research,
+  plan,
+  articles,
+  channels,
+  packageTab,
+  publishing,
+  defaultTab = "overview",
+}: RequestWorkspaceProps) {
   return (
-    <Tabs defaultValue="overview">
+    <Tabs defaultValue={defaultTab}>
       <div className="overflow-x-auto">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>

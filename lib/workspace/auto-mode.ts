@@ -20,6 +20,9 @@ import {
 import { generateChannelAssets, regenerateChannelAsset, evaluateChannelVersion } from "@/lib/channels/service";
 import { createContentPackage } from "@/lib/packages/service";
 import { listArtifactVersions } from "@/lib/repositories/content";
+import { bestEffort } from "@/lib/notifications/action-error";
+import { notifyAutoModeStep, notifyAutoModeFinished } from "@/lib/notifications/service";
+import type { WorkspaceTab } from "@/lib/workspace/tabs";
 
 type EvaluationRow = Database["public"]["Tables"]["evaluations"]["Row"];
 
@@ -70,6 +73,29 @@ const AUTO_STEPPABLE: ReadonlySet<NextActionKey> = new Set<NextActionKey>([
 export function autoModeCanPerform(key: NextActionKey): boolean {
   return AUTO_STEPPABLE.has(key);
 }
+
+/**
+ * Which workspace tab a completed step landed on, so its notification can
+ * link straight there. Keyed by the action performed, not the stage, since
+ * two actions in the same stage can leave you in different places.
+ */
+const TAB_FOR_ACTION: Record<NextActionKey, WorkspaceTab> = {
+  add_sources: "research",
+  wait_for_research: "research",
+  resolve_no_usable_sources: "research",
+  review_sources: "research",
+  generate_content_plan: "plan",
+  generate_articles: "articles",
+  resolve_article_generation_failure: "articles",
+  resolve_article_evaluation: "articles",
+  select_article: "articles",
+  generate_channels: "channels",
+  resolve_channel_issue: "channels",
+  create_package: "package",
+  approve_package: "package",
+  queue_approved_content: "publishing",
+  none: "overview",
+};
 
 export type AutoStepStatus = "advanced" | "finished" | "blocked";
 
@@ -130,9 +156,32 @@ export async function runAutoStep(
   const nextAction = deriveNextAction(snapshot);
   const { stage } = derivePipelineProgress(snapshot);
 
-  const finished = (message: string): AutoStepResult => ({ status: "finished", action: nextAction.key, stage, message });
-  const blocked = (message: string): AutoStepResult => ({ status: "blocked", action: nextAction.key, stage, message });
-  const advanced = (message: string): AutoStepResult => ({ status: "advanced", action: nextAction.key, stage, message });
+  /**
+   * Every outcome is reported to Discord, because this is the mode where
+   * nobody is watching: a run takes minutes and does seven or eight things
+   * in a row. Best-effort — a notification that fails must never undo a
+   * step that succeeded.
+   */
+  const report = async (result: AutoStepResult): Promise<AutoStepResult> => {
+    await bestEffort(() => {
+      if (result.status === "finished") {
+        return notifyAutoModeFinished({ requestId, topic: request.topic, detail: result.message });
+      }
+      return notifyAutoModeStep({
+        requestId,
+        topic: request.topic,
+        stage: result.stage,
+        detail: result.message,
+        tab: TAB_FOR_ACTION[result.action] ?? "overview",
+        blocked: result.status === "blocked",
+      });
+    });
+    return result;
+  };
+
+  const finished = (message: string) => report({ status: "finished", action: nextAction.key, stage, message });
+  const blocked = (message: string) => report({ status: "blocked", action: nextAction.key, stage, message });
+  const advanced = (message: string) => report({ status: "advanced", action: nextAction.key, stage, message });
 
   if (!AUTO_STEPPABLE.has(nextAction.key)) {
     if (nextAction.key === "resolve_no_usable_sources") {

@@ -14,7 +14,7 @@ type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"]
  * Validates, resolves visible defaults, and persists a new content request
  * in `draft`. Cheap validation runs before any database write
  * (SYSTEM-DESIGN-NEXTJS.md §7.4); the AI model choice, if any, is checked
- * against the deployment's model-selection boundary before being stored.
+ * against the allowed list before being stored.
  */
 export async function createContentRequest(
   supabase: SupabaseClient<Database>,
@@ -35,7 +35,6 @@ export async function createContentRequest(
   if (aiModelChoice !== undefined) {
     assertAllowedAIModel(aiModelChoice);
   }
-  const modelChoice = process.env.ALLOW_MODEL_SELECTION === "true" ? (aiModelChoice ?? null) : null;
 
   const resolved = resolveRequestSettings(input);
 
@@ -55,7 +54,7 @@ export async function createContentRequest(
       resolved_cta: resolved.cta.value,
       resolved_primary_keyword: resolved.primaryKeyword.value,
       supplied_sources_only: input.suppliedSourcesOnly ?? false,
-      ai_model_choice: modelChoice,
+      ai_model_choice: aiModelChoice ?? null,
       status: "draft",
     })
     .select()

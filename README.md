@@ -36,7 +36,12 @@ The **Schedule** nav page shows everything queued across every request, grouped 
 
 ### Notifications
 
-Settings takes a Discord webhook URL, and notifications about your content go there — a package approved, research that found nothing covering your primary keyword, an unexpected error. Without one they fall back to the deployment's own `DISCORD_*` webhooks, which is right for a single operator and wrong for anyone else. The URL is validated against Discord's webhook endpoint in both the action and the RPC, because the server makes an outbound POST to whatever is stored.
+Settings takes a Discord webhook URL, and every notification this app sends goes there — there is no deployment-wide webhook, because every one of them is about somebody's own content. It is resolved from the request's owner, or from whoever is signed in when there is no request to attribute it to. The URL is validated against Discord's webhook endpoint in both the action and the RPC, because the server makes an outbound POST to whatever is stored.
+
+What gets sent depends on who is doing the work:
+
+- **Auto mode** reports every step as it lands — research complete, source set confirmed, content plan created, articles generated, article selected, channels generated, package created — plus anything that stops it. A run takes minutes and does seven or eight things in a row with nobody watching, which is exactly when a notification earns its place. Each one carries the topic, what just finished, and a link that opens the request **on the tab where it happened**.
+- **Working by hand** sends nothing per step. You are already looking at the thing that just happened, and a message about a button you pressed a second ago is noise. What still sends is an unexpected error, and the approval of a package — the point where content becomes publishable.
 
 ### Channels
 
@@ -78,11 +83,8 @@ See `.env.example` for the full list with inline comments. The load-bearing ones
 
 | Variable | Purpose |
 |---|---|
-| `USE_FAKE_PROVIDERS` | When `true`, all AI/research calls go through deterministic in-memory fakes instead of real providers. Routine tests always use this; the app **refuses** to honor it when `NODE_ENV=production`, regardless of the value. |
-| `ALLOW_MODEL_SELECTION` | When `true`, a request can be created with an explicit model choice (Gemini / Claude Haiku 4.5 / Claude Sonnet 5). When `false`, the server ignores any client-supplied choice — including one stored earlier — and always uses `PRODUCTION_AI_MODEL`. |
-| `PRODUCTION_AI_PROVIDER` / `PRODUCTION_AI_MODEL` | The model used whenever `ENABLE_AI_TEST_MODE=false` — the only model production traffic can ever reach. |
-| `ENABLE_FAILURE_INJECTION` + `TEST_FAILURE_TOKEN` | Dev-only controlled failure fixtures (research/AI timeouts, malformed output, persistence/notification failures). The `/api/test/failure-mode` route 404s unless `NODE_ENV!==production`, this flag is `true`, **and** the request carries a matching `x-koya-test-token` header — all three, every time. |
-| `DISCORD_*_WEBHOOK_URL` | Best-effort, optional. A missing webhook is a silent no-op; Discord is a transparency surface, never workflow authority. |
+| `PRODUCTION_AI_PROVIDER` / `PRODUCTION_AI_MODEL` | The model a request uses when it does not pick its own at intake. |
+
 
 ## Tests
 

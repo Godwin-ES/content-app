@@ -5,7 +5,6 @@ import { DomainError } from "@/lib/domain/errors";
 import { bestEffort } from "@/lib/notifications/action-error";
 import { notifyPackageApproved } from "@/lib/notifications/service";
 import { approvePackage } from "@/lib/repositories/approvals";
-import { assertNoInjectedPersistenceFailure } from "@/lib/test-support/failure-injection";
 
 type PackageApprovalRow = Database["public"]["Tables"]["package_approvals"]["Row"];
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
@@ -50,7 +49,6 @@ export async function approveCurrentPackage(
     throw new DomainError("INVALID_STATE", "approval", "This request has no package to approve.");
   }
 
-  await assertNoInjectedPersistenceFailure("approval_persistence_failure", "approval");
   const approval = await approvePackage(supabase, requestId, request.current_package_id);
   await bestEffort(() => notifyPackageApproved({ requestId, topic: request.topic }));
   return approval;
