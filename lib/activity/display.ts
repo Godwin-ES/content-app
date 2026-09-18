@@ -33,6 +33,8 @@ const SHOWN_EVENT_TYPES = new Set([
   "article_manually_edited",
   "article_targeted_revision_applied",
   "channel_manually_edited",
+  "primary_keyword_changed",
+  "cta_changed",
   // Selections and decisions
   "source_set_confirmed",
   "article_selected",

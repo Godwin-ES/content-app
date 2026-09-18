@@ -18,6 +18,8 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
   const [audience, setAudience] = useState("");
   const [objective, setObjective] = useState("");
   const [tone, setTone] = useState("");
+  const [primaryKeyword, setPrimaryKeyword] = useState("");
+  const [cta, setCta] = useState("");
   const [aiModelChoice, setAiModelChoice] = useState<AIModelChoice>("gemini");
   const [files, setFiles] = useState<File[]>([]);
   const [urls, setUrls] = useState<string[]>([]);
@@ -38,7 +40,15 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
         </p>
       </div>
 
-      <ResolvedDefaultsCard audience={audience} objective={objective} tone={tone} materialCount={files.length} urlCount={urls.length} />
+      <ResolvedDefaultsCard
+        audience={audience}
+        objective={objective}
+        tone={tone}
+        primaryKeyword={primaryKeyword}
+        cta={cta}
+        materialCount={files.length}
+        urlCount={urls.length}
+      />
 
       {testModeEnabled ? (
         <div className="rounded-lg border border-dashed p-4">
@@ -71,6 +81,32 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
             <div className="flex flex-col gap-2">
               <Label htmlFor="tone">Tone</Label>
               <Input id="tone" name="tone" value={tone} onChange={(e) => setTone(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              <Label htmlFor="primaryKeyword">Primary keyword</Label>
+              <Input
+                id="primaryKeyword"
+                name="primaryKeyword"
+                value={primaryKeyword}
+                onChange={(e) => setPrimaryKeyword(e.target.value)}
+                placeholder="Derived from research if left blank"
+              />
+              <p className="text-sm text-muted-foreground">
+                The term the article should rank for. Research, the content plan and the SEO checks all work from it.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              <Label htmlFor="cta">Call to action</Label>
+              <Input
+                id="cta"
+                name="cta"
+                value={cta}
+                onChange={(e) => setCta(e.target.value)}
+                placeholder="Derived from the article if left blank"
+              />
+              <p className="text-sm text-muted-foreground">
+                What you want a reader to do next. Used by the article and every channel asset.
+              </p>
             </div>
             <IntakeAttachments
               files={files}

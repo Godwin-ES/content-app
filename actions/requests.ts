@@ -1,9 +1,16 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireContentManager } from "@/lib/auth/guards";
-import { createContentRequest, deleteRequest } from "@/lib/repositories/requests";
+import {
+  createContentRequest,
+  deleteRequest,
+  setRequestPrimaryKeyword,
+  setRequestCta,
+  setSuppliedSourcesOnly,
+} from "@/lib/repositories/requests";
 import { uploadSupportingMaterial } from "@/lib/materials/service";
 import { addPendingSourceUrl } from "@/lib/research/service";
 import { parseUserSuppliedUrl } from "@/lib/research/url";
@@ -20,18 +27,22 @@ export async function createContentRequestAction(
   try {
     const user = await requireContentManager(supabase);
 
-    // CTA, primary keyword, and additional instructions are no longer
-    // collected at intake (Phase 1 scope reduction): CTA and primary
-    // keyword are always AI-derived, and additional instructions was
-    // dropped as an intake concept entirely. Their underlying resolution
-    // logic (lib/domain/defaults.ts) already treats them as optional, so
-    // simply never reading them from formData here is enough — a request
-    // can never carry a supplied value for any of the three again.
+    // Primary keyword and CTA are optional intake context again. Both are
+    // still derived when left blank — the keyword from the research plan,
+    // the CTA by the writer — but someone who is targeting a specific
+    // keyword or has a campaign CTA to hit had no way to say so, and
+    // steering it afterwards meant regenerating work that was already
+    // written around the wrong one.
+    //
+    // Additional instructions stays out: it was dropped as an intake
+    // concept entirely, not merely hidden.
     const rawInput = {
       topic: String(formData.get("topic") ?? ""),
       audience: emptyToUndefined(formData.get("audience")),
       objective: emptyToUndefined(formData.get("objective")),
       tone: emptyToUndefined(formData.get("tone")),
+      primaryKeyword: emptyToUndefined(formData.get("primaryKeyword")),
+      cta: emptyToUndefined(formData.get("cta")),
       sourceUrls: [],
     };
 
@@ -132,27 +143,59 @@ export async function deleteRequestAction(requestId: string): Promise<ActionResu
  * decided before the Content Manager had seen a single source, and it is
  * only changeable while the request is still a draft — once research has
  * run, the source set it produced is what the rest of the pipeline is
- * built on.
+ * built on. The draft check lives in the RPC, not here, so it holds
+ * regardless of which caller reaches it.
  */
 export async function setSuppliedSourcesOnlyAction(requestId: string, value: boolean): Promise<ActionResult<null>> {
   const supabase = await createSupabaseServerClient();
 
   try {
     await requireContentManager(supabase);
+    await setSuppliedSourcesOnly(supabase, requestId, value);
+    revalidatePath(`/requests/${requestId}`);
+    return { ok: true, data: null };
+  } catch (error) {
+    const actionError = await toLoggedActionError(error, "update_request", { requestId });
+    return { ok: false, error: actionError };
+  }
+}
 
-    const { data: request, error: readError } = await supabase
-      .from("content_requests")
-      .select("status")
-      .eq("id", requestId)
-      .single();
-    if (readError || !request) throw readError ?? new DomainError("NOT_FOUND", "update_request", "Request not found.");
-    if (request.status !== "draft") {
-      throw new DomainError("INVALID_STATE", "update_request", "Research has already started, so this can no longer be changed.");
-    }
+/**
+ * Changes the keyword the article targets. Editable on the Research tab
+ * because that is where the keyword's consequences are visible — it steers
+ * the search queries, the content plan, and the deterministic SEO checks —
+ * and because before this the only way to correct a derived keyword was to
+ * throw the request away and start again.
+ */
+export async function setPrimaryKeywordAction(requestId: string, primaryKeyword: string): Promise<ActionResult<null>> {
+  const supabase = await createSupabaseServerClient();
 
-    const { error } = await supabase.from("content_requests").update({ supplied_sources_only: value }).eq("id", requestId);
-    if (error) throw error;
+  try {
+    await requireContentManager(supabase);
+    await setRequestPrimaryKeyword(supabase, requestId, primaryKeyword.trim() || null);
+    revalidatePath(`/requests/${requestId}`);
+    return { ok: true, data: null };
+  } catch (error) {
+    const actionError = await toLoggedActionError(error, "update_request", { requestId });
+    return { ok: false, error: actionError };
+  }
+}
 
+/**
+ * Changes the call to action every channel asset adapts. Editable on the
+ * Channels tab, where the posts that carry it are.
+ *
+ * Changing it does not rewrite anything already generated — the existing
+ * assets keep the CTA they were written with until they are regenerated,
+ * which is the same rule the rest of the pipeline follows.
+ */
+export async function setCtaAction(requestId: string, cta: string): Promise<ActionResult<null>> {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    await requireContentManager(supabase);
+    await setRequestCta(supabase, requestId, cta.trim() || null);
+    revalidatePath(`/requests/${requestId}`);
     return { ok: true, data: null };
   } catch (error) {
     const actionError = await toLoggedActionError(error, "update_request", { requestId });

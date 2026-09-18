@@ -1589,6 +1589,114 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_request_cta: {
+        Args: { p_cta: string; p_request_id: string }
+        Returns: {
+          additional_instructions: string | null
+          created_at: string
+          current_package_id: string | null
+          current_plan_id: string | null
+          current_source_set_id: string | null
+          id: string
+          owner_id: string
+          publication_date: string | null
+          resolved_audience: string
+          resolved_cta: string | null
+          resolved_objective: string
+          resolved_primary_keyword: string | null
+          resolved_tone: string
+          selected_article_version_id: string | null
+          source_urls: Json
+          status: string
+          supplied_audience: string | null
+          supplied_cta: string | null
+          supplied_objective: string | null
+          supplied_primary_keyword: string | null
+          supplied_sources_only: boolean
+          supplied_tone: string | null
+          test_model_choice: string | null
+          topic: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "content_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_request_primary_keyword: {
+        Args: { p_primary_keyword: string; p_request_id: string }
+        Returns: {
+          additional_instructions: string | null
+          created_at: string
+          current_package_id: string | null
+          current_plan_id: string | null
+          current_source_set_id: string | null
+          id: string
+          owner_id: string
+          publication_date: string | null
+          resolved_audience: string
+          resolved_cta: string | null
+          resolved_objective: string
+          resolved_primary_keyword: string | null
+          resolved_tone: string
+          selected_article_version_id: string | null
+          source_urls: Json
+          status: string
+          supplied_audience: string | null
+          supplied_cta: string | null
+          supplied_objective: string | null
+          supplied_primary_keyword: string | null
+          supplied_sources_only: boolean
+          supplied_tone: string | null
+          test_model_choice: string | null
+          topic: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "content_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_supplied_sources_only: {
+        Args: { p_request_id: string; p_value: boolean }
+        Returns: {
+          additional_instructions: string | null
+          created_at: string
+          current_package_id: string | null
+          current_plan_id: string | null
+          current_source_set_id: string | null
+          id: string
+          owner_id: string
+          publication_date: string | null
+          resolved_audience: string
+          resolved_cta: string | null
+          resolved_objective: string
+          resolved_primary_keyword: string | null
+          resolved_tone: string
+          selected_article_version_id: string | null
+          source_urls: Json
+          status: string
+          supplied_audience: string | null
+          supplied_cta: string | null
+          supplied_objective: string | null
+          supplied_primary_keyword: string | null
+          supplied_sources_only: boolean
+          supplied_tone: string | null
+          test_model_choice: string | null
+          topic: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "content_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       source_request_id: { Args: { p_source_id: string }; Returns: string }
       submit_package_for_review: {
         Args: { p_package_id: string; p_request_id: string }

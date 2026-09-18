@@ -153,6 +153,12 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   });
   const nextAction = deriveNextAction(snapshot);
 
+  // Request-level settings (primary keyword, CTA) stay editable right up to
+  // submission; once a package is under review or approved, what it was
+  // written to target is part of what the Reviewer judged. The RPCs enforce
+  // the same rule, so this only decides whether to offer the control.
+  const canEditSettings = ["draft", "source_review", "content_development", "changes_requested"].includes(request.status);
+
   const overviewContent = (
     <>
       <RequestStepper nextAction={nextAction} />
@@ -192,6 +198,8 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       decisionsBySource={decisionsBySource}
       conflicts={conflicts}
       suppliedSourcesOnly={request.supplied_sources_only}
+      primaryKeyword={request.resolved_primary_keyword}
+      canEditSettings={canEditSettings}
     />
   );
 
@@ -229,6 +237,8 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       evaluationsByArtifact={channelEvaluationsByArtifact}
       versionsByArtifact={Object.fromEntries(channelAllVersionsEntries)}
       canGenerate={request.status === "content_development"}
+      cta={request.resolved_cta}
+      canEditSettings={canEditSettings}
       />
     </>
   ) : (

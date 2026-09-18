@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { startResearchAction } from "@/actions/research";
-import { setSuppliedSourcesOnlyAction } from "@/actions/requests";
+import { setSuppliedSourcesOnlyAction, setPrimaryKeywordAction } from "@/actions/requests";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EmptyState } from "@/components/shared/empty-state";
+import { EditableSetting } from "@/components/shared/editable-setting";
 import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
 import { SourceCard } from "@/components/research/source-card";
 import { ResearchProgress, type ResearchProgressSignals } from "@/components/research/research-progress";
@@ -26,6 +27,8 @@ interface ResearchTabProps {
   decisionsBySource: Record<string, "accepted" | "excluded" | null>;
   conflicts: SourceConflictRow[];
   suppliedSourcesOnly: boolean;
+  primaryKeyword: string | null;
+  canEditSettings: boolean;
 }
 
 /**
@@ -37,7 +40,17 @@ interface ResearchTabProps {
  * "don't let two things mutate shared state at once" pattern week-3's
  * proposal workspace already uses for section edit/regenerate.
  */
-export function ResearchTab({ requestId, status, sources, evidenceBySource, decisionsBySource, conflicts, suppliedSourcesOnly }: ResearchTabProps) {
+export function ResearchTab({
+  requestId,
+  status,
+  sources,
+  evidenceBySource,
+  decisionsBySource,
+  conflicts,
+  suppliedSourcesOnly,
+  primaryKeyword,
+  canEditSettings,
+}: ResearchTabProps) {
   const [busyCount, setBusyCount] = useState(0);
   const [suppliedOnly, setSuppliedOnly] = useState(suppliedSourcesOnly);
   const [isSavingScope, setIsSavingScope] = useState(false);
@@ -126,6 +139,21 @@ export function ResearchTab({ requestId, status, sources, evidenceBySource, deci
 
   return (
     <div className="flex flex-col gap-6">
+      {/* The keyword lives here because this is where its consequences are:
+          it steers the search queries, the content plan, and the SEO
+          checks. Left blank at intake it is derived from the research plan,
+          and before this there was no way to correct that derivation short
+          of starting the request over. */}
+      <EditableSetting
+        label="Primary keyword"
+        description="The term the article should rank for. Research, the content plan and the SEO checks all work from it."
+        value={primaryKeyword}
+        derivedLabel="Not set — it will be derived from the research plan"
+        placeholder="e.g. AI recruiting agents"
+        onSave={(next) => setPrimaryKeywordAction(requestId, next)}
+        disabled={locked || !canEditSettings}
+      />
+
       {status === "draft" ? (
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <h3 className="text-sm font-medium">Research</h3>

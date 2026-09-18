@@ -128,3 +128,50 @@ export async function deleteRequest(supabase: SupabaseClient<Database>, requestI
   // clicked Delete, and a bare PostgrestError would hide them.
   if (error) throwFromRpcError(error, "delete_request");
 }
+
+/**
+ * Sets (or clears) the keyword the article is written to rank for.
+ *
+ * Clearing it is not the same as leaving it alone: both the supplied and
+ * the resolved column go back to null, which hands the field back to the
+ * research plan to derive. The RPC re-checks ownership and refuses once
+ * the request is under review — changing what a package was written to
+ * target while a Reviewer is judging it would make their decision
+ * meaningless.
+ */
+export async function setRequestPrimaryKeyword(
+  supabase: SupabaseClient<Database>,
+  requestId: string,
+  primaryKeyword: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc("set_request_primary_keyword", {
+    p_request_id: requestId,
+    p_primary_keyword: primaryKeyword ?? "",
+  });
+  if (error) throwFromRpcError(error, "set_request_primary_keyword");
+}
+
+/** Sets (or clears) the CTA every channel asset adapts. Same rules as above. */
+export async function setRequestCta(
+  supabase: SupabaseClient<Database>,
+  requestId: string,
+  cta: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc("set_request_cta", { p_request_id: requestId, p_cta: cta ?? "" });
+  if (error) throwFromRpcError(error, "set_request_cta");
+}
+
+/**
+ * Whether research stays strictly inside the supplied materials and URLs.
+ * Draft-only, enforced by the RPC — content_requests has no UPDATE policy,
+ * so a plain `.update()` here is silently narrowed to zero rows by RLS and
+ * reports success without changing anything.
+ */
+export async function setSuppliedSourcesOnly(
+  supabase: SupabaseClient<Database>,
+  requestId: string,
+  value: boolean
+): Promise<void> {
+  const { error } = await supabase.rpc("set_supplied_sources_only", { p_request_id: requestId, p_value: value });
+  if (error) throwFromRpcError(error, "set_supplied_sources_only");
+}
