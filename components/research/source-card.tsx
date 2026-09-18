@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SourceEvidenceDrawer } from "@/components/research/source-evidence-drawer";
 import { LocalDateTime } from "@/components/shared/local-date-time";
 import type { Database } from "@/lib/supabase/database.types";
+import { cn } from "@/lib/utils";
 
 type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"];
 type SourceEvidenceRow = Database["public"]["Tables"]["source_evidence"]["Row"];
@@ -32,6 +33,12 @@ interface SourceCardProps {
   locked?: boolean;
   /** Reports when this card's own action starts/ends, so the parent can lock every other control on the tab while it runs. */
   onBusyChange?: (busy: boolean) => void;
+  /**
+   * Excluded from the current research scope — a web result while
+   * "supplied only" is ticked. Dimmed and undecidable rather than hidden:
+   * it is real history, and it comes back the moment the box is unticked.
+   */
+  outOfScope?: boolean;
 }
 
 /**
@@ -54,6 +61,7 @@ export function SourceCard({
   showDecisionControls = true,
   locked = false,
   onBusyChange,
+  outOfScope = false,
 }: SourceCardProps) {
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"accept" | "exclude" | "start" | "remove" | null>(null);
@@ -102,11 +110,11 @@ export function SourceCard({
     });
   }
 
-  const disabled = isPending || locked;
+  const disabled = isPending || locked || outOfScope;
   const displayTitle = source.title ?? source.original_url ?? "Untitled";
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border p-4">
+    <div className={cn("flex flex-col gap-2 rounded-lg border p-4", outOfScope && "opacity-55")}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           {source.original_url ? (
@@ -132,6 +140,7 @@ export function SourceCard({
           </span>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          {outOfScope ? <Badge variant="secondary">Outside this scope</Badge> : null}
           {decision ? <Badge variant={decision === "accepted" ? "default" : "secondary"}>{decision}</Badge> : null}
           {hasConflict ? <Badge variant="destructive">Conflict</Badge> : null}
           {publishedYearsAgo !== null && publishedYearsAgo >= 2 ? <Badge variant="outline">Freshness warning</Badge> : null}

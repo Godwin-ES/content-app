@@ -36,6 +36,14 @@ Three tabs: **In Progress**, **Published**, and **Deleted**. Deleting is a bin �
 
 The **Schedule** nav page shows everything queued across every request, grouped by when it goes out, and is where it is rescheduled or cancelled. It was called Publishing Queue and was read-only, which made the one page named after the queue the one place the queue could not be managed.
 
+### Research
+
+Sources can be added at any point before the source set is confirmed — a link or a file, from the Research tab, not only at intake. Each one lands as `pending` and is analysed on the next run, or on its own from its card.
+
+"Only use the supplied materials" stays changeable for as long as the source set is open, because supplied-only research that finds nothing relevant is the likeliest dead end there is and unticking it is the way out. While it is ticked, web results already found are dimmed and undecidable rather than hidden — they are real history and they come back the moment it is unticked.
+
+Research can run again when a source has been added since the last run, or when the scope has been widened to allow a web search. Nothing else re-opens it: the same queries over the same scope mostly re-fetch the same pages. Re-runs are additive and deduplicated by canonical URL, so a supplied link the web search also happens to find is never added twice.
+
 ### Notifications
 
 Settings takes a Discord webhook URL, and every notification this app sends goes there — there is no deployment-wide webhook, because every one of them is about somebody's own content. It is resolved from the request's owner, or from whoever is signed in when there is no request to attribute it to. The URL is validated against Discord's webhook endpoint in both the action and the RPC, because the server makes an outbound POST to whatever is stored.

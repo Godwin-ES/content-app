@@ -51,6 +51,16 @@ export function AutoModePanel({
 
   const [stopAfter, setStopAfter] = useState<PipelineStage>(remainingStages.at(-1) ?? "Package");
   const [log, setLog] = useState<LogEntry[]>([]);
+  /**
+   * Whether the last run ended somewhere a person had to intervene.
+   *
+   * Resuming needs no special machinery — every step re-derives what to do
+   * from the request's current state, so picking up after you have added a
+   * source or decided some of them yourself is just running again. What it
+   * needed was a button that says so, instead of one labelled "Run" that
+   * looks like it would start over.
+   */
+  const [stoppedForInput, setStoppedForInput] = useState(false);
   const { running, setRunning } = useAutoMode();
   const [error, setError] = useState<string | null>(null);
   /**
@@ -84,6 +94,7 @@ export function AutoModePanel({
   async function run() {
     setRunning(true);
     setStopRequested(false);
+    setStoppedForInput(false);
     setError(null);
     setLog([]);
 
@@ -103,6 +114,7 @@ export function AutoModePanel({
         }
 
         setLog((prev) => [...prev, { status: result.data.status, message: result.data.message }]);
+        if (result.data.status === "blocked") setStoppedForInput(true);
         if (result.data.status !== "advanced") break;
       }
     } catch (error) {
@@ -155,7 +167,7 @@ export function AutoModePanel({
             </Button>
           ) : (
             <Button type="button" size="sm" onClick={run} disabled={!canRun}>
-              Run
+              {stoppedForInput ? "Continue" : "Run"}
             </Button>
           )}
         </div>
@@ -190,6 +202,13 @@ export function AutoModePanel({
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 aria-hidden className="size-4 animate-spin" />
           Working on the next step…
+        </p>
+      ) : null}
+
+      {stoppedForInput && !running ? (
+        <p className="text-sm text-muted-foreground">
+          It stopped for you to decide something. Sort it out above, then Continue — it picks up from wherever the request is now,
+          and leaves any source you have already accepted or excluded exactly as you left it.
         </p>
       ) : null}
 

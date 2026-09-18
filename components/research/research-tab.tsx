@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import type { ResearchRunAvailability } from "@/lib/research/service";
 import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
 import { SourceCard } from "@/components/research/source-card";
+import { AddSources } from "@/components/research/add-sources";
 import { ResearchProgress, type ResearchProgressSignals } from "@/components/research/research-progress";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useAutoMode } from "@/components/requests/auto-mode-context";
@@ -65,6 +66,15 @@ export function ResearchTab({
   // stepping, every control here is one that would collide with it.
   const { running: autoModeRunning } = useAutoMode();
   const locked = busyCount > 0 || autoModeRunning;
+  const canChangeScope = status === "draft" || status === "source_review";
+
+  /**
+   * A researched source is out of scope while "supplied only" is ticked:
+   * it stays on screen as history, but it is not what the plan would be
+   * built from, and showing it at full strength beside the ones that are
+   * invites deciding on something that does not count.
+   */
+  const outOfScope = (source: ResearchSourceRow) => suppliedOnly && source.origin === "researched";
   const hasSuppliedSources = sources.some((source) => source.origin !== "researched");
 
   async function updateScope(next: boolean) {
@@ -76,7 +86,13 @@ export function ResearchTab({
     if (!result.ok) {
       setSuppliedOnly(!next);
       setError(result.error.message);
+      return;
     }
+    // Whether research can run again is decided on the server from this
+    // very flag, so the button and its hint are stale until the page
+    // re-renders. Without this, unticking made the out-of-scope sources
+    // reappear while the button still said "allow a web search".
+    router.refresh();
   }
 
   function startResearch() {
@@ -156,11 +172,7 @@ export function ResearchTab({
             <ResearchProgress signals={progressSignals} />
           ) : (
             <p className="text-sm text-muted-foreground">
-              {!runAvailability.canRun
-                ? runAvailability.reason
-                : runAvailability.kind === "rerun"
-                  ? "The primary keyword has changed since the last run. Searching again adds anything new it finds; sources you already have are left exactly as they are."
-                  : "Research runs over the materials and URLs supplied with this request, plus a general web search of the topic."}
+              {runAvailability.canRun ? runAvailability.detail : runAvailability.reason}
             </p>
           )}
           {error ? (
@@ -168,16 +180,27 @@ export function ResearchTab({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
-          {hasSuppliedSources && status === "draft" ? (
-            <label className="flex w-fit items-center gap-2 text-sm">
+          {/* Changeable until the source set is confirmed, not only while
+              the request is a draft. Supplied-only research that finds
+              nothing relevant is the most likely dead end there is, and
+              unticking this is the way out of it. */}
+          {hasSuppliedSources && canChangeScope ? (
+            <label className="flex w-fit items-start gap-2 text-sm">
               <input
                 type="checkbox"
-                className="size-4"
+                className="mt-0.5 size-4"
                 checked={suppliedOnly}
                 disabled={locked || isSavingScope}
                 onChange={(e) => updateScope(e.target.checked)}
               />
-              Only use the supplied materials and URLs — skip general web research
+              <span>
+                Only use the supplied materials and URLs — skip general web research
+                {suppliedOnly && status === "source_review" ? (
+                  <span className="block text-muted-foreground">
+                    Untick to let research look beyond them.
+                  </span>
+                ) : null}
+              </span>
             </label>
           ) : null}
 
@@ -200,6 +223,8 @@ export function ResearchTab({
         </div>
       }
 
+      {canChangeScope ? <AddSources requestId={requestId} disabled={locked} /> : null}
+
       {sources.length === 0 ? (
         <EmptyState title="No sources yet" description="Start research to gather sources for this topic." />
       ) : status === "source_review" ? (
@@ -211,6 +236,7 @@ export function ResearchTab({
           conflicts={conflicts}
           locked={locked}
           onBusyChange={handleBusyChange}
+          isOutOfScope={outOfScope}
         />
       ) : (
         <div className="flex flex-col gap-3">
@@ -225,6 +251,7 @@ export function ResearchTab({
               showDecisionControls={false}
               locked={locked}
               onBusyChange={handleBusyChange}
+              outOfScope={outOfScope(source)}
             />
           ))}
         </div>

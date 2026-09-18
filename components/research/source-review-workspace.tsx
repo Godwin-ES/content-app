@@ -22,6 +22,8 @@ interface SourceReviewWorkspaceProps {
   conflicts: SourceConflictRow[];
   locked?: boolean;
   onBusyChange?: (busy: boolean) => void;
+  /** Which sources are outside the current research scope — dimmed, not hidden. */
+  isOutOfScope?: (source: ResearchSourceRow) => boolean;
 }
 
 /**
@@ -38,6 +40,7 @@ export function SourceReviewWorkspace({
   conflicts,
   locked = false,
   onBusyChange,
+  isOutOfScope,
 }: SourceReviewWorkspaceProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -96,6 +99,7 @@ export function SourceReviewWorkspace({
             hasConflict={conflictedSourceIds.has(source.id)}
             locked={locked}
             onBusyChange={onBusyChange}
+            outOfScope={isOutOfScope?.(source) ?? false}
           />
         ))}
       </div>
