@@ -193,7 +193,7 @@ export async function runAutoStep(
   // A stage beyond the configured stop is where the run ends, not an error.
   const stopIndex = PIPELINE_STAGES.indexOf(stopAfter);
   if (PIPELINE_STAGES.indexOf(stage) > stopIndex) {
-    return finished(`Stopped after ${stopAfter}, as configured. Next would have been: ${nextAction.label}.`);
+    return finished(`Stopped after ${stopAfter}, as configured. Next up; ${nextAction.label}.`);
   }
 
   switch (nextAction.key) {
