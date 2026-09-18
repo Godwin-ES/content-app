@@ -7,6 +7,7 @@ import { requireSignedIn } from "@/lib/auth/guards";
 import {
   createContentRequest,
   deleteRequest,
+  restoreRequest,
   setRequestPrimaryKeyword,
   setRequestCta,
   setSuppliedSourcesOnly,
@@ -118,10 +119,9 @@ function emptyToUndefined(value: FormDataEntryValue | null): string | undefined 
 }
 
 /**
- * Deletes a request outright. `delete_request` re-checks ownership and
- * refuses once a decision has been recorded, so this is a real
- * server-enforced rule rather than a UI affordance that happens to be
- * hidden at the right moments.
+ * Moves a request to the bin, reversibly. `delete_request` re-checks
+ * ownership, cancels any queued publishing items, and sweeps anything past
+ * the 30-day window while it is there.
  */
 export async function deleteRequestAction(requestId: string): Promise<ActionResult<null>> {
   const supabase = await createSupabaseServerClient();
@@ -129,6 +129,7 @@ export async function deleteRequestAction(requestId: string): Promise<ActionResu
   try {
     await requireSignedIn(supabase);
     await deleteRequest(supabase, requestId);
+    revalidatePath("/dashboard");
     return { ok: true, data: null };
   } catch (error) {
     const actionError = await toLoggedActionError(error, "delete_request", { requestId });
@@ -136,16 +137,21 @@ export async function deleteRequestAction(requestId: string): Promise<ActionResu
   }
 }
 
-/**
- * Whether research should stay strictly inside the supplied materials and
- * URLs instead of also searching the web. It lives with the sources it
- * governs on the Research tab rather than at intake, where it had to be
- * decided before the Content Manager had seen a single source, and it is
- * only changeable while the request is still a draft — once research has
- * run, the source set it produced is what the rest of the pipeline is
- * built on. The draft check lives in the RPC, not here, so it holds
- * regardless of which caller reaches it.
- */
+/** Brings a request back out of the bin. */
+export async function restoreRequestAction(requestId: string): Promise<ActionResult<null>> {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    await requireSignedIn(supabase);
+    await restoreRequest(supabase, requestId);
+    revalidatePath("/dashboard");
+    return { ok: true, data: null };
+  } catch (error) {
+    const actionError = await toLoggedActionError(error, "restore_request", { requestId });
+    return { ok: false, error: actionError };
+  }
+}
+
 export async function setSuppliedSourcesOnlyAction(requestId: string, value: boolean): Promise<ActionResult<null>> {
   const supabase = await createSupabaseServerClient();
 

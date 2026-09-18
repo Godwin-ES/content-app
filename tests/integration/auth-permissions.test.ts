@@ -90,9 +90,9 @@ describe.skipIf(!hasCredentials)("auth guards and RLS permission boundaries (hos
 
     it("hides a request from every account except its owner, at any status", async () => {
       // Previously a request pending approval was visible to any reviewer.
-      // With one role per account, submitting for approval no longer opens
-      // a request up to anyone — the person deciding on it is its owner.
-      for (const status of ["content_development", "pending_approval", "approved"] as const) {
+      // With one role per account there is no status that opens a request
+      // up to anyone else — the person who approves it is its owner.
+      for (const status of ["draft", "content_development", "approved"] as const) {
         const request = await insertRequest(status);
 
         const { data: strangerView } = await stranger.client.from("content_requests").select().eq("id", request.id);
@@ -118,13 +118,13 @@ describe.skipIf(!hasCredentials)("auth guards and RLS permission boundaries (hos
     });
   });
 
-  describe("approval_reviews RLS", () => {
-    it("rejects inserting an approval decision directly (no insert policy exists at all)", async () => {
+  describe("package_approvals RLS", () => {
+    it("rejects inserting an approval directly (no insert policy exists at all)", async () => {
       const request = await admin
         .from("content_requests")
         .insert({
           owner_id: owner.userId,
-          topic: "For approval_reviews RLS test",
+          topic: "For package_approvals RLS test",
           resolved_audience: "HR leaders",
           resolved_objective: "Educate and build authority",
           resolved_tone: "Professional",
@@ -140,10 +140,10 @@ describe.skipIf(!hasCredentials)("auth guards and RLS permission boundaries (hos
       // No table has zero rows to reference, and no insert policy grants
       // access regardless — this must be rejected by RLS before it could
       // ever reach a foreign-key check.
-      const { error } = await owner.client.from("approval_reviews").insert({
+      const { error } = await owner.client.from("package_approvals").insert({
         request_id: request.id,
         package_id: "00000000-0000-0000-0000-000000000000",
-        submitted_by: owner.userId,
+        approved_by: owner.userId,
       });
       expect(error).not.toBeNull();
     });

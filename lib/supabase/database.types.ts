@@ -79,74 +79,6 @@ export type Database = {
           },
         ]
       }
-      approval_reviews: {
-        Row: {
-          comment: string | null
-          created_at: string
-          decided_at: string | null
-          decided_by: string | null
-          id: string
-          package_id: string
-          request_id: string
-          status: string
-          submitted_at: string
-          submitted_by: string
-        }
-        Insert: {
-          comment?: string | null
-          created_at?: string
-          decided_at?: string | null
-          decided_by?: string | null
-          id?: string
-          package_id: string
-          request_id: string
-          status?: string
-          submitted_at?: string
-          submitted_by: string
-        }
-        Update: {
-          comment?: string | null
-          created_at?: string
-          decided_at?: string | null
-          decided_by?: string | null
-          id?: string
-          package_id?: string
-          request_id?: string
-          status?: string
-          submitted_at?: string
-          submitted_by?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "approval_reviews_decided_by_fkey"
-            columns: ["decided_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "approval_reviews_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "content_packages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "approval_reviews_request_id_fkey"
-            columns: ["request_id"]
-            isOneToOne: false
-            referencedRelation: "content_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "approval_reviews_submitted_by_fkey"
-            columns: ["submitted_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
       artifact_versions: {
         Row: {
           artifact_id: string
@@ -546,6 +478,7 @@ export type Database = {
           current_package_id: string | null
           current_plan_id: string | null
           current_source_set_id: string | null
+          deleted_at: string | null
           id: string
           owner_id: string
           publication_date: string | null
@@ -573,6 +506,7 @@ export type Database = {
           current_package_id?: string | null
           current_plan_id?: string | null
           current_source_set_id?: string | null
+          deleted_at?: string | null
           id?: string
           owner_id: string
           publication_date?: string | null
@@ -600,6 +534,7 @@ export type Database = {
           current_package_id?: string | null
           current_plan_id?: string | null
           current_source_set_id?: string | null
+          deleted_at?: string | null
           id?: string
           owner_id?: string
           publication_date?: string | null
@@ -880,6 +815,52 @@ export type Database = {
           },
           {
             foreignKeyName: "operation_runs_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "content_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      package_approvals: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          id: string
+          package_id: string
+          request_id: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          id?: string
+          package_id: string
+          request_id: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          id?: string
+          package_id?: string
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_reviews_decided_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "approval_reviews_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "content_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_reviews_request_id_fkey"
             columns: ["request_id"]
             isOneToOne: false
             referencedRelation: "content_requests"
@@ -1413,6 +1394,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_package: {
+        Args: { p_package_id: string; p_request_id: string }
+        Returns: {
+          approved_at: string
+          approved_by: string
+          id: string
+          package_id: string
+          request_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "package_approvals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       artifact_request_id: { Args: { p_artifact_id: string }; Returns: string }
       artifact_version_request_id: {
         Args: { p_artifact_version_id: string }
@@ -1559,34 +1556,11 @@ export type Database = {
         }
       }
       current_role_is: { Args: { target_role: string }; Returns: boolean }
-      decide_package_review: {
-        Args: {
-          p_comment?: string
-          p_decision: string
-          p_package_id: string
-          p_review_id: string
-        }
-        Returns: {
-          comment: string | null
-          created_at: string
-          decided_at: string | null
-          decided_by: string | null
-          id: string
-          package_id: string
-          request_id: string
-          status: string
-          submitted_at: string
-          submitted_by: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "approval_reviews"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       delete_request: { Args: { p_request_id: string }; Returns: undefined }
+      deleted_request_retention: { Args: never; Returns: string }
       package_request_id: { Args: { p_package_id: string }; Returns: string }
+      purge_expired_requests: { Args: never; Returns: string[] }
+      purge_request: { Args: { p_request_id: string }; Returns: string[] }
       queue_item_request_id: {
         Args: { p_queue_item_id: string }
         Returns: string
@@ -1626,6 +1600,43 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      restore_request: {
+        Args: { p_request_id: string }
+        Returns: {
+          additional_instructions: string | null
+          created_at: string
+          current_package_id: string | null
+          current_plan_id: string | null
+          current_source_set_id: string | null
+          deleted_at: string | null
+          id: string
+          owner_id: string
+          publication_date: string | null
+          resolved_audience: string
+          resolved_cta: string | null
+          resolved_objective: string
+          resolved_primary_keyword: string | null
+          resolved_tone: string
+          selected_article_version_id: string | null
+          source_urls: Json
+          status: string
+          supplied_audience: string | null
+          supplied_cta: string | null
+          supplied_objective: string | null
+          supplied_primary_keyword: string | null
+          supplied_sources_only: boolean
+          supplied_tone: string | null
+          test_model_choice: string | null
+          topic: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "content_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_display_name: {
         Args: { p_display_name: string }
         Returns: {
@@ -1649,6 +1660,7 @@ export type Database = {
           current_package_id: string | null
           current_plan_id: string | null
           current_source_set_id: string | null
+          deleted_at: string | null
           id: string
           owner_id: string
           publication_date: string | null
@@ -1685,6 +1697,7 @@ export type Database = {
           current_package_id: string | null
           current_plan_id: string | null
           current_source_set_id: string | null
+          deleted_at: string | null
           id: string
           owner_id: string
           publication_date: string | null
@@ -1721,6 +1734,7 @@ export type Database = {
           current_package_id: string | null
           current_plan_id: string | null
           current_source_set_id: string | null
+          deleted_at: string | null
           id: string
           owner_id: string
           publication_date: string | null
@@ -1750,48 +1764,6 @@ export type Database = {
         }
       }
       source_request_id: { Args: { p_source_id: string }; Returns: string }
-      submit_package_for_review: {
-        Args: { p_package_id: string; p_request_id: string }
-        Returns: {
-          comment: string | null
-          created_at: string
-          decided_at: string | null
-          decided_by: string | null
-          id: string
-          package_id: string
-          request_id: string
-          status: string
-          submitted_at: string
-          submitted_by: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "approval_reviews"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      withdraw_package_review: {
-        Args: { p_review_id: string }
-        Returns: {
-          comment: string | null
-          created_at: string
-          decided_at: string | null
-          decided_by: string | null
-          id: string
-          package_id: string
-          request_id: string
-          status: string
-          submitted_at: string
-          submitted_by: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "approval_reviews"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
     }
     Enums: {
       [_ in never]: never

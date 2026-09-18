@@ -10,14 +10,15 @@ import {
 } from "@/tests/helpers/supabase-test-clients";
 import { createContentPackage } from "@/lib/packages/service";
 import { saveManualArticleRevision } from "@/lib/articles/service";
+import { approveCurrentPackage } from "@/lib/approvals/service";
+import { getLatestApproval } from "@/lib/repositories/approvals";
 import {
-  submitForApproval,
-  decideOwnPackage,
-  withdrawApproval,
-  decideApproval,
-} from "@/lib/approvals/service";
-import { submitPackageForReview } from "@/lib/repositories/approvals";
-import { deleteRequest } from "@/lib/repositories/requests";
+  deleteRequest,
+  restoreRequest,
+  listOwnedRequests,
+  listDeletedRequests,
+  sweepExpiredRequests,
+} from "@/lib/repositories/requests";
 
 function articleContent(title = "Article") {
   return {
@@ -143,197 +144,46 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     return { requestId: request!.id, articleArtifactId: article.artifactId, pkg };
   }
 
-  it("makes the exact package read-only while pending review", async () => {
-    const { requestId, articleArtifactId, pkg } = await fullyReadyRequest();
-    await submitForApproval(owner.client, requestId);
-
-    await expect(
-      saveManualArticleRevision(owner.client, articleArtifactId, articleContent("Edited while pending"), owner.userId)
-    ).rejects.toMatchObject({ code: "INVALID_STATE" });
-
-    void pkg;
-  });
-
-  it("lets the owner approve their own package — there is no one else to", async () => {
-    // decide_package_review used to refuse this outright (SELF_APPROVAL).
-    // With one account per workspace, the only person who can see a request
-    // is the one who created it, so that rule would have made approval
-    // impossible rather than safe. The gate that matters — a human
-    // deliberately deciding on a specific package version, recorded — is
-    // exactly what this asserts still happens.
+  it("approves the current package in one act, recording who and when", async () => {
     const { requestId, pkg } = await fullyReadyRequest();
-    const review = await decideOwnPackage(owner.client, requestId, "approved", null);
 
-    expect(review.package_id).toBe(pkg.id);
-    expect(review.status).toBe("approved");
-    expect(review.submitted_by).toBe(owner.userId);
-    expect(review.decided_by).toBe(owner.userId);
-    expect(review.decided_at).not.toBeNull();
+    const approval = await approveCurrentPackage(owner.client, requestId);
+    expect(approval.package_id).toBe(pkg.id);
+    expect(approval.approved_by).toBe(owner.userId);
+    expect(approval.approved_at).not.toBeNull();
 
     const { data: request } = await admin.from("content_requests").select("status").eq("id", requestId).single();
     expect(request?.status).toBe("approved");
   });
 
-  it("decides a review that is already pending instead of opening a second one", async () => {
-    const { requestId, pkg } = await fullyReadyRequest();
-    const pending = await submitForApproval(owner.client, requestId);
+  it("refuses an approval from an account that does not own the request", async () => {
+    const { requestId } = await fullyReadyRequest();
 
-    const decided = await decideOwnPackage(owner.client, requestId, "changes_requested", "Tighten the intro");
-    expect(decided.id).toBe(pending.id);
+    await expect(approveCurrentPackage(stranger.client, requestId)).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    const { data: request } = await admin.from("content_requests").select("status").eq("id", requestId).single();
+    expect(request?.status).toBe("content_development");
+  });
+
+  it("refuses a second approval, so a double-click cannot record two", async () => {
+    const { requestId } = await fullyReadyRequest();
+    await approveCurrentPackage(owner.client, requestId);
+
+    await expect(approveCurrentPackage(owner.client, requestId)).rejects.toMatchObject({ code: "INVALID_STATE" });
 
     const { count } = await admin
-      .from("approval_reviews")
+      .from("package_approvals")
       .select("id", { count: "exact", head: true })
       .eq("request_id", requestId);
     expect(count).toBe(1);
-    void pkg;
   });
 
-  it("refuses to record changes_requested with no comment", async () => {
-    const { requestId } = await fullyReadyRequest();
-    await expect(decideOwnPackage(owner.client, requestId, "changes_requested", null)).rejects.toMatchObject({
-      code: "VALIDATION_ERROR",
-    });
-  });
-
-  it("refuses a decision from an account that does not own the request", async () => {
-    const { requestId, pkg } = await fullyReadyRequest();
-    const review = await submitForApproval(owner.client, requestId);
-
-    await expect(
-      decideApproval(stranger.client, { reviewId: review.id, packageId: pkg.id, decision: "approved", comment: null })
-    ).rejects.toMatchObject({ code: "PERMISSION_DENIED" });
-  });
-
-  it("returns a withdrawn request to an editable status, so it lands back in the dashboard's In Progress", async () => {
-    const { requestId, pkg } = await fullyReadyRequest();
-    const review = await submitForApproval(owner.client, requestId);
-
-    const { data: whileSubmitted } = await admin.from("content_requests").select("status").eq("id", requestId).single();
-    expect(whileSubmitted?.status).toBe("pending_approval");
-
-    await withdrawApproval(owner.client, review.id);
-
-    // The dashboard's Withdraw submission button depends on this: a
-    // withdrawn request has to leave "Awaiting Approval" and become
-    // editable (and deletable) again rather than sitting in limbo.
-    const { data: afterWithdraw } = await admin.from("content_requests").select("status").eq("id", requestId).single();
-    expect(afterWithdraw?.status).toBe("content_development");
-    void pkg;
-  });
-
-  it("rejects a decision made against a stale (superseded) package", async () => {
-    const { requestId, pkg } = await fullyReadyRequest();
-    const review1 = await submitForApproval(owner.client, requestId);
-    await withdrawApproval(owner.client, review1.id);
-
-    // A second package version (still against the same, unedited content —
-    // creating a new package while editable is allowed even without
-    // content changes) and a second submission supersede the first.
-    const pkg2 = await createContentPackage(owner.client, requestId);
-    const review2 = await submitForApproval(owner.client, requestId);
-    expect(pkg2.id).not.toBe(pkg.id);
-
-    await expect(
-      decideApproval(owner.client, { reviewId: review2.id, packageId: pkg.id, decision: "approved", comment: null })
-    ).rejects.toMatchObject({ code: "STALE_VERSION" });
-  });
-
-  it("cannot decide a withdrawn review", async () => {
-    const { requestId, pkg } = await fullyReadyRequest();
-    const review = await submitForApproval(owner.client, requestId);
-    await withdrawApproval(owner.client, review.id);
-
-    await expect(
-      decideApproval(owner.client, { reviewId: review.id, packageId: pkg.id, decision: "approved", comment: null })
-    ).rejects.toMatchObject({ code: "INVALID_STATE" });
-  });
-
-  it("makes the request editable again on changes_requested and resubmits straight through to approval", async () => {
+  it("keeps an approved package immutable and returns the request to development on a later edit", async () => {
     const { requestId, articleArtifactId, pkg } = await fullyReadyRequest();
-    const review = await submitForApproval(owner.client, requestId);
+    await approveCurrentPackage(owner.client, requestId);
 
-    await decideApproval(owner.client, { reviewId: review.id, packageId: pkg.id, decision: "changes_requested", comment: "Fix the intro" });
-
-    const { data: afterChanges } = await admin.from("content_requests").select("status").eq("id", requestId).single();
-    expect(afterChanges?.status).toBe("changes_requested");
-
-    // Editable again: a manual edit now succeeds.
-    const edited = await saveManualArticleRevision(owner.client, articleArtifactId, articleContent("Fixed"), owner.userId);
-    expect(edited.change_type).toBe("manual_edit");
-    await passingEvaluation(edited.id);
-    await admin.from("content_requests").update({ selected_article_version_id: edited.id }).eq("id", requestId);
-
-    // Request Changes is the only route back, so resubmission has to work
-    // directly from `changes_requested` with no intermediate reopen step.
-    const pkg2 = await createContentPackage(owner.client, requestId);
-    const review2 = await submitForApproval(owner.client, requestId);
-    await decideApproval(owner.client, { reviewId: review2.id, packageId: pkg2.id, decision: "approved", comment: null });
-
-    const { data: afterApproval } = await admin.from("content_requests").select("status").eq("id", requestId).single();
-    expect(afterApproval?.status).toBe("approved");
-  });
-
-  it("allows deleting a request with generated content, but refuses once a review decision exists", async () => {
-    const { requestId, pkg } = await fullyReadyRequest();
-
-    // Well past draft, with a plan, artifacts, versions and a package —
-    // deletion has to unpick the provenance FKs that do not cascade.
-    const review = await submitPackageForReview(owner.client, requestId, pkg.id);
-    await expect(deleteRequest(owner.client, requestId)).resolves.toBeUndefined();
-
-    const { data: gone } = await admin.from("content_requests").select("id").eq("id", requestId).maybeSingle();
-    expect(gone).toBeNull();
-    void review;
-
-    // A second request that has an actual recorded decision.
-    const second = await fullyReadyRequest();
-    requestIds.push(second.requestId);
-    const secondReview = await submitPackageForReview(owner.client, second.requestId, second.pkg.id);
-    await decideApproval(owner.client, {
-      reviewId: secondReview.id,
-      packageId: second.pkg.id,
-      decision: "changes_requested",
-      comment: "Tighten the intro",
-    });
-
-    await expect(deleteRequest(owner.client, second.requestId)).rejects.toMatchObject({ code: "INVALID_STATE" });
-
-    const { data: kept } = await admin.from("content_requests").select("id").eq("id", second.requestId).maybeSingle();
-    expect(kept).not.toBeNull();
-  });
-
-  it("refuses a 'rejected' decision outright — there is only approve/changes_requested", async () => {
-    const { requestId, pkg } = await fullyReadyRequest();
-    const review = await submitForApproval(owner.client, requestId);
-
-    await expect(
-      decideApproval(owner.client, {
-        reviewId: review.id,
-        packageId: pkg.id,
-        // Cast past the narrowed ReviewDecision type on purpose: the point
-        // is that the database refuses it even if a caller bypasses TypeScript.
-        decision: "rejected" as never,
-        comment: "Not aligned",
-      })
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
-
-    const { data: unchanged } = await admin.from("content_requests").select("status").eq("id", requestId).single();
-    expect(unchanged?.status).toBe("pending_approval");
-  });
-
-  it("keeps an approved package immutable and historically correct even after a later edit", async () => {
-    const { requestId, articleArtifactId, pkg } = await fullyReadyRequest();
-    const review = await submitForApproval(owner.client, requestId);
-    await decideApproval(owner.client, { reviewId: review.id, packageId: pkg.id, decision: "approved", comment: null });
-
-    const { data: approvedRequest } = await admin.from("content_requests").select().eq("id", requestId).single();
-    expect(approvedRequest?.status).toBe("approved");
-    expect(approvedRequest?.current_package_id).toBe(pkg.id);
-
-    // Editing after approval is allowed (SYSTEM-DESIGN-NEXTJS.md §24.6): it
-    // starts a new unapproved draft and returns the request to
-    // content_development, but the already-approved package row itself
+    // Editing after approval is allowed (SYSTEM-DESIGN-NEXTJS.md §24.6):
+    // it starts a new unapproved draft, but the approved package row itself
     // must remain byte-for-byte untouched as historical truth.
     await saveManualArticleRevision(owner.client, articleArtifactId, articleContent("Post-approval edit"), owner.userId);
 
@@ -341,9 +191,138 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     expect(packageAfterEdit?.article_version_id).toBe(pkg.article_version_id);
     expect(packageAfterEdit?.snapshot_hash).toBe(pkg.snapshot_hash);
 
-    const { data: requestAfterEdit } = await admin.from("content_requests").select("current_package_id, status").eq("id", requestId).single();
+    const { data: requestAfterEdit } = await admin
+      .from("content_requests")
+      .select("current_package_id, status")
+      .eq("id", requestId)
+      .single();
     expect(requestAfterEdit?.current_package_id).toBe(pkg.id);
     expect(requestAfterEdit?.status).toBe("content_development");
+
+    // The approval stands as history even though the request moved on.
+    const approval = await getLatestApproval(owner.client, requestId);
+    expect(approval?.package_id).toBe(pkg.id);
   });
 
+  describe("the bin", () => {
+    it("moves a request out of the live list and into the bin, reversibly", async () => {
+      const { requestId } = await fullyReadyRequest();
+
+      await deleteRequest(owner.client, requestId);
+
+      expect((await listOwnedRequests(owner.client, owner.userId)).some((r) => r.id === requestId)).toBe(false);
+      expect((await listDeletedRequests(owner.client, owner.userId)).some((r) => r.id === requestId)).toBe(true);
+
+      await restoreRequest(owner.client, requestId);
+
+      expect((await listOwnedRequests(owner.client, owner.userId)).some((r) => r.id === requestId)).toBe(true);
+      expect((await listDeletedRequests(owner.client, owner.userId)).some((r) => r.id === requestId)).toBe(false);
+    });
+
+    it("deletes a request at any stage, including an approved one — nothing is lost yet", async () => {
+      const { requestId } = await fullyReadyRequest();
+      await approveCurrentPackage(owner.client, requestId);
+
+      await expect(deleteRequest(owner.client, requestId)).resolves.toBeUndefined();
+
+      const { data: stillThere } = await admin.from("content_requests").select("deleted_at").eq("id", requestId).single();
+      expect(stillThere?.deleted_at).not.toBeNull();
+    });
+
+    it("cancels queued publishing items, so a binned request keeps no place in the queue", async () => {
+      const { requestId, pkg } = await fullyReadyRequest();
+      await approveCurrentPackage(owner.client, requestId);
+
+      const { data: item, error: queueError } = await owner.client.rpc("create_queue_item", {
+        p_package_id: pkg.id,
+        p_channel: "linkedin",
+        p_channel_artifact_version_id: pkg.linkedin_version_id,
+        p_scheduled_at: undefined,
+        p_timezone: undefined,
+        p_idempotency_key: `bin-test-${Math.random()}`,
+      });
+      expect(queueError).toBeNull();
+      expect((item as { status: string }).status).toBe("queued");
+
+      await deleteRequest(owner.client, requestId);
+
+      const { data: afterDelete } = await admin
+        .from("publishing_queue_items")
+        .select("status")
+        .eq("id", (item as { id: string }).id)
+        .single();
+      expect(afterDelete?.status).toBe("cancelled");
+    });
+
+    it("refuses to bin or restore another account's request", async () => {
+      const { requestId } = await fullyReadyRequest();
+
+      // Both RPCs are security definer, so they read the row and refuse on
+      // ownership rather than failing to find it.
+      await expect(deleteRequest(stranger.client, requestId)).rejects.toMatchObject({ code: "PERMISSION_DENIED" });
+
+      await deleteRequest(owner.client, requestId);
+      await expect(restoreRequest(stranger.client, requestId)).rejects.toMatchObject({ code: "PERMISSION_DENIED" });
+    });
+
+    it("purges a request past the window, unpicking every non-cascading reference", async () => {
+      const { requestId } = await fullyReadyRequest();
+
+      // Evidence attached to a real analysis run: source_evidence
+      // references operation_runs and does not cascade, which is exactly
+      // the ordering the old permanent delete got wrong.
+      const { data: source } = await admin.from("research_sources").select("id").eq("request_id", requestId).single();
+      const { data: run } = await admin
+        .from("operation_runs")
+        .insert({ request_id: requestId, operation_type: "source_analysis", status: "succeeded" })
+        .select()
+        .single();
+      await admin.from("source_evidence").insert({
+        source_id: source!.id,
+        evidence_key: "e1",
+        excerpt: "An excerpt.",
+        conservative_summary: "A summary.",
+        source_analysis_run_id: run!.id,
+      });
+
+      await deleteRequest(owner.client, requestId);
+      // Backdate past the retention window, then trigger the sweep.
+      await admin
+        .from("content_requests")
+        .update({ deleted_at: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString() })
+        .eq("id", requestId);
+
+      await sweepExpiredRequests(owner.client);
+
+      const { data: gone } = await admin.from("content_requests").select("id").eq("id", requestId).maybeSingle();
+      expect(gone).toBeNull();
+    });
+
+    it("refuses to restore a request past the window", async () => {
+      const { requestId } = await fullyReadyRequest();
+      await deleteRequest(owner.client, requestId);
+      await admin
+        .from("content_requests")
+        .update({ deleted_at: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString() })
+        .eq("id", requestId);
+
+      // Two things refuse this, and either is enough: the sweep that runs
+      // first purges the row, and restore_request checks the window itself
+      // in case it somehow survived.
+      await expect(restoreRequest(owner.client, requestId)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    });
+
+    it("excludes an expired request from the bin even before the sweep removes it", async () => {
+      const { requestId } = await fullyReadyRequest();
+      await deleteRequest(owner.client, requestId);
+      await admin
+        .from("content_requests")
+        .update({ deleted_at: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString() })
+        .eq("id", requestId);
+
+      // The row is still there; the listing must not offer a restore it
+      // cannot honour.
+      expect((await listDeletedRequests(owner.client, owner.userId)).some((r) => r.id === requestId)).toBe(false);
+    });
+  });
 });

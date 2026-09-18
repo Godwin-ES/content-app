@@ -8,7 +8,6 @@ import { listContentPlanVersions } from "@/lib/planning/service";
 import { getLatestEvaluation } from "@/lib/repositories/evaluations";
 import { getPackageReadiness } from "@/lib/packages/service";
 import { getSamplePack } from "@/lib/sample-pack/service";
-import { getLatestReview } from "@/lib/repositories/approvals";
 import { getPublishingQueue } from "@/lib/publishing/service";
 import { listActivityEvents } from "@/lib/repositories/activity";
 import { filterDisplayedActivity } from "@/lib/activity/display";
@@ -34,6 +33,8 @@ import { PublishingList } from "@/components/publishing/publishing-list";
 import { ActivityHistory } from "@/components/activity/activity-history";
 import { StaleNotice } from "@/components/shared/stale-notice";
 import { AutoModePanel } from "@/components/requests/auto-mode-panel";
+import { RestoreRequestButton } from "@/components/dashboard/restore-request-button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 /**
  * Request workspace (SYSTEM-DESIGN-NEXTJS.md §34.3): Overview / Research /
@@ -137,7 +138,6 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   }
 
   const readiness = request.selected_article_version_id ? await getPackageReadiness(supabase, requestId) : null;
-  const latestReview = await getLatestReview(supabase, requestId);
   const queue = request.current_package_id ? await getPublishingQueue(supabase, requestId) : null;
   // The Package tab shows the assembled pack in place, so what gets
   // approved is what the approver actually reads. Assembling it dereferences
@@ -169,10 +169,10 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   const nextAction = deriveNextAction(snapshot);
 
   // Request-level settings (primary keyword, CTA) stay editable right up to
-  // submission; once a package is under review or approved, what it was
-  // written to target is part of what was approved. The RPCs enforce
-  // the same rule, so this only decides whether to offer the control.
-  const canEditSettings = ["draft", "source_review", "content_development", "changes_requested"].includes(request.status);
+  // approval; once a package is approved, what it was written to target is
+  // part of what was approved. The RPCs enforce the same rule, so this only
+  // decides whether to offer the control.
+  const canEditSettings = ["draft", "source_review", "content_development"].includes(request.status);
 
   const overviewContent = (
     <>
@@ -267,7 +267,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
         <PackageReadiness
           requestId={requestId}
           readiness={readiness}
-          canCreate={request.status === "content_development" || request.status === "changes_requested"}
+          canCreate={request.status === "content_development"}
         />
       ) : null}
       {/* The assembled pack below is the package preview, in full and with
@@ -276,12 +276,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
           evaluation rows could not be read, where showing the snapshot the
           package carries is better than showing nothing. */}
       {currentPackage && !samplePack ? <ContentPackagePreview contentPackage={currentPackage} /> : null}
-      <ApprovalPanel
-        requestId={requestId}
-        requestStatus={request.status}
-        hasCurrentPackage={Boolean(request.current_package_id)}
-        pendingReviewId={latestReview?.status === "pending" ? latestReview.id : null}
-      />
+      <ApprovalPanel requestId={requestId} requestStatus={request.status} hasCurrentPackage={Boolean(request.current_package_id)} />
       {samplePack ? (
         <>
           <SamplePackView pack={samplePack} interactive />
@@ -311,6 +306,18 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
         <h1 className="text-2xl font-semibold">{request.topic}</h1>
         <StatusBadge status={request.status} />
       </div>
+
+      {/* Reachable by a link or a back button after the request was binned.
+          Showing the workspace read-only with a way out beats a 404 on
+          something the owner can still get back. */}
+      {request.deleted_at ? (
+        <Alert>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>This request is in the bin. Restore it to make any further changes.</span>
+            <RestoreRequestButton requestId={requestId} />
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <RequestWorkspace
         overview={overviewContent}

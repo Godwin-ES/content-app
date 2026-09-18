@@ -2,7 +2,6 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendDiscordMessage } from "@/lib/notifications/discord";
 import { getInjectedFailureMode } from "@/lib/test-support/failure-injection";
-import type { ReviewDecision } from "@/lib/domain/types";
 
 /**
  * Which Discord channel a notification goes to. "content_manager" is a
@@ -10,7 +9,7 @@ import type { ReviewDecision } from "@/lib/domain/types";
  * notification_attempts.channel: with one role, it simply means the
  * owner's own channel.
  */
-type NotificationChannel = "content_manager" | "reviewer" | "system_errors";
+type NotificationChannel = "content_manager" | "system_errors";
 
 /**
  * Sends a Discord message for one role-specific channel/event, and records
@@ -54,22 +53,19 @@ async function notify(params: {
   });
 }
 
-export async function notifyContentManagerDecision(params: {
-  requestId: string;
-  topic: string;
-  decision: ReviewDecision;
-  comment: string | null;
-}): Promise<void> {
-  const decisionLabel =
-    params.decision === "approved" ? "approved" : "sent back for changes";
-  const commentSuffix = params.comment ? `\n> ${params.comment}` : "";
-
+/**
+ * A package cleared the approval gate and can now be queued. The one
+ * notification worth sending about a decision you made yourself: it is the
+ * point at which content becomes publishable, and it is worth a record
+ * outside the app.
+ */
+export async function notifyPackageApproved(params: { requestId: string; topic: string }): Promise<void> {
   await notify({
     requestId: params.requestId,
     channel: "content_manager",
-    eventType: "package_review_decided",
+    eventType: "package_approved",
     webhookUrl: process.env.DISCORD_CONTENT_WEBHOOK_URL,
-    message: `**${params.topic}** was ${decisionLabel}.${commentSuffix}`,
+    message: `**${params.topic}** was approved and is ready to queue.`,
   });
 }
 

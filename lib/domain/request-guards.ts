@@ -1,18 +1,25 @@
 import { DomainError } from "@/lib/domain/errors";
 
 /**
- * A submitted package is read-only for the duration of its review
- * (SYSTEM-DESIGN-NEXTJS.md §24.1, §24.3): the Content Manager must
- * withdraw the pending review before generating, revising, or manually
- * editing article/channel content again. Shared by the article and
- * channel services so the rule can't be bypassed from either surface.
+ * A request in the bin is not a workspace. Restoring it is one click, so
+ * refusing the edit and saying why is better than letting work accumulate
+ * on something scheduled for deletion.
+ *
+ * This guard used to protect a package "pending review" from being edited
+ * out from under the Reviewer. There is no pending state and no Reviewer:
+ * an approved package is protected by immutability instead — editing
+ * creates a new version and returns the request to development, leaving
+ * the approved one untouched as history.
+ *
+ * Shared by the article, channel, and package services so the rule cannot
+ * be bypassed from any one surface.
  */
-export function assertContentEditable(request: { status: string }): void {
-  if (request.status === "pending_approval") {
+export function assertContentEditable(request: { status: string; deleted_at?: string | null }): void {
+  if (request.deleted_at) {
     throw new DomainError(
       "INVALID_STATE",
       "content_editing",
-      "This request's package is pending review. Withdraw the review before making further changes."
+      "This request is in the bin. Restore it before making further changes."
     );
   }
 }

@@ -3,102 +3,55 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { DomainError } from "@/lib/domain/errors";
 import { bestEffort } from "@/lib/notifications/action-error";
-import { notifyContentManagerDecision } from "@/lib/notifications/service";
-import {
-  getLatestReview,
-  submitPackageForReview,
-  withdrawPackageReview,
-  decidePackageReview,
-} from "@/lib/repositories/approvals";
+import { notifyPackageApproved } from "@/lib/notifications/service";
+import { approvePackage } from "@/lib/repositories/approvals";
 import { assertNoInjectedPersistenceFailure } from "@/lib/test-support/failure-injection";
-import type { ReviewDecision } from "@/lib/domain/types";
 
-type ApprovalReviewRow = Database["public"]["Tables"]["approval_reviews"]["Row"];
+type PackageApprovalRow = Database["public"]["Tables"]["package_approvals"]["Row"];
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
 
+/**
+ * RLS scopes this to requests the caller owns, so "no row" and "someone
+ * else's request" are the same lookup. Mapped to a DomainError rather than
+ * rethrown, so the caller sees a sentence instead of a PostgREST code.
+ */
 async function getRequestOrThrow(supabase: SupabaseClient<Database>, requestId: string): Promise<ContentRequestRow> {
-  const { data, error } = await supabase.from("content_requests").select().eq("id", requestId).single();
-  if (error || !data) throw error ?? new DomainError("NOT_FOUND", "approval", "Request not found.");
+  const { data } = await supabase.from("content_requests").select().eq("id", requestId).maybeSingle();
+  if (!data) throw new DomainError("NOT_FOUND", "approval", "Request not found.");
   return data;
 }
 
 /**
- * Opens a review cycle on the request's current package
- * (SYSTEM-DESIGN-NEXTJS.md §24.1), freezing that exact version as the
- * thing being decided on. The notification is best-effort: a Discord
- * delivery failure must never block or roll back an otherwise-successful
- * submission (§26.3, §28.3).
+ * The approval gate, in one act.
+ *
+ * It used to take two: submit the package, then decide on it. That shape
+ * existed to move work between two people, and with one account it meant
+ * handing the package to yourself — a button whose only effect was to make
+ * the next button appear.
+ *
+ * What is deliberately not collapsed is the gate itself. Nothing can be
+ * queued for publishing until a human has looked at a specific package
+ * version and approved it, and that approval is recorded against that
+ * version with its author and timestamp — the evidence the gate was
+ * honoured. There is no "request changes" counterpart, because rejecting
+ * your own work is just editing it: any edit creates a new version, which
+ * returns the request to development on its own.
+ *
+ * The notification is best-effort: a Discord delivery failure must never
+ * block or roll back an otherwise-successful approval
+ * (SYSTEM-DESIGN-NEXTJS.md §26.3, §28.3).
  */
-export async function submitForApproval(supabase: SupabaseClient<Database>, requestId: string): Promise<ApprovalReviewRow> {
+export async function approveCurrentPackage(
+  supabase: SupabaseClient<Database>,
+  requestId: string
+): Promise<PackageApprovalRow> {
   const request = await getRequestOrThrow(supabase, requestId);
   if (!request.current_package_id) {
-    throw new DomainError("INVALID_STATE", "approval", "This request has no package to submit.");
-  }
-  await assertNoInjectedPersistenceFailure("approval_persistence_failure", "approval");
-  const review = await submitPackageForReview(supabase, requestId, request.current_package_id);
-  return review;
-}
-
-/**
- * Backs out of a review cycle that is still pending, returning the request
- * to content development. With one account this is mostly a way out of a
- * review opened before submit-and-decide became one step; the RPC still
- * refuses once a decision has been recorded.
- */
-export async function withdrawApproval(supabase: SupabaseClient<Database>, reviewId: string): Promise<ApprovalReviewRow> {
-  return withdrawPackageReview(supabase, reviewId);
-}
-
-export async function decideApproval(
-  supabase: SupabaseClient<Database>,
-  params: { reviewId: string; packageId: string; decision: ReviewDecision; comment: string | null }
-): Promise<ApprovalReviewRow> {
-  await assertNoInjectedPersistenceFailure("approval_persistence_failure", "approval");
-  const review = await decidePackageReview(supabase, params);
-  const request = await getRequestOrThrow(supabase, review.request_id);
-  await bestEffort(() =>
-    notifyContentManagerDecision({ requestId: request.id, topic: request.topic, decision: params.decision, comment: params.comment })
-  );
-  return review;
-}
-
-/**
- * The owner's approval decision on their own package, in one step.
- *
- * With one account there is no second person to hand the package to, so
- * "submit for approval" and "approve" collapsed into a single deliberate
- * act. What is deliberately NOT collapsed is the gate itself: a human
- * still has to look at a specific package version and decide on it before
- * anything can be queued for publishing, which is what the brief requires.
- *
- * It still writes a full review cycle — submitted_at, decided_by,
- * decided_at, the exact package_id, and the comment — because that record
- * is the evidence the gate was honoured, and because Request Changes feeds
- * the revision flow from the same rows it always did.
- *
- * A package already sitting in a pending review (submitted before this
- * became one step, or opened in another tab) is decided in place rather
- * than submitted a second time.
- */
-export async function decideOwnPackage(
-  supabase: SupabaseClient<Database>,
-  requestId: string,
-  decision: ReviewDecision,
-  comment: string | null
-): Promise<ApprovalReviewRow> {
-  const request = await getRequestOrThrow(supabase, requestId);
-  if (!request.current_package_id) {
-    throw new DomainError("INVALID_STATE", "approval", "This request has no package to decide on.");
+    throw new DomainError("INVALID_STATE", "approval", "This request has no package to approve.");
   }
 
-  const latest = await getLatestReview(supabase, requestId);
-  const pending = latest?.status === "pending" && latest.package_id === request.current_package_id ? latest : null;
-  const review = pending ?? (await submitForApproval(supabase, requestId));
-
-  return decideApproval(supabase, {
-    reviewId: review.id,
-    packageId: request.current_package_id,
-    decision,
-    comment,
-  });
+  await assertNoInjectedPersistenceFailure("approval_persistence_failure", "approval");
+  const approval = await approvePackage(supabase, requestId, request.current_package_id);
+  await bestEffort(() => notifyPackageApproved({ requestId, topic: request.topic }));
+  return approval;
 }

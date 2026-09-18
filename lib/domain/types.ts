@@ -6,14 +6,18 @@
  */
 export type UserRole = "owner";
 
+/**
+ * A request's lifecycle. `pending_approval` and `changes_requested` are
+ * gone: both described a package in transit between two people, and there
+ * is only one. A package is approved in a single act, and disliking your
+ * own work is just editing it — any edit creates a new version, which
+ * returns the request to development on its own.
+ */
 export type ContentRequestStatus =
   | "draft"
   | "source_review"
   | "content_development"
-  | "pending_approval"
-  | "changes_requested"
-  | "approved"
-  | "archived";
+  | "approved";
 
 export type OperationStatus = "queued" | "running" | "succeeded" | "failed" | "stale" | "cancelled";
 
@@ -39,17 +43,6 @@ export type ArtifactChangeType =
   | "channel_adaptation";
 
 export type EvaluationStatus = "pass" | "revise" | "reject";
-
-export type ApprovalReviewStatus = "pending" | "withdrawn" | "approved" | "changes_requested";
-
-/**
- * What the owner can decide on a package. Approve ships it; Request
- * Changes sends it back for edits and resubmission. There is deliberately
- * no third "reject" outcome — it differed from Request Changes only by
- * blocking resubmission until an explicit reopen, a distinction the
- * product never surfaced anywhere anyone could see.
- */
-export type ReviewDecision = Extract<ApprovalReviewStatus, "approved" | "changes_requested">;
 
 export type PublishingChannel = "linkedin" | "x" | "newsletter";
 

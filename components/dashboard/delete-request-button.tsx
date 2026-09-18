@@ -6,9 +6,13 @@ import { deleteRequestAction } from "@/actions/requests";
 import { Button } from "@/components/ui/button";
 
 /**
- * Offered until a decision has been recorded on the request. The server action
- * re-checks that itself (delete_request), so this button is a convenience,
- * not the actual enforcement point.
+ * Offered on every live request, at any stage. Deleting used to be
+ * permanent, which is why it was hedged about with rules — refused once a
+ * Reviewer had responded, replaced by "withdraw" while a package was out.
+ * It is a bin now, reversible for 30 days, so there is nothing left for
+ * those rules to protect.
+ *
+ * The click-to-confirm stays: undoing is easy, but not noticing is not.
  */
 export function DeleteRequestButton({ requestId }: { requestId: string }) {
   const [confirming, setConfirming] = useState(false);

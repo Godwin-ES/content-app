@@ -25,9 +25,7 @@ const EVERY_ACTION: Record<NextActionKey, boolean> = {
   // It must not perform these.
   wait_for_research: false,
   resolve_no_usable_sources: false,
-  decide_package: false,
-  await_decision: false,
-  address_requested_changes: false,
+  approve_package: false,
   queue_approved_content: false,
   none: false,
 };
@@ -39,8 +37,8 @@ describe("auto mode policy", () => {
     }
   });
 
-  it("never approves, asks for changes, or publishes", () => {
-    for (const key of ["decide_package", "await_decision", "address_requested_changes", "queue_approved_content"] as NextActionKey[]) {
+  it("never approves or publishes", () => {
+    for (const key of ["approve_package", "queue_approved_content"] as NextActionKey[]) {
       expect(autoModeCanPerform(key)).toBe(false);
     }
   });

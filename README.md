@@ -14,13 +14,17 @@ See `../SYSTEM-DESIGN-NEXTJS.md` and `../IMPLEMENTATION-PLAN-NEXTJS.md` in the p
 
 One account, one person. You sign up with an email and password or with Google, and you own everything you create: requests, sources, drafts, packages, approvals, and the publishing queue. There are no roles to assign and nobody to invite.
 
-The app started with two — a Content Manager who wrote and a Reviewer who approved — which is why the approval trail still records a submission and a decision separately. Collapsing to one account removed the handover, not the gate: **nothing reaches the publishing queue until a human has looked at a specific package version and deliberately approved it**, and that decision is recorded against that version with its author and timestamp.
+The app started with two — a Content Manager who wrote and a Reviewer who approved. Collapsing to one account removed the handover, not the gate: **nothing reaches the publishing queue until a human has read a specific package version and deliberately approved it**, and that approval is recorded against that version with its author and timestamp. There is no "request changes" counterpart, because rejecting your own work is just editing it — any edit starts a new version and returns the request to development, leaving the approved one untouched.
 
 Every action re-reads who you are from `auth.uid()` server-side and checks ownership in RLS and in the security-definer RPCs. Nothing about identity is ever trusted from the client.
 
 ### Signing in with Google
 
 The code path is in place (`/signup`, `/login` → `signInWithOAuth` → `/auth/callback`), but the Google provider has to be enabled on the Supabase project with a client ID and secret before it works — that is dashboard configuration, not code. Until it is, the button surfaces Supabase's own "provider is not enabled" message rather than failing silently.
+
+### The dashboard
+
+Three tabs: **In Progress**, **Published**, and **Deleted**. Deleting is a bin — a request can be restored for 30 days and is removed for good after that, including its uploaded files. Queued publishing items are cancelled when a request is binned, and are not un-cancelled by a restore: whether the content should go out again is a decision, not a side effect of undoing a delete.
 
 ### Channels
 

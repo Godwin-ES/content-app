@@ -117,17 +117,19 @@ test("switching tabs reveals each section's own empty state", async ({ page }) =
   await expect(page.getByText(/nothing has happened on this request yet/i)).toBeVisible();
 });
 
-test("a submitted request shows that the decision is the next step", async ({ page }) => {
+test("a binned request opens read-only, with the way back", async ({ page }) => {
+  // Reachable from a bookmark or a back button after deleting. A 404 would
+  // be wrong: the owner can still get this one back.
   const { data: request } = await admin
     .from("content_requests")
     .insert({
       owner_id: ownerUserId,
-      topic: "E2E pending approval request",
+      topic: "E2E binned request",
       resolved_audience: "HR leaders",
       resolved_objective: "Educate",
       resolved_tone: "Professional",
-      status: "pending_approval",
-      selected_article_version_id: null,
+      status: "content_development",
+      deleted_at: new Date().toISOString(),
     })
     .select()
     .single();
@@ -135,5 +137,6 @@ test("a submitted request shows that the decision is the next step", async ({ pa
 
   await login(page);
   await page.goto(`/requests/${request!.id}`);
-  await expect(page.getByText("Package: Decide on the submitted package")).toBeVisible();
+  await expect(page.getByText("This request is in the bin. Restore it to make any further changes.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Restore" })).toBeVisible();
 });

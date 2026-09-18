@@ -11,9 +11,7 @@ export type NextActionKey =
   | "generate_channels"
   | "resolve_channel_issue"
   | "create_package"
-  | "decide_package"
-  | "await_decision"
-  | "address_requested_changes"
+  | "approve_package"
   | "queue_approved_content"
   | "none";
 
@@ -96,14 +94,8 @@ export function deriveNextAction(snapshot: WorkspaceSnapshot): NextAction {
         }
         return action("resolve_channel_issue", "Channels: Resolve remaining readiness issues", "Check the package readiness checklist for what remains.");
       }
-      return action("decide_package", "Package: Approve or request changes", "Read the assembled package and decide whether it is ready to publish.");
+      return action("approve_package", "Package: Approve for publishing", "Read the assembled package and approve it, or edit anything that is not right.");
     }
-
-    case "pending_approval":
-      return action("await_decision", "Package: Decide on the submitted package", "This package was submitted for approval and is read-only until you decide on it or withdraw it.");
-
-    case "changes_requested":
-      return action("address_requested_changes", "Package: Address the changes you noted", "Make the edits, then create a new package and approve it.");
 
     case "approved":
       if (!snapshot.hasActiveQueueItems) {
@@ -147,9 +139,7 @@ const STAGE_FOR_ACTION: Record<NextActionKey, PipelineStage> = {
   generate_channels: "Channels",
   resolve_channel_issue: "Channels",
   create_package: "Package",
-  decide_package: "Package",
-  await_decision: "Package",
-  address_requested_changes: "Package",
+  approve_package: "Package",
   queue_approved_content: "Publishing",
   // Nothing outstanding only ever happens at the end of the line.
   none: "Publishing",

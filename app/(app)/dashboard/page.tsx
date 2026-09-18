@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { listOwnedRequests } from "@/lib/repositories/requests";
+import { listOwnedRequests, listDeletedRequests } from "@/lib/repositories/requests";
 import { buildDashboardProgress } from "@/lib/workspace/dashboard-progress";
 import { RequestStatusTabs } from "@/components/dashboard/request-status-tabs";
 import { buttonVariants } from "@/components/ui/button";
@@ -9,16 +9,14 @@ import { buttonVariants } from "@/components/ui/button";
 export default async function DashboardPage() {
   const user = await requireCurrentUser();
   const supabase = await createSupabaseServerClient();
-  const requests = await listOwnedRequests(supabase, user.userId);
 
-  // Only submitted requests can be withdrawn, and only through their own
-  // still-pending review.
-  const submittedIds = requests.filter((r) => r.status === "pending_approval").map((r) => r.id);
-  const { data: pendingReviews } = submittedIds.length
-    ? await supabase.from("approval_reviews").select("id, request_id").in("request_id", submittedIds).eq("status", "pending")
-    : { data: [] };
-  const pendingReviewIdByRequest = Object.fromEntries((pendingReviews ?? []).map((r) => [r.request_id, r.id]));
+  const [requests, deletedRequests] = await Promise.all([
+    listOwnedRequests(supabase, user.userId),
+    listDeletedRequests(supabase, user.userId),
+  ]);
 
+  // Only live requests get a stage: a binned one is not making progress
+  // towards anything until it is restored.
   const progressByRequest = await buildDashboardProgress(supabase, requests);
 
   return (
@@ -33,7 +31,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      <RequestStatusTabs requests={requests} pendingReviewIdByRequest={pendingReviewIdByRequest} progressByRequest={progressByRequest} />
+      <RequestStatusTabs requests={requests} deletedRequests={deletedRequests} progressByRequest={progressByRequest} />
     </div>
   );
 }

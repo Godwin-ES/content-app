@@ -23,46 +23,66 @@ test.afterAll(async () => {
   await admin.auth.admin.deleteUser(owner.userId);
 });
 
-test("the owner records changes needed, edits, and then approves through the Package tab", async ({ page }) => {
-  // Two full decisions, each several hosted-Supabase round trips plus a
-  // best-effort Discord post — comfortably past the 30s default.
-  test.setTimeout(120_000);
-
-  const { requestId } = await seedFullyReadyRequest(admin, owner.client, owner.userId, "E2E approval flow request");
+test("the owner approves their own package from the Package tab, in one act", async ({ page }) => {
+  const { requestId, packageId } = await seedFullyReadyRequest(admin, owner.client, owner.userId, "E2E approval flow request");
   requestIds.push(requestId);
 
   await login(page, owner.email, owner.password);
   await page.goto(`/requests/${requestId}`);
   await page.getByRole("tab", { name: "Package" }).click();
-
-  // Asking for changes needs a reason, and says so by keeping the button
-  // disabled until there is one.
-  await page.getByRole("button", { name: "Note changes needed" }).click();
-  await page.fill("#review-comment", "Please tighten the intro.");
-  await page.getByRole("button", { name: "Save changes needed" }).click();
-
-  await expect
-    .poll(async () => (await admin.from("content_requests").select("status").eq("id", requestId).single()).data?.status, {
-      timeout: 15000,
-    })
-    .toBe("changes_requested");
-
-  // The same tab now approves it — no second account, no handover.
-  await page.reload();
-  await page.getByRole("tab", { name: "Package" }).click();
   await page.getByRole("button", { name: "Approve for publishing" }).click();
 
-  await expect(page.getByText("Approved. This package can be queued for publishing.")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("Approved. This package can be queued for publishing.")).toBeVisible({ timeout: 30000 });
 
   const { data: after } = await admin.from("content_requests").select("status").eq("id", requestId).single();
   expect(after?.status).toBe("approved");
 
-  // The decision is recorded against the exact package, by the person who
-  // made it — that record is the evidence the approval gate was honoured.
-  const { data: reviews } = await admin.from("approval_reviews").select().eq("request_id", requestId).eq("status", "approved");
-  expect(reviews).toHaveLength(1);
-  expect(reviews![0].decided_by).toBe(owner.userId);
-  expect(reviews![0].decided_at).not.toBeNull();
+  // The approval is recorded against the exact package, by the person who
+  // made it — that record is the evidence the gate was honoured.
+  const { data: approvals } = await admin.from("package_approvals").select().eq("request_id", requestId);
+  expect(approvals).toHaveLength(1);
+  expect(approvals![0].package_id).toBe(packageId);
+  expect(approvals![0].approved_by).toBe(owner.userId);
+
+  // It shows up under Published, not under some in-between state.
+  await page.goto("/dashboard");
+  await page.getByRole("tab", { name: /^Published/ }).click();
+  await expect(page.getByText("E2E approval flow request")).toBeVisible({ timeout: 15000 });
+});
+
+test("deleting moves a request to the bin, and restoring brings it back", async ({ page }) => {
+  const { requestId } = await seedFullyReadyRequest(admin, owner.client, owner.userId, "E2E bin request");
+  requestIds.push(requestId);
+
+  await login(page, owner.email, owner.password);
+  await page.goto("/dashboard");
+
+  const row = page.locator("div", { hasText: "E2E bin request" });
+  await expect(row.first()).toBeVisible({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Delete" }).first().click();
+  await page.getByRole("button", { name: "Confirm delete" }).first().click();
+
+  await expect
+    .poll(
+      async () => (await admin.from("content_requests").select("deleted_at").eq("id", requestId).single()).data?.deleted_at,
+      { timeout: 15000 }
+    )
+    .not.toBeNull();
+
+  // The bin says how long is left, and offers the way back.
+  await page.getByRole("tab", { name: /^Deleted/ }).click();
+  await expect(page.getByText("E2E bin request")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(/days left to restore/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Restore" }).first().click();
+
+  await expect
+    .poll(
+      async () => (await admin.from("content_requests").select("deleted_at").eq("id", requestId).single()).data?.deleted_at,
+      { timeout: 15000 }
+    )
+    .toBeNull();
 });
 
 test("another account cannot open someone else's request", async () => {

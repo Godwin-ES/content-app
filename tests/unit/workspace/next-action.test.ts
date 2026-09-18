@@ -120,7 +120,7 @@ describe("deriveNextAction", () => {
     expect(result.key).toBe("create_package");
   });
 
-  it("asks to submit for approval once a package exists", () => {
+  it("asks for the approval once a package exists", () => {
     const result = deriveNextAction(
       base({
         status: "content_development",
@@ -131,15 +131,7 @@ describe("deriveNextAction", () => {
         hasCurrentPackage: true,
       })
     );
-    expect(result.key).toBe("decide_package");
-  });
-
-  it("shows awaiting review while pending_approval", () => {
-    expect(deriveNextAction(base({ status: "pending_approval" })).key).toBe("await_decision");
-  });
-
-  it("asks to review requested changes", () => {
-    expect(deriveNextAction(base({ status: "changes_requested" })).key).toBe("address_requested_changes");
+    expect(result.key).toBe("approve_package");
   });
 
   it("asks to queue approved content when nothing is queued yet", () => {
@@ -150,8 +142,11 @@ describe("deriveNextAction", () => {
     expect(deriveNextAction(base({ status: "approved", hasActiveQueueItems: true })).key).toBe("none");
   });
 
-  it("shows nothing pending for an archived request", () => {
-    expect(deriveNextAction(base({ status: "archived" })).key).toBe("none");
+  it("shows nothing pending for a status it does not recognise", () => {
+    // The statuses that used to land here — pending_approval,
+    // changes_requested, archived — no longer exist. The fallback still has
+    // to be safe rather than throwing at the user.
+    expect(deriveNextAction(base({ status: "something_unexpected" })).key).toBe("none");
   });
 });
 
@@ -164,8 +159,18 @@ describe("derivePipelineProgress", () => {
       { snapshot: base({ status: "source_review", sources: { usable: 2, pending: 0, failed: 0, unusable: 0 } }), stage: "Research", step: 1 },
       { snapshot: base({ status: "content_development" }), stage: "Plan", step: 2 },
       { snapshot: base({ status: "content_development", hasContentPlan: true }), stage: "Articles", step: 3 },
-      { snapshot: base({ status: "pending_approval" }), stage: "Package", step: 5 },
-      { snapshot: base({ status: "changes_requested" }), stage: "Package", step: 5 },
+      {
+        snapshot: base({
+          status: "content_development",
+          hasContentPlan: true,
+          articles: { total: 3, anyGenerationFailed: false, anyPassingEvaluation: true, anyNeedsRevisionOrUnevaluated: false },
+          hasSelectedArticle: true,
+          channels: { total: 3, anyMissing: false, anyNotPassing: false },
+          hasCurrentPackage: true,
+        }),
+        stage: "Package",
+        step: 5,
+      },
       { snapshot: base({ status: "approved" }), stage: "Publishing", step: 6 },
     ];
 

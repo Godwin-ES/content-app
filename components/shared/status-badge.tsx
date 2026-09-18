@@ -4,20 +4,14 @@ const STATUS_LABEL: Record<string, string> = {
   draft: "Draft",
   source_review: "Source Review",
   content_development: "Content Development",
-  pending_approval: "Pending Approval",
-  changes_requested: "Changes Requested",
   approved: "Approved",
-  archived: "Archived",
 };
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   draft: "outline",
   source_review: "secondary",
   content_development: "secondary",
-  pending_approval: "default",
-  changes_requested: "destructive",
   approved: "default",
-  archived: "outline",
 };
 
 /**

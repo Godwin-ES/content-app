@@ -1,89 +1,44 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { throwFromRpcError } from "@/lib/supabase/rpc";
-import type { ReviewDecision } from "@/lib/domain/types";
 
-type ApprovalReviewRow = Database["public"]["Tables"]["approval_reviews"]["Row"];
+type PackageApprovalRow = Database["public"]["Tables"]["package_approvals"]["Row"];
 
-export async function getLatestReview(
+/**
+ * The approval on a request, if it has one. At most one row exists per
+ * package version, and a request is only ever `approved` while its current
+ * package has one — editing anything creates a new version, which returns
+ * the request to development and leaves the old approval standing as
+ * history.
+ */
+export async function getLatestApproval(
   supabase: SupabaseClient<Database>,
   requestId: string
-): Promise<ApprovalReviewRow | null> {
+): Promise<PackageApprovalRow | null> {
   const { data, error } = await supabase
-    .from("approval_reviews")
+    .from("package_approvals")
     .select()
     .eq("request_id", requestId)
-    .order("submitted_at", { ascending: false })
+    .order("approved_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw error;
   return data;
 }
 
-export async function listReviewsForRequest(
-  supabase: SupabaseClient<Database>,
-  requestId: string
-): Promise<ApprovalReviewRow[]> {
-  const { data, error } = await supabase
-    .from("approval_reviews")
-    .select()
-    .eq("request_id", requestId)
-    .order("submitted_at", { ascending: true });
-  if (error) throw error;
-  return data ?? [];
-}
-
-export async function listPendingReviews(supabase: SupabaseClient<Database>): Promise<ApprovalReviewRow[]> {
-  const { data, error } = await supabase.from("approval_reviews").select().eq("status", "pending");
-  if (error) throw error;
-  return data ?? [];
-}
-
-export async function listDecidedReviews(
-  supabase: SupabaseClient<Database>,
-  status: ReviewDecision
-): Promise<ApprovalReviewRow[]> {
-  const { data, error } = await supabase
-    .from("approval_reviews")
-    .select()
-    .eq("status", status)
-    .order("decided_at", { ascending: false });
-  if (error) throw error;
-  return data ?? [];
-}
-
-export async function submitPackageForReview(
+/**
+ * Approves the request's current package: the human gate the brief
+ * requires, in one act. The RPC re-checks ownership, that the request is
+ * actually in development, and that the package being approved is still
+ * the current one.
+ */
+export async function approvePackage(
   supabase: SupabaseClient<Database>,
   requestId: string,
   packageId: string
-): Promise<ApprovalReviewRow> {
-  const { data, error } = await supabase.rpc("submit_package_for_review", { p_request_id: requestId, p_package_id: packageId });
-  if (error) throwFromRpcError(error, "submit_for_approval");
-  if (!data) throw new Error("submit_package_for_review returned no data");
-  return data;
-}
-
-export async function withdrawPackageReview(
-  supabase: SupabaseClient<Database>,
-  reviewId: string
-): Promise<ApprovalReviewRow> {
-  const { data, error } = await supabase.rpc("withdraw_package_review", { p_review_id: reviewId });
-  if (error) throwFromRpcError(error, "withdraw_approval");
-  if (!data) throw new Error("withdraw_package_review returned no data");
-  return data;
-}
-
-export async function decidePackageReview(
-  supabase: SupabaseClient<Database>,
-  params: { reviewId: string; packageId: string; decision: ReviewDecision; comment: string | null }
-): Promise<ApprovalReviewRow> {
-  const { data, error } = await supabase.rpc("decide_package_review", {
-    p_review_id: params.reviewId,
-    p_package_id: params.packageId,
-    p_decision: params.decision,
-    p_comment: params.comment ?? undefined,
-  });
-  if (error) throwFromRpcError(error, "decide_approval");
-  if (!data) throw new Error("decide_package_review returned no data");
+): Promise<PackageApprovalRow> {
+  const { data, error } = await supabase.rpc("approve_package", { p_request_id: requestId, p_package_id: packageId });
+  if (error) throwFromRpcError(error, "approve_package");
+  if (!data) throw new Error("approve_package returned no data");
   return data;
 }

@@ -54,9 +54,9 @@ describe.skipIf(!hasCredentials)("schema invariants (hosted Supabase integration
    * Builds a request through to a submitted, decidable package using a mix
    * of direct admin fixture rows (source set / plan — these get their own
    * RPC-level tests in Task 10/11) and the real create_artifact_version /
-   * create_content_package / submit_package_for_review RPCs under test here.
+   * create_content_package / approve_package RPCs under test here.
    */
-  async function buildSubmittedFixture() {
+  async function buildPackagedFixture() {
     const { data: request, error: requestError } = await admin
       .from("content_requests")
       .insert({
@@ -154,62 +154,44 @@ describe.skipIf(!hasCredentials)("schema invariants (hosted Supabase integration
       })
     );
 
-    const review = await rpcOrThrow(
-      owner.client.rpc("submit_package_for_review", {
-        p_request_id: request.id,
-        p_package_id: pkg.id,
-      })
-    );
-
-    return { requestId: request.id, articleArtifactVersionId: versionIds.article, package: pkg, review };
+    return { requestId: request.id, articleArtifactVersionId: versionIds.article, package: pkg };
   }
 
-  it("lets the request's owner decide their own review, and rejects a second decision on it", async () => {
-    // decide_package_review used to refuse this as SELF_APPROVAL. With one
+  it("lets the request's owner approve their own package, and rejects a second approval", async () => {
+    // The old decide_package_review refused this as SELF_APPROVAL. With one
     // account per workspace the owner is the only person who can see the
     // request at all, so the rule would have made approval impossible.
-    const { review, package: pkg } = await buildSubmittedFixture();
+    const { requestId, package: pkg } = await buildPackagedFixture();
 
-    const approved = await rpcOrThrow(
-      owner.client.rpc("decide_package_review", {
-        p_review_id: review.id,
-        p_package_id: pkg.id,
-        p_decision: "approved",
-        p_comment: "Looks good.",
-      })
-    );
-    expect(approved.status).toBe("approved");
-    expect(approved.decided_by).toBe(owner.userId);
+    const approval = await rpcOrThrow(owner.client.rpc("approve_package", { p_request_id: requestId, p_package_id: pkg.id }));
+    expect(approval.approved_by).toBe(owner.userId);
+    expect(approval.package_id).toBe(pkg.id);
 
     await expect(
-      rpcOrThrow(
-        owner.client.rpc("decide_package_review", {
-          p_review_id: review.id,
-          p_package_id: pkg.id,
-          p_decision: "approved",
-          p_comment: undefined,
-        })
-      )
+      rpcOrThrow(owner.client.rpc("approve_package", { p_request_id: requestId, p_package_id: pkg.id }))
     ).rejects.toThrow(/INVALID_STATE/);
   });
 
-  it("rejects a decision from an account that does not own the request", async () => {
-    const { review, package: pkg } = await buildSubmittedFixture();
+  it("rejects an approval from an account that does not own the request", async () => {
+    const { requestId, package: pkg } = await buildPackagedFixture();
 
     await expect(
-      rpcOrThrow(
-        otherOwner.client.rpc("decide_package_review", {
-          p_review_id: review.id,
-          p_package_id: pkg.id,
-          p_decision: "approved",
-          p_comment: undefined,
-        })
-      )
+      rpcOrThrow(otherOwner.client.rpc("approve_package", { p_request_id: requestId, p_package_id: pkg.id }))
     ).rejects.toThrow(/PERMISSION_DENIED/);
   });
 
+  it("rejects approving a package that is no longer the request's current one", async () => {
+    const { requestId, package: pkg } = await buildPackagedFixture();
+    const second = await buildPackagedFixture();
+
+    await expect(
+      rpcOrThrow(owner.client.rpc("approve_package", { p_request_id: requestId, p_package_id: second.package.id }))
+    ).rejects.toThrow(/STALE_VERSION/);
+    void pkg;
+  });
+
   it("rejects a stale expected version when creating a new artifact version", async () => {
-    const { articleArtifactVersionId } = await buildSubmittedFixture();
+    const { articleArtifactVersionId } = await buildPackagedFixture();
     const { data: artifactVersion } = await admin
       .from("artifact_versions")
       .select("artifact_id")
@@ -232,29 +214,9 @@ describe.skipIf(!hasCredentials)("schema invariants (hosted Supabase integration
     ).rejects.toThrow(/STALE_VERSION/);
   });
 
-  it("rejects submitting a second package while a review is already pending for the request", async () => {
-    const { requestId, package: pkg } = await buildSubmittedFixture();
-
-    await expect(
-      rpcOrThrow(
-        owner.client.rpc("submit_package_for_review", {
-          p_request_id: requestId,
-          p_package_id: pkg.id,
-        })
-      )
-    ).rejects.toThrow(/INVALID_STATE/);
-  });
-
   it("prevents a duplicate active queue item for the same package/channel", async () => {
-    const { review, package: pkg } = await buildSubmittedFixture();
-    await rpcOrThrow(
-      owner.client.rpc("decide_package_review", {
-        p_review_id: review.id,
-        p_package_id: pkg.id,
-        p_decision: "approved",
-        p_comment: undefined,
-      })
-    );
+    const { requestId, package: pkg } = await buildPackagedFixture();
+    await rpcOrThrow(owner.client.rpc("approve_package", { p_request_id: requestId, p_package_id: pkg.id }));
 
     const first = await rpcOrThrow(
       owner.client.rpc("create_queue_item", {
@@ -291,15 +253,8 @@ describe.skipIf(!hasCredentials)("schema invariants (hosted Supabase integration
   });
 
   it("reuses the existing row when the same idempotency key is retried, never inserting twice", async () => {
-    const { review, package: pkg } = await buildSubmittedFixture();
-    await rpcOrThrow(
-      owner.client.rpc("decide_package_review", {
-        p_review_id: review.id,
-        p_package_id: pkg.id,
-        p_decision: "approved",
-        p_comment: undefined,
-      })
-    );
+    const { requestId, package: pkg } = await buildPackagedFixture();
+    await rpcOrThrow(owner.client.rpc("approve_package", { p_request_id: requestId, p_package_id: pkg.id }));
 
     const idempotencyKey = crypto.randomUUID();
     const first = await rpcOrThrow(
@@ -327,7 +282,7 @@ describe.skipIf(!hasCredentials)("schema invariants (hosted Supabase integration
   });
 
   it("blocks queueing a package that has not been approved", async () => {
-    const { package: pkg } = await buildSubmittedFixture();
+    const { package: pkg } = await buildPackagedFixture();
 
     await expect(
       rpcOrThrow(

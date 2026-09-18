@@ -159,11 +159,28 @@ export interface GlobalQueueEntry {
  */
 export async function getGlobalPublishingQueue(supabase: SupabaseClient<Database>): Promise<GlobalQueueEntry[]> {
   const items = await listQueueItemsForCurrentUser(supabase);
-  return Promise.all(
+  const entries = await Promise.all(
     items.map(async (item) => {
-      const { data: request } = await supabase.from("content_requests").select("topic").eq("id", item.request_id).maybeSingle();
+      const { data: request } = await supabase
+        .from("content_requests")
+        .select("topic, deleted_at")
+        .eq("id", item.request_id)
+        .maybeSingle();
       const { data: pkg } = await supabase.from("content_packages").select("version_number").eq("id", item.package_id).maybeSingle();
-      return { item, requestTopic: request?.topic ?? "Unknown request", packageVersion: pkg?.version_number ?? 0 };
+      return {
+        item,
+        requestTopic: request?.topic ?? "Unknown request",
+        packageVersion: pkg?.version_number ?? 0,
+        binned: Boolean(request?.deleted_at),
+      };
     })
   );
+
+  // A binned request's items are already cancelled, but leaving them in the
+  // queue would list work for something the owner has thrown away. They
+  // come back with the request if it is restored.
+  return entries.filter((entry) => !entry.binned).map(({ binned, ...entry }) => {
+    void binned;
+    return entry;
+  });
 }

@@ -8,26 +8,32 @@ import type { PipelineProgress } from "@/lib/workspace/next-action";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
 type RequestStatus = ContentRequestRow["status"];
-type TabKey = "in-progress" | "needs-changes" | "awaiting-approval" | "approved" | "archived";
+type TabKey = "in-progress" | "published" | "deleted";
 
 /**
- * Every status maps to exactly one tab. Written as an exhaustive Record
- * rather than a list of statuses per tab so that adding a status (a
- * "published" one is the obvious next) is a compile error here until it has
- * been given a home — no request can quietly become invisible on the
- * dashboard.
+ * Three tabs, because a request has three states that matter to the person
+ * running it: still being made, done, or thrown away.
+ *
+ * The five it replaced — Needs Changes, Awaiting Approval, Approved/Ready,
+ * Archived — described a package moving between two people. With one
+ * account, "awaiting approval" meant waiting for yourself and "needs
+ * changes" meant a note you wrote to yourself about work you were about to
+ * do anyway.
+ *
+ * Every live status maps to exactly one tab. Written as an exhaustive
+ * Record rather than a list of statuses per tab so adding a status is a
+ * compile error here until it has been given a home — no request can
+ * quietly become invisible on the dashboard, which is a mistake this
+ * dashboard has actually made before.
  */
 const TAB_FOR_STATUS: Record<RequestStatus, TabKey> = {
   draft: "in-progress",
   source_review: "in-progress",
   content_development: "in-progress",
-  changes_requested: "needs-changes",
-  pending_approval: "awaiting-approval",
-  approved: "approved",
-  archived: "archived",
+  approved: "published",
 };
 
-const TABS: Array<{ key: TabKey; label: string; emptyTitle: string; emptyDescription: string; hideWhenEmpty?: boolean }> = [
+const TABS: Array<{ key: TabKey; label: string; note?: string; emptyTitle: string; emptyDescription: string }> = [
   {
     key: "in-progress",
     label: "In Progress",
@@ -35,43 +41,35 @@ const TABS: Array<{ key: TabKey; label: string; emptyTitle: string; emptyDescrip
     emptyDescription: "Drafts and requests you are still working on will show up here.",
   },
   {
-    key: "needs-changes",
-    label: "Needs Changes",
-    emptyTitle: "Nothing needs changes",
-    emptyDescription: "Requests you sent back for changes, with the notes you left, will show up here.",
+    key: "published",
+    label: "Published",
+    // Said once, here, rather than left for someone to discover: the app
+    // schedules, it does not post. The README calls this out as a
+    // deliberate scope boundary and the tab should not quietly contradict it.
+    note: "Approved and queued for their channels. Koya schedules — it never posts on your behalf.",
+    emptyTitle: "Nothing published yet",
+    emptyDescription: "Approve a package and its channels will be queued from here.",
   },
   {
-    key: "awaiting-approval",
-    label: "Awaiting Approval",
-    emptyTitle: "Nothing awaiting approval",
-    emptyDescription: "Requests you have submitted for review will show up here.",
-  },
-  {
-    key: "approved",
-    label: "Approved / Ready",
-    emptyTitle: "Nothing approved yet",
-    emptyDescription: "Approved requests, ready to queue or schedule, will show up here.",
-  },
-  {
-    key: "archived",
-    label: "Archived",
-    emptyTitle: "Nothing archived",
-    emptyDescription: "Archived requests will show up here.",
-    hideWhenEmpty: true,
+    key: "deleted",
+    label: "Deleted",
+    note: "Deleted requests can be restored for 30 days. After that they are removed for good.",
+    emptyTitle: "Nothing deleted",
+    emptyDescription: "Requests you delete land here first, in case you change your mind.",
   },
 ];
 
 export function RequestStatusTabs({
   requests,
-  pendingReviewIdByRequest,
+  deletedRequests,
   progressByRequest,
 }: {
   requests: ContentRequestRow[];
-  pendingReviewIdByRequest: Record<string, string>;
+  deletedRequests: ContentRequestRow[];
   progressByRequest: Record<string, PipelineProgress>;
 }) {
-  const byTab = (key: TabKey) => requests.filter((request) => TAB_FOR_STATUS[request.status] === key);
-  const visibleTabs = TABS.filter((tab) => !tab.hideWhenEmpty || byTab(tab.key).length > 0);
+  const byTab = (key: TabKey) =>
+    key === "deleted" ? deletedRequests : requests.filter((request) => TAB_FOR_STATUS[request.status] === key);
 
   return (
     <Tabs defaultValue="in-progress" className="gap-0">
@@ -79,7 +77,7 @@ export function RequestStatusTabs({
         variant="line"
         className="h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-none border-b bg-transparent p-0"
       >
-        {visibleTabs.map((tab) => (
+        {TABS.map((tab) => (
           <TabsTrigger
             key={tab.key}
             value={tab.key}
@@ -102,12 +100,13 @@ export function RequestStatusTabs({
         ))}
       </TabsList>
 
-      {visibleTabs.map((tab) => (
-        <TabsContent key={tab.key} value={tab.key} className="mt-4">
+      {TABS.map((tab) => (
+        <TabsContent key={tab.key} value={tab.key} className="mt-4 flex flex-col gap-3">
+          {tab.note ? <p className="text-sm text-muted-foreground">{tab.note}</p> : null}
           <RequestList
             requests={byTab(tab.key)}
-            pendingReviewIdByRequest={pendingReviewIdByRequest}
-            progressByRequest={progressByRequest}
+            progressByRequest={tab.key === "deleted" ? {} : progressByRequest}
+            deleted={tab.key === "deleted"}
             emptyTitle={tab.emptyTitle}
             emptyDescription={tab.emptyDescription}
           />

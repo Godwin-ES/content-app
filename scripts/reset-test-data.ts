@@ -119,10 +119,17 @@ async function main() {
       );
     }
     await must("delete publishing_queue_items", await admin.from("publishing_queue_items").delete().in("request_id", requestIds));
-    await must("delete approval_reviews", await admin.from("approval_reviews").delete().in("request_id", requestIds));
+    await must("delete package_approvals", await admin.from("package_approvals").delete().in("request_id", requestIds));
     await must("delete content_packages", await admin.from("content_packages").delete().in("request_id", requestIds));
     if (versionIds.length > 0) {
       await must("delete evaluations", await admin.from("evaluations").delete().in("artifact_version_id", versionIds));
+    }
+    // Before operation_runs: source_evidence.source_analysis_run_id
+    // references them and does not cascade.
+    const { data: sourceRows } = await admin.from("research_sources").select("id").in("request_id", requestIds);
+    const sourceIds = (sourceRows ?? []).map((r) => r.id);
+    if (sourceIds.length > 0) {
+      await must("delete source_evidence", await admin.from("source_evidence").delete().in("source_id", sourceIds));
     }
     await must("delete operation_runs", await admin.from("operation_runs").delete().in("request_id", requestIds));
     if (artifactIds.length > 0) {

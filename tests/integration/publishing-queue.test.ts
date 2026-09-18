@@ -9,7 +9,7 @@ import {
   hasSupabaseCredentials,
 } from "@/tests/helpers/supabase-test-clients";
 import { createContentPackage } from "@/lib/packages/service";
-import { submitForApproval, decideApproval } from "@/lib/approvals/service";
+import { approveCurrentPackage } from "@/lib/approvals/service";
 import { queueChannel, rescheduleItem, cancelItem, getPublishingQueue } from "@/lib/publishing/service";
 
 function articleContent(title = "Article") {
@@ -120,8 +120,7 @@ describe.skipIf(!hasCredentials)("publishing queue (hosted Supabase integration)
     }
 
     const pkg = await createContentPackage(owner.client, request!.id);
-    const review = await submitForApproval(owner.client, request!.id);
-    await decideApproval(owner.client, { reviewId: review.id, packageId: pkg.id, decision: "approved", comment: null });
+    await approveCurrentPackage(owner.client, request!.id);
 
     return { requestId: request!.id, pkg };
   }

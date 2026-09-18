@@ -29,13 +29,7 @@ async function approvedRequest(topic: string) {
   requestIds.push(requestId);
 
   // The owner approves their own package — there is no second account.
-  const { data: review } = await owner.client.rpc("submit_package_for_review", { p_request_id: requestId, p_package_id: packageId });
-  await owner.client.rpc("decide_package_review", {
-    p_review_id: (review as { id: string }).id,
-    p_package_id: packageId,
-    p_decision: "approved",
-    p_comment: undefined,
-  });
+  await owner.client.rpc("approve_package", { p_request_id: requestId, p_package_id: packageId });
 
   return { requestId, packageId };
 }
