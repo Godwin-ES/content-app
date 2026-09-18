@@ -14,13 +14,12 @@ import { UserMenu } from "@/components/app-shell/user-menu";
 export async function AppShell({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
 
-  const links: { href: string; label: string }[] = [];
-  if (user) {
-    links.push({ href: "/dashboard", label: "Dashboard" }, { href: "/publishing", label: "Publishing Queue" });
-    if (process.env.ENABLE_AI_TEST_MODE === "true") {
-      links.push({ href: "/test-benchmark", label: "Test & Benchmark" });
-    }
-  }
+  const links: { href: string; label: string }[] = user
+    ? [
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/publishing", label: "Publishing Queue" },
+      ]
+    : [];
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/30 text-foreground">

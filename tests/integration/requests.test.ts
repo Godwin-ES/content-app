@@ -25,7 +25,7 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
   let admin: SupabaseClient<Database>;
   let owner: { client: SupabaseClient<Database>; userId: string };
   const requestIds: string[] = [];
-  const originalTestMode = process.env.ENABLE_AI_TEST_MODE;
+  const originalModelSelection = process.env.ALLOW_MODEL_SELECTION;
   const originalProdModel = process.env.PRODUCTION_AI_MODEL;
 
   beforeAll(async () => {
@@ -34,7 +34,7 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
   });
 
   afterEach(() => {
-    process.env.ENABLE_AI_TEST_MODE = originalTestMode;
+    process.env.ALLOW_MODEL_SELECTION = originalModelSelection;
     process.env.PRODUCTION_AI_MODEL = originalProdModel;
   });
 
@@ -53,7 +53,7 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
     expect(request.resolved_audience).toBe(DEFAULT_REQUEST_SETTINGS.audience);
     expect(request.resolved_objective).toBe(DEFAULT_REQUEST_SETTINGS.objective);
     expect(request.resolved_tone).toBe(DEFAULT_REQUEST_SETTINGS.tone);
-    expect(request.test_model_choice).toBeNull();
+    expect(request.ai_model_choice).toBeNull();
 
     const events = await listActivityEvents(owner.client, request.id);
     expect(events.some((e) => e.event_type === "request_created")).toBe(true);
@@ -166,15 +166,15 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
     expect(request).not.toHaveProperty("source_urls");
   });
 
-  it("records the selected test model only when AI test mode is enabled", async () => {
-    process.env.ENABLE_AI_TEST_MODE = "true";
+  it("records the selected model only when the deployment allows choosing one", async () => {
+    process.env.ALLOW_MODEL_SELECTION = "true";
     const request = await createContentRequest(owner.client, owner.userId, { topic: "Topic" }, "gemini");
     requestIds.push(request.id);
-    expect(request.test_model_choice).toBe("gemini");
+    expect(request.ai_model_choice).toBe("gemini");
   });
 
-  it("rejects a client-supplied model choice when AI test mode is disabled", async () => {
-    process.env.ENABLE_AI_TEST_MODE = "false";
+  it("rejects a client-supplied model choice when the deployment does not allow choosing", async () => {
+    process.env.ALLOW_MODEL_SELECTION = "false";
     process.env.PRODUCTION_AI_MODEL = "claude_sonnet_5";
 
     await expect(

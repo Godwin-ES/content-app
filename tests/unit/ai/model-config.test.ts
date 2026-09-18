@@ -29,8 +29,8 @@ describe("getAllowedAIModels", () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
-  it("returns all three test models when AI test mode is enabled", async () => {
-    process.env.ENABLE_AI_TEST_MODE = "true";
+  it("returns all three models when the deployment allows choosing one", async () => {
+    process.env.ALLOW_MODEL_SELECTION = "true";
     process.env.PRODUCTION_AI_MODEL = "claude_sonnet_5";
     const { getAllowedAIModels } = await freshModelConfig();
     expect(getAllowedAIModels().sort()).toEqual(
@@ -38,15 +38,15 @@ describe("getAllowedAIModels", () => {
     );
   });
 
-  it("returns only the configured production model when test mode is disabled", async () => {
-    process.env.ENABLE_AI_TEST_MODE = "false";
+  it("returns only the configured production model when choosing is not allowed", async () => {
+    process.env.ALLOW_MODEL_SELECTION = "false";
     process.env.PRODUCTION_AI_MODEL = "claude_haiku_4_5";
     const { getAllowedAIModels } = await freshModelConfig();
     expect(getAllowedAIModels()).toEqual(["claude_haiku_4_5"]);
   });
 
-  it("treats a missing ENABLE_AI_TEST_MODE as disabled", async () => {
-    delete process.env.ENABLE_AI_TEST_MODE;
+  it("treats a missing ALLOW_MODEL_SELECTION as disabled", async () => {
+    delete process.env.ALLOW_MODEL_SELECTION;
     process.env.PRODUCTION_AI_MODEL = "claude_sonnet_5";
     const { getAllowedAIModels } = await freshModelConfig();
     expect(getAllowedAIModels()).toEqual(["claude_sonnet_5"]);
@@ -63,21 +63,21 @@ describe("assertAllowedAIModel", () => {
   });
 
   it("accepts a model within the allowed set", async () => {
-    process.env.ENABLE_AI_TEST_MODE = "true";
+    process.env.ALLOW_MODEL_SELECTION = "true";
     process.env.PRODUCTION_AI_MODEL = "claude_sonnet_5";
     const { assertAllowedAIModel } = await freshModelConfig();
     expect(() => assertAllowedAIModel("gemini")).not.toThrow();
   });
 
   it("rejects an arbitrary client-supplied model string as a DomainError", async () => {
-    process.env.ENABLE_AI_TEST_MODE = "true";
+    process.env.ALLOW_MODEL_SELECTION = "true";
     process.env.PRODUCTION_AI_MODEL = "claude_sonnet_5";
     const { assertAllowedAIModel } = await freshModelConfig();
     expectDomainError(() => assertAllowedAIModel("gpt-4o"));
   });
 
-  it("rejects a test-mode model when test mode is disabled", async () => {
-    process.env.ENABLE_AI_TEST_MODE = "false";
+  it("rejects a selectable model when choosing is not allowed", async () => {
+    process.env.ALLOW_MODEL_SELECTION = "false";
     process.env.PRODUCTION_AI_MODEL = "claude_haiku_4_5";
     const { assertAllowedAIModel } = await freshModelConfig();
     expectDomainError(() => assertAllowedAIModel("gemini"));
@@ -94,7 +94,7 @@ describe("resolveModelId", () => {
   });
 
   it("maps a model choice to its configured provider model id", async () => {
-    process.env.ENABLE_AI_TEST_MODE = "true";
+    process.env.ALLOW_MODEL_SELECTION = "true";
     process.env.ANTHROPIC_SONNET_MODEL = "claude-sonnet-4-5-test";
     process.env.PRODUCTION_AI_MODEL = "claude_sonnet_5";
     const { resolveModelId } = await freshModelConfig();

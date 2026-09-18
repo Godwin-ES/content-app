@@ -9,7 +9,7 @@ const MODEL_LABEL: Record<AIModelChoice, string> = {
   claude_sonnet_5: "Claude Sonnet 5",
 };
 
-const TEST_MODE_MODELS: AIModelChoice[] = ["gemini", "claude_haiku_4_5", "claude_sonnet_5"];
+const SELECTABLE_MODELS: AIModelChoice[] = ["gemini", "claude_haiku_4_5", "claude_sonnet_5"];
 
 interface ModelSelectorProps {
   id: string;
@@ -19,12 +19,16 @@ interface ModelSelectorProps {
 }
 
 /**
- * Only ever rendered when AI test mode is enabled (SYSTEM-DESIGN-NEXTJS.md
- * §4.9, §12.4, Task 20 Step 3) — the enclosing page is responsible for
- * that gate. The server independently re-validates any model choice sent
- * back, so this component choosing freely here never bypasses anything.
+ * Which model a request is generated with.
+ *
+ * Only rendered when the deployment permits choosing one
+ * (ALLOW_MODEL_SELECTION; SYSTEM-DESIGN-NEXTJS.md §4.9, §12.4) — the
+ * enclosing page owns that gate. Otherwise every request uses the
+ * server-configured production model and the browser has no say. The
+ * server re-validates whatever comes back regardless, so choosing freely
+ * here bypasses nothing.
  */
-export function ModelSelector({ id, value, onChange, label = "Model" }: ModelSelectorProps) {
+export function ModelSelector({ id, value, onChange, label = "AI model" }: ModelSelectorProps) {
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={id}>{label}</Label>
@@ -34,7 +38,7 @@ export function ModelSelector({ id, value, onChange, label = "Model" }: ModelSel
         onChange={(e) => onChange(e.target.value as AIModelChoice)}
         className="h-9 rounded-md border bg-transparent px-3 text-sm"
       >
-        {TEST_MODE_MODELS.map((model) => (
+        {SELECTABLE_MODELS.map((model) => (
           <option key={model} value={model}>
             {MODEL_LABEL[model]}
           </option>

@@ -473,6 +473,7 @@ export type Database = {
       }
       content_requests: {
         Row: {
+          ai_model_choice: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
@@ -493,11 +494,11 @@ export type Database = {
           supplied_primary_keyword: string | null
           supplied_sources_only: boolean
           supplied_tone: string | null
-          test_model_choice: string | null
           topic: string
           updated_at: string
         }
         Insert: {
+          ai_model_choice?: string | null
           created_at?: string
           current_package_id?: string | null
           current_plan_id?: string | null
@@ -518,11 +519,11 @@ export type Database = {
           supplied_primary_keyword?: string | null
           supplied_sources_only?: boolean
           supplied_tone?: string | null
-          test_model_choice?: string | null
           topic: string
           updated_at?: string
         }
         Update: {
+          ai_model_choice?: string | null
           created_at?: string
           current_package_id?: string | null
           current_plan_id?: string | null
@@ -543,7 +544,6 @@ export type Database = {
           supplied_primary_keyword?: string | null
           supplied_sources_only?: boolean
           supplied_tone?: string | null
-          test_model_choice?: string | null
           topic?: string
           updated_at?: string
         }
@@ -1597,6 +1597,7 @@ export type Database = {
       restore_request: {
         Args: { p_request_id: string }
         Returns: {
+          ai_model_choice: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
@@ -1617,7 +1618,6 @@ export type Database = {
           supplied_primary_keyword: string | null
           supplied_sources_only: boolean
           supplied_tone: string | null
-          test_model_choice: string | null
           topic: string
           updated_at: string
         }
@@ -1663,6 +1663,7 @@ export type Database = {
       set_request_cta: {
         Args: { p_cta: string; p_request_id: string }
         Returns: {
+          ai_model_choice: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
@@ -1683,7 +1684,6 @@ export type Database = {
           supplied_primary_keyword: string | null
           supplied_sources_only: boolean
           supplied_tone: string | null
-          test_model_choice: string | null
           topic: string
           updated_at: string
         }
@@ -1697,6 +1697,7 @@ export type Database = {
       set_request_primary_keyword: {
         Args: { p_primary_keyword: string; p_request_id: string }
         Returns: {
+          ai_model_choice: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
@@ -1717,7 +1718,6 @@ export type Database = {
           supplied_primary_keyword: string | null
           supplied_sources_only: boolean
           supplied_tone: string | null
-          test_model_choice: string | null
           topic: string
           updated_at: string
         }
@@ -1731,6 +1731,7 @@ export type Database = {
       set_supplied_sources_only: {
         Args: { p_request_id: string; p_value: boolean }
         Returns: {
+          ai_model_choice: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
@@ -1751,7 +1752,6 @@ export type Database = {
           supplied_primary_keyword: string | null
           supplied_sources_only: boolean
           supplied_tone: string | null
-          test_model_choice: string | null
           topic: string
           updated_at: string
         }

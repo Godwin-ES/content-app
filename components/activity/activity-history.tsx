@@ -18,7 +18,7 @@ const PAGE_SIZE = 15;
  * Every event's `message` is already written as prose where it is recorded
  * ("Package v1 created"), so this renders that and its timestamp. No
  * provider or system detail (model names, token counts, stack traces) ever
- * appears here; that belongs to test-mode and error tooling.
+ * appears here; that belongs to the operational logs.
  */
 export function ActivityHistory({ events }: { events: ActivityEventRow[] }) {
   const [open, setOpen] = useState(false);

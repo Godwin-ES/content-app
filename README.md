@@ -71,7 +71,7 @@ See `.env.example` for the full list with inline comments. The load-bearing ones
 | Variable | Purpose |
 |---|---|
 | `USE_FAKE_PROVIDERS` | When `true`, all AI/research calls go through deterministic in-memory fakes instead of real providers. Routine tests always use this; the app **refuses** to honor it when `NODE_ENV=production`, regardless of the value. |
-| `ENABLE_AI_TEST_MODE` | When `true`, a request can be created with an explicit model choice (Gemini / Claude Haiku 4.5 / Claude Sonnet 5) and the Test & Benchmark workspace nav item appears. When `false`, the server ignores any client-supplied model choice and always uses `PRODUCTION_AI_MODEL`. |
+| `ALLOW_MODEL_SELECTION` | When `true`, a request can be created with an explicit model choice (Gemini / Claude Haiku 4.5 / Claude Sonnet 5). When `false`, the server ignores any client-supplied choice — including one stored earlier — and always uses `PRODUCTION_AI_MODEL`. |
 | `PRODUCTION_AI_PROVIDER` / `PRODUCTION_AI_MODEL` | The model used whenever `ENABLE_AI_TEST_MODE=false` — the only model production traffic can ever reach. |
 | `ENABLE_FAILURE_INJECTION` + `TEST_FAILURE_TOKEN` | Dev-only controlled failure fixtures (research/AI timeouts, malformed output, persistence/notification failures). The `/api/test/failure-mode` route 404s unless `NODE_ENV!==production`, this flag is `true`, **and** the request carries a matching `x-koya-test-token` header — all three, every time. |
 | `DISCORD_*_WEBHOOK_URL` | Best-effort, optional. A missing webhook is a silent no-op; Discord is a transparency surface, never workflow authority. |

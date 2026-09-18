@@ -45,15 +45,17 @@ export async function getAIProvider(model: AIModelChoice): Promise<AIProvider> {
 }
 
 /**
- * A request's chosen model applies only while AI test mode is enabled and
- * only if it is still an allowed choice; otherwise the configured
- * production model is used (SYSTEM-DESIGN-NEXTJS.md §4.9, §12.4). The
- * browser cannot influence this outside test mode.
+ * A request's chosen model applies only where the deployment permits
+ * choosing one, and only if it is still an allowed choice; otherwise the
+ * configured production model is used (SYSTEM-DESIGN-NEXTJS.md §4.9,
+ * §12.4). A model stored while selection was allowed stops being honoured
+ * the moment it is turned off, so the browser can never influence this
+ * after the fact either.
  */
-export function resolveAIModelForRequest(request: { test_model_choice: string | null }): AIModelChoice {
+export function resolveAIModelForRequest(request: { ai_model_choice: string | null }): AIModelChoice {
   const allowed = getAllowedAIModels();
-  if (process.env.ENABLE_AI_TEST_MODE === "true" && request.test_model_choice) {
-    const choice = request.test_model_choice as AIModelChoice;
+  if (request.ai_model_choice) {
+    const choice = request.ai_model_choice as AIModelChoice;
     if (allowed.includes(choice)) return choice;
   }
   return allowed[0];

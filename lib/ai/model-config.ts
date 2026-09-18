@@ -1,10 +1,15 @@
 import { DomainError } from "@/lib/domain/errors";
 import type { AIModelChoice, AIProviderName } from "@/lib/domain/types";
 
-const TEST_MODE_MODELS: AIModelChoice[] = ["gemini", "claude_haiku_4_5", "claude_sonnet_5"];
+const SELECTABLE_MODELS: AIModelChoice[] = ["gemini", "claude_haiku_4_5", "claude_sonnet_5"];
 
-function isAITestModeEnabled(): boolean {
-  return process.env.ENABLE_AI_TEST_MODE === "true";
+/**
+ * Whether this deployment lets a request pick its own model. Off by
+ * default: model identifiers and their cost are a server concern, and a
+ * browser that can choose one can choose the most expensive one.
+ */
+function isModelSelectionAllowed(): boolean {
+  return process.env.ALLOW_MODEL_SELECTION === "true";
 }
 
 /**
@@ -20,13 +25,13 @@ function getProductionModelChoice(): AIModelChoice {
 }
 
 /**
- * Production safety boundary (SYSTEM-DESIGN-NEXTJS.md #4.9, #12.4): when AI test
- * mode is disabled, only the server-configured Claude production model is allowed
- * and the browser cannot override it.
+ * Production safety boundary (SYSTEM-DESIGN-NEXTJS.md #4.9, #12.4): unless
+ * the deployment allows model selection, only the server-configured
+ * production model is permitted and the browser cannot override it.
  */
 export function getAllowedAIModels(): AIModelChoice[] {
-  if (isAITestModeEnabled()) {
-    return TEST_MODE_MODELS;
+  if (isModelSelectionAllowed()) {
+    return SELECTABLE_MODELS;
   }
   return [getProductionModelChoice()];
 }

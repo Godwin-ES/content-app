@@ -9,10 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ResolvedDefaultsCard } from "@/components/requests/resolved-defaults-card";
 import { IntakeAttachments } from "@/components/requests/intake-attachments";
-import { ModelSelector } from "@/components/test-mode/model-selector";
+import { ModelSelector } from "@/components/requests/model-selector";
 import type { AIModelChoice } from "@/lib/domain/types";
 
-export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boolean }) {
+export function RequestForm({ canChooseModel = false }: { canChooseModel?: boolean }) {
   const [state, formAction, pending] = useActionState(createContentRequestAction, null);
   const [optionalOpen, setOptionalOpen] = useState(false);
   const [audience, setAudience] = useState("");
@@ -50,9 +50,9 @@ export function RequestForm({ testModeEnabled = false }: { testModeEnabled?: boo
         urlCount={urls.length}
       />
 
-      {testModeEnabled ? (
-        <div className="rounded-lg border border-dashed p-4">
-          <ModelSelector id="ai-model-choice" value={aiModelChoice} onChange={setAiModelChoice} label="Test mode: AI model for this request" />
+      {canChooseModel ? (
+        <div className="rounded-lg border p-4">
+          <ModelSelector id="ai-model-choice" value={aiModelChoice} onChange={setAiModelChoice} label="AI model" />
           <input type="hidden" name="aiModelChoice" value={aiModelChoice} />
         </div>
       ) : null}
