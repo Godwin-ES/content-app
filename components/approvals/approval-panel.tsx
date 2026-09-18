@@ -7,6 +7,7 @@ import { Check, Loader2 } from "lucide-react";
 import { approvePackageAction } from "@/actions/approvals";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAutoMode } from "@/components/requests/auto-mode-context";
 
 /**
  * The approval gate, as one person experiences it: one button.
@@ -32,6 +33,7 @@ export function ApprovalPanel({
   hasCurrentPackage: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const { running: autoModeRunning } = useAutoMode();
   const [busy, startTransition] = useTransition();
   const router = useRouter();
 
@@ -77,7 +79,7 @@ export function ApprovalPanel({
         </Alert>
       ) : null}
 
-      <Button type="button" size="sm" className="w-fit" onClick={approve} disabled={busy}>
+      <Button type="button" size="sm" className="w-fit" onClick={approve} disabled={busy || autoModeRunning}>
         {busy ? <Loader2 aria-hidden className="size-4 animate-spin" /> : <Check aria-hidden className="size-4" />}
         Approve for publishing
       </Button>

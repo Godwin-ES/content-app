@@ -145,6 +145,18 @@ export function SourceCard({
         <p className="text-xs text-destructive">{source.retrieval_error}</p>
       ) : null}
 
+      {/* The analyzer's own view, offered before the decision is made and
+          left behind once it has been: once you have accepted or excluded
+          a source, what the machine would have suggested is history. */}
+      {!decision && source.recommendation && source.recommendation_reason ? (
+        <p className="flex flex-wrap items-start gap-1.5 text-xs">
+          <Badge variant={source.recommendation === "accept" ? "outline" : "secondary"} className="shrink-0">
+            Suggests {source.recommendation}
+          </Badge>
+          <span className="min-w-0 flex-1 text-muted-foreground">{source.recommendation_reason}</span>
+        </p>
+      ) : null}
+
       {isUsable ? <SourceEvidenceDrawer evidence={evidence} /> : null}
 
       {error ? (

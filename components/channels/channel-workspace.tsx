@@ -17,6 +17,7 @@ import { NewsletterEditor } from "@/components/channels/newsletter-editor";
 import { EditableSetting } from "@/components/shared/editable-setting";
 import type { Database } from "@/lib/supabase/database.types";
 import type { LinkedinPost, XPost, Newsletter } from "@/lib/ai/schemas/channel";
+import { useAutoMode } from "@/components/requests/auto-mode-context";
 
 type ContentArtifactRow = Database["public"]["Tables"]["content_artifacts"]["Row"];
 type ArtifactVersionRow = Database["public"]["Tables"]["artifact_versions"]["Row"];
@@ -168,6 +169,7 @@ export function ChannelWorkspace({
   cta,
   canEditSettings,
 }: ChannelWorkspaceProps) {
+  const { running: autoModeRunning } = useAutoMode();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -199,7 +201,7 @@ export function ChannelWorkspace({
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Channel Assets</h3>
         {channelArtifacts.length === 0 || channelArtifacts.some((a) => !a.current_version_id) ? (
-          <Button type="button" size="sm" onClick={generate} disabled={!canGenerate || isPending}>
+          <Button type="button" size="sm" onClick={generate} disabled={!canGenerate || isPending || autoModeRunning}>
             {isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" /> Generating...

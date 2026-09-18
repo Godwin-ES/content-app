@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import type { Database } from "@/lib/supabase/database.types";
 import type { ContentPlanSection } from "@/lib/ai/schemas/content-plan";
 import type { ManualContentPlanInput } from "@/lib/planning/service";
+import { useAutoMode } from "@/components/requests/auto-mode-context";
 
 type ContentPlanRow = Database["public"]["Tables"]["content_plans"]["Row"];
 
@@ -46,6 +47,7 @@ function toDraft(plan: ContentPlanRow): ManualContentPlanInput {
  * one it's based on).
  */
 export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps) {
+  const { running: autoModeRunning } = useAutoMode();
   const [draft, setDraft] = useState<ManualContentPlanInput | null>(plan ? toDraft(plan) : null);
   const [busyCount, setBusyCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +118,7 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
             </AlertDescription>
           </Alert>
         ) : null}
-        <Button type="button" onClick={generate} disabled={!canGenerate || isPending} className="w-fit">
+        <Button type="button" onClick={generate} disabled={!canGenerate || isPending || autoModeRunning} className="w-fit">
           {isPending ? (
             <>
               <Loader2 className="size-4 animate-spin" /> Generating...

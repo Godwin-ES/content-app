@@ -203,15 +203,40 @@ export async function runAutoStep(
     }
 
     case "review_sources": {
-      // Auto mode accepting the source set is it making the grounding
-      // judgement on the user's behalf; it accepts only sources that
-      // retrieved successfully, and never invents one.
+      // Auto mode making the grounding judgement on the user's behalf.
+      //
+      // It follows the analyzer's per-source recommendation rather than
+      // accepting whatever retrieved: a page can read perfectly, yield
+      // evidence, and be about something else entirely — which is the case
+      // source review exists to catch, and the one a blanket "accept all
+      // usable" was guaranteed to miss. Supplied URLs and uploaded files
+      // go through the same analyzer, so a link that turns out to be off
+      // topic is excluded like any other.
       const usable = workspace.sources.filter((s) => s.retrieval_status === "usable");
-      for (const source of usable) {
+      const accepted = usable.filter((s) => s.recommendation !== "exclude");
+      const excluded = usable.filter((s) => s.recommendation === "exclude");
+
+      for (const source of excluded) {
+        await recordSourceDecision(supabase, {
+          sourceId: source.id,
+          decision: "excluded",
+          reason: source.recommendation_reason ?? "Excluded automatically by auto mode.",
+          decidedBy: request.owner_id,
+        });
+      }
+
+      if (accepted.length === 0) {
+        return blocked(
+          "Every retrieved source looks off topic, so there is nothing to write from. " +
+            "Change the primary keyword, or add a source yourself, then continue."
+        );
+      }
+
+      for (const source of accepted) {
         await recordSourceDecision(supabase, {
           sourceId: source.id,
           decision: "accepted",
-          reason: "Accepted automatically by auto mode.",
+          reason: source.recommendation_reason ?? "Accepted automatically by auto mode.",
           decidedBy: request.owner_id,
         });
       }
@@ -223,7 +248,11 @@ export async function runAutoStep(
       if (coverage.blocking) return blocked(coverage.message);
 
       await confirmSourceSet(supabase, requestId);
-      return advanced(`Accepted ${usable.length} usable source(s) and confirmed the source set.`);
+      return advanced(
+        excluded.length > 0
+          ? `Accepted ${accepted.length} source(s), excluded ${excluded.length} as off topic, and confirmed the source set.`
+          : `Accepted ${accepted.length} source(s) and confirmed the source set.`
+      );
     }
 
     case "generate_content_plan": {

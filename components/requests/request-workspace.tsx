@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { WorkspaceTab } from "@/lib/workspace/tabs";
+import { AutoModeProvider } from "@/components/requests/auto-mode-context";
 
 interface RequestWorkspaceProps {
   overview: ReactNode;
@@ -48,7 +49,8 @@ export function RequestWorkspace({
   defaultTab = "overview",
 }: RequestWorkspaceProps) {
   return (
-    <Tabs defaultValue={defaultTab}>
+    <AutoModeProvider>
+      <Tabs defaultValue={defaultTab}>
       <div className="overflow-x-auto">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -81,6 +83,7 @@ export function RequestWorkspace({
       <TabsContent value="publishing">
         <div className="flex flex-col gap-6 pt-4">{publishing}</div>
       </TabsContent>
-    </Tabs>
+      </Tabs>
+    </AutoModeProvider>
   );
 }

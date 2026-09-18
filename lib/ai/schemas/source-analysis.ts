@@ -16,6 +16,18 @@ export const sourceEvidenceItemSchema = z.object({
 export const sourceAnalysisSchema = z.object({
   isUsable: z.boolean(),
   relevanceSummary: z.string().min(1),
+  /**
+   * Whether this source is worth keeping for this topic, and why in one
+   * sentence.
+   *
+   * Separate from `isUsable`, which only says the page could be read and
+   * had substance in it. A well-written page about something else is
+   * perfectly usable and perfectly useless, and that distinction is
+   * exactly what source review exists to make. Shown as a recommendation
+   * and acted on by auto mode; the decision itself stays a person's.
+   */
+  recommendation: z.enum(["accept", "exclude"]),
+  recommendationReason: z.string().min(1).max(240),
   evidence: z.array(sourceEvidenceItemSchema).default([]),
 });
 

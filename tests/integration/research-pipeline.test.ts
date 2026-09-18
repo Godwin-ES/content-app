@@ -26,6 +26,8 @@ function usableAnalysis(evidenceKey = "E1") {
   return {
     isUsable: true,
     relevanceSummary: "Directly relevant to the topic.",
+    recommendation: "accept" as const,
+    recommendationReason: "Covers the topic directly.",
     evidence: [
       {
         evidenceKey,

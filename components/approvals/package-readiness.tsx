@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { PackageReadiness as PackageReadinessResult } from "@/lib/packages/service";
+import { useAutoMode } from "@/components/requests/auto-mode-context";
 
 interface PackageReadinessProps {
   requestId: string;
@@ -21,6 +22,7 @@ interface PackageReadinessProps {
  */
 export function PackageReadiness({ requestId, readiness, canCreate }: PackageReadinessProps) {
   const [error, setError] = useState<string | null>(null);
+  const { running: autoModeRunning } = useAutoMode();
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -51,7 +53,7 @@ export function PackageReadiness({ requestId, readiness, canCreate }: PackageRea
         </Alert>
       ) : null}
 
-      <Button type="button" size="sm" onClick={create} disabled={!readiness.ready || !canCreate || isPending} className="w-fit">
+      <Button type="button" size="sm" onClick={create} disabled={!readiness.ready || !canCreate || isPending || autoModeRunning} className="w-fit">
         {isPending ? "Creating package..." : "Create Package"}
       </Button>
     </div>

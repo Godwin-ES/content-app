@@ -159,8 +159,17 @@ async function analyzeAndStoreEvidence(
     await updateOperationRun(supabase, analysisRun.id, { status: "succeeded", finished_at: new Date().toISOString() });
 
     if (!analysis.isUsable || analysis.evidence.length === 0) {
-      return updateResearchSource(supabase, sourceRow.id, { retrieval_status: "unusable" });
+      return updateResearchSource(supabase, sourceRow.id, {
+        retrieval_status: "unusable",
+        recommendation: "exclude",
+        recommendation_reason: analysis.recommendationReason,
+      });
     }
+
+    await updateResearchSource(supabase, sourceRow.id, {
+      recommendation: analysis.recommendation,
+      recommendation_reason: analysis.recommendationReason,
+    });
 
     for (const item of analysis.evidence) {
       await createSourceEvidence(supabase, {

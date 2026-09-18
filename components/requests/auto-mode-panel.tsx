@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AUTO_MODE_STAGES, type PipelineStage } from "@/lib/workspace/next-action";
+import { useAutoMode } from "@/components/requests/auto-mode-context";
 import { cn } from "@/lib/utils";
 
 interface LogEntry {
@@ -28,7 +29,9 @@ interface LogEntry {
 export function AutoModePanel({ requestId, canRun }: { requestId: string; canRun: boolean }) {
   const [stopAfter, setStopAfter] = useState<PipelineStage>("Package");
   const [log, setLog] = useState<LogEntry[]>([]);
-  const [running, setRunning] = useState(false);
+  // Shared, so the rest of the workspace can grey itself out while this
+  // runs rather than offering a second way to drive the same pipeline.
+  const { running, setRunning } = useAutoMode();
   const [error, setError] = useState<string | null>(null);
   const cancelled = useRef(false);
   const router = useRouter();
@@ -39,27 +42,38 @@ export function AutoModePanel({ requestId, canRun }: { requestId: string; canRun
     setError(null);
     setLog([]);
 
-    // A guard against a state machine that somehow never settles; a real run
-    // is a dozen steps at most.
-    for (let step = 0; step < 40; step++) {
-      if (cancelled.current) {
-        setLog((prev) => [...prev, { status: "finished", message: "Stopped." }]);
-        break;
+    // try/finally because `running` now greys out every other control in
+    // the workspace. An action that throws rather than returning an error
+    // — a dropped connection mid-step — would otherwise leave the whole
+    // request locked with no way back but a reload.
+    try {
+      // A guard against a state machine that somehow never settles; a real
+      // run is a dozen steps at most.
+      for (let step = 0; step < 40; step++) {
+        // Checked between steps, never mid-step: a step is one committed
+        // unit of work, and abandoning it half-done is what "stop" must
+        // not mean.
+        if (cancelled.current) {
+          setLog((prev) => [...prev, { status: "finished", message: "Stopped." }]);
+          break;
+        }
+
+        const result = await runAutoStepAction(requestId, stopAfter);
+
+        if (!result.ok) {
+          setError(result.error.message);
+          break;
+        }
+
+        setLog((prev) => [...prev, { status: result.data.status, message: result.data.message }]);
+        if (result.data.status !== "advanced") break;
       }
-
-      const result = await runAutoStepAction(requestId, stopAfter);
-
-      if (!result.ok) {
-        setError(result.error.message);
-        break;
-      }
-
-      setLog((prev) => [...prev, { status: result.data.status, message: result.data.message }]);
-      if (result.data.status !== "advanced") break;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Auto mode stopped unexpectedly.");
+    } finally {
+      setRunning(false);
+      router.refresh();
     }
-
-    setRunning(false);
-    router.refresh();
   }
 
   return (
@@ -102,7 +116,8 @@ export function AutoModePanel({ requestId, canRun }: { requestId: string; canRun
 
       <p className="text-sm text-muted-foreground">
         Carries the request forward on its own — research, sources, plan, articles, channels — and stops at the package for you to
-        review. It never submits for approval or publishes.
+        review. It never approves or publishes. While it runs, the other tabs&apos; controls are disabled so nothing competes with
+        it; Stop takes effect after the step in flight finishes, so nothing is left half-done.
       </p>
 
       {log.length > 0 ? (

@@ -1017,6 +1017,8 @@ export type Database = {
           original_url: string | null
           published_at: string | null
           publisher: string | null
+          recommendation: string | null
+          recommendation_reason: string | null
           request_id: string
           retrieval_error: string | null
           retrieval_status: string
@@ -1036,6 +1038,8 @@ export type Database = {
           original_url?: string | null
           published_at?: string | null
           publisher?: string | null
+          recommendation?: string | null
+          recommendation_reason?: string | null
           request_id: string
           retrieval_error?: string | null
           retrieval_status?: string
@@ -1055,6 +1059,8 @@ export type Database = {
           original_url?: string | null
           published_at?: string | null
           publisher?: string | null
+          recommendation?: string | null
+          recommendation_reason?: string | null
           request_id?: string
           retrieval_error?: string | null
           retrieval_status?: string

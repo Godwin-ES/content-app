@@ -16,6 +16,7 @@ import { SourceReviewWorkspace } from "@/components/research/source-review-works
 import { SourceCard } from "@/components/research/source-card";
 import { ResearchProgress, type ResearchProgressSignals } from "@/components/research/research-progress";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useAutoMode } from "@/components/requests/auto-mode-context";
 import type { Database } from "@/lib/supabase/database.types";
 
 type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"];
@@ -69,7 +70,10 @@ export function ResearchTab({
     setBusyCount((count) => Math.max(0, count + (busy ? 1 : -1)));
   }, []);
 
-  const locked = busyCount > 0;
+  // Auto mode drives the same pipeline from the Overview. While it is
+  // stepping, every control here is one that would collide with it.
+  const { running: autoModeRunning } = useAutoMode();
+  const locked = busyCount > 0 || autoModeRunning;
   const hasSuppliedSources = sources.some((source) => source.origin !== "researched");
 
   async function updateScope(next: boolean) {
