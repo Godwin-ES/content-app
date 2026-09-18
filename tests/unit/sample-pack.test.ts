@@ -9,7 +9,7 @@ import {
   hasSupabaseCredentials,
 } from "@/tests/helpers/supabase-test-clients";
 import { createContentPackage } from "@/lib/packages/service";
-import { getSamplePack } from "@/lib/sample-pack/service";
+import { getSamplePack, getSamplePackByPackageId } from "@/lib/sample-pack/service";
 
 function articleContent(title = "Article") {
   return {
@@ -133,6 +133,7 @@ describe.skipIf(!hasCredentials)("sample pack (hosted Supabase integration)", ()
     });
 
     const pack = await getSamplePack(owner.client, request!.id);
+    const packagePack = await getSamplePackByPackageId(owner.client, pkg.id);
 
     expect(pack.packageVersion).toBe(pkg.version_number);
     expect(pack.article.title).toBe("Original Title");
@@ -144,6 +145,10 @@ describe.skipIf(!hasCredentials)("sample pack (hosted Supabase integration)", ()
     expect(pack.x.body).toBe("An X post.");
     expect(pack.newsletter.subject).toBe("Subject");
     expect(pack.evaluationSummary.article).toContain("pass");
+
+    expect(packagePack.requestId).toBe(request!.id);
+    expect(packagePack.packageVersion).toBe(pkg.version_number);
+    expect(packagePack.article.title).toBe("Original Title");
   });
 
   it("throws a clear domain error when the request has no package yet", async () => {
