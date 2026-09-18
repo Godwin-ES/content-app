@@ -25,6 +25,9 @@ describe("researchRunAvailability", () => {
     const result = researchRunAvailability(base);
     expect(result.canRun).toBe(false);
     expect(result.canRun === false && result.reason).toContain("Change the primary keyword");
+    // The short form sits beside the disabled button, so it has to say
+    // what to do rather than what went wrong.
+    expect(result.canRun === false && result.hint).toBe("Edit the keyword to run more searches");
   });
 
   it("treats a re-spelling as the same keyword rather than a change", () => {

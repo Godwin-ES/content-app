@@ -604,7 +604,8 @@ export async function confirmReviewedSourceSet(
 
 export type ResearchRunAvailability =
   | { canRun: true; kind: "initial" | "rerun" }
-  | { canRun: false; reason: string };
+  /** `reason` explains at length; `hint` is the few words that sit beside the disabled button. */
+  | { canRun: false; reason: string; hint: string };
 
 /**
  * Whether research can be started or started again, and why not.
@@ -628,7 +629,11 @@ export function researchRunAvailability(request: {
   deleted_at?: string | null;
 }): ResearchRunAvailability {
   if (request.deleted_at) {
-    return { canRun: false, reason: "This request is in the bin. Restore it before researching." };
+    return {
+      canRun: false,
+      reason: "This request is in the bin. Restore it before researching.",
+      hint: "Restore this request first",
+    };
   }
 
   if (request.status === "draft") return { canRun: true, kind: "initial" };
@@ -637,6 +642,7 @@ export function researchRunAvailability(request: {
     return {
       canRun: false,
       reason: "The source set is confirmed, so research is settled for this request. Add a URL to bring in anything it missed.",
+      hint: "Source set confirmed — add a URL to bring in anything missed",
     };
   }
 
@@ -650,5 +656,6 @@ export function researchRunAvailability(request: {
   return {
     canRun: false,
     reason: `Research already ran for "${researched || current}". Change the primary keyword to search for something different.`,
+    hint: "Edit the keyword to run more searches",
   };
 }

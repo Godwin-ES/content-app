@@ -13,7 +13,7 @@ import { listActivityEvents } from "@/lib/repositories/activity";
 import { filterDisplayedActivity } from "@/lib/activity/display";
 import { assessKeywordCoverage } from "@/lib/research/keyword-coverage";
 import { researchRunAvailability } from "@/lib/research/service";
-import { deriveNextAction } from "@/lib/workspace/next-action";
+import { deriveNextAction, derivePipelineProgress } from "@/lib/workspace/next-action";
 import { buildWorkspaceSnapshot } from "@/lib/workspace/snapshot";
 import { articlesStaleAgainstPlan, channelsStaleAgainstArticle } from "@/lib/workspace/staleness";
 
@@ -186,7 +186,11 @@ export default async function RequestWorkspacePage({
   const overviewContent = (
     <>
       <RequestStepper nextAction={nextAction} />
-      <AutoModePanel requestId={requestId} canRun={request.status === "draft" || request.status === "source_review" || request.status === "content_development"} />
+      <AutoModePanel
+        requestId={requestId}
+        canRun={request.status === "draft" || request.status === "source_review" || request.status === "content_development"}
+        currentStage={derivePipelineProgress(snapshot).stage}
+      />
       <div className="grid gap-3 sm:grid-cols-2">
         <EmptyState
           title="Sources"

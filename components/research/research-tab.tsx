@@ -175,11 +175,13 @@ export function ResearchTab({
         </Alert>
       ) : null}
 
-      {/* Shown while research can still change the source set: as the
-          first run on a draft, and as a re-run once the keyword has been
-          changed. A re-run is additive — everything already retrieved
-          keeps whatever decision has been made about it. */}
-      {runAvailability.canRun || status === "source_review" ? (
+      {/* Always present once the request exists, even when research has
+          already run. Hiding the button when it is unavailable leaves
+          someone wondering whether searching again is possible at all;
+          showing it greyed out, with the reason beside it, answers that
+          without their having to ask. A re-run is additive — everything
+          already retrieved keeps whatever decision has been made about it. */}
+      {
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <h3 className="text-sm font-medium">{runAvailability.canRun && runAvailability.kind === "rerun" ? "Research again" : "Research"}</h3>
           {isStarting ? (
@@ -211,19 +213,24 @@ export function ResearchTab({
             </label>
           ) : null}
 
-          <Button type="button" onClick={startResearch} disabled={locked || !runAvailability.canRun} className="w-fit">
-            {isStarting ? (
-              <>
-                <Loader2 className="size-4 animate-spin" /> Researching...
-              </>
-            ) : runAvailability.canRun && runAvailability.kind === "rerun" ? (
-              "Research again"
-            ) : (
-              "Start research"
-            )}
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" onClick={startResearch} disabled={locked || !runAvailability.canRun} className="w-fit">
+              {isStarting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Researching...
+                </>
+              ) : runAvailability.canRun && runAvailability.kind === "rerun" ? (
+                "Research again"
+              ) : (
+                "Start research"
+              )}
+            </Button>
+            {!runAvailability.canRun && !isStarting ? (
+              <span className="text-sm text-muted-foreground">{runAvailability.hint}</span>
+            ) : null}
+          </div>
         </div>
-      ) : null}
+      }
 
       {sources.length === 0 ? (
         <EmptyState title="No sources yet" description="Start research to gather sources for this topic." />
