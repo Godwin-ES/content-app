@@ -14,7 +14,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import type { Database } from "@/lib/supabase/database.types";
 import type { ContentPlanSection } from "@/lib/ai/schemas/content-plan";
 import type { ManualContentPlanInput } from "@/lib/planning/service";
-import { useAutoMode } from "@/components/requests/auto-mode-context";
+import { useAutoMode, useOperationRunning } from "@/components/requests/auto-mode-context";
 
 type ContentPlanRow = Database["public"]["Tables"]["content_plans"]["Row"];
 
@@ -48,6 +48,12 @@ function toDraft(plan: ContentPlanRow): ManualContentPlanInput {
  */
 export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps) {
   const { running: autoModeRunning } = useAutoMode();
+  /**
+   * Planning running anywhere — generation or a regeneration — read from
+   * the operation table, so leaving this tab and coming back finds the
+   * button still generating rather than offering to start again.
+   */
+  const planning = useOperationRunning("content_planning");
   const [draft, setDraft] = useState<ManualContentPlanInput | null>(plan ? toDraft(plan) : null);
   const [busyCount, setBusyCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +63,12 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
   const [showHistory, setShowHistory] = useState(false);
   const router = useRouter();
 
-  const locked = busyCount > 0 || isPending || revertingId !== null;
+  /**
+   * Includes anything running anywhere on this request, not only work
+   * started from this component — editing or reverting a plan while the
+   * planner is rewriting it is two writers on one document.
+   */
+  const locked = busyCount > 0 || isPending || revertingId !== null || autoModeRunning || planning;
   const handleBusyChange = (busy: boolean) => setBusyCount((c) => Math.max(0, c + (busy ? 1 : -1)));
 
   const isDirty = plan ? JSON.stringify(draft) !== JSON.stringify(toDraft(plan)) : draft !== null;
@@ -118,8 +129,13 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
             </AlertDescription>
           </Alert>
         ) : null}
-        <Button type="button" onClick={generate} disabled={!canGenerate || isPending || autoModeRunning} className="w-fit">
-          {isPending ? (
+        <Button
+          type="button"
+          onClick={generate}
+          disabled={!canGenerate || isPending || autoModeRunning || planning}
+          className="w-fit"
+        >
+          {isPending || planning ? (
             <>
               <Loader2 className="size-4 animate-spin" /> Generating...
             </>

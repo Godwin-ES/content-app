@@ -75,7 +75,7 @@ export function ResearchTab({
    * already in progress shows it in progress instead of showing a button
    * that invites starting it again.
    */
-  const researchRunning = useOperationRunning("research_planning", "source_analysis");
+  const researchRunning = useOperationRunning("research_pipeline", "research_planning", "source_analysis");
   const locked = busyCount > 0 || somethingRunning;
   /**
    * A web search has already run, so the scope no longer decides anything.

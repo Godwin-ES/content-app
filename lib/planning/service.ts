@@ -9,6 +9,7 @@ import type { ContentPlan, ContentPlanSection } from "@/lib/ai/schemas/content-p
 import { getEvidenceContextForRequest } from "@/lib/grounding/evidence-context";
 import { listSourceConflicts } from "@/lib/repositories/sources";
 import { recordActivityEvent } from "@/lib/repositories/activity";
+import { withOperationRun } from "@/lib/operations/track";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
 type ContentPlanRow = Database["public"]["Tables"]["content_plans"]["Row"];
@@ -196,7 +197,9 @@ export async function generateContentPlan(
   additionalInstruction: string | null = null
 ): Promise<ContentPlanRow> {
   const request = await getRequestOrThrow(supabase, requestId);
-  const { plan } = await buildPlanDraft(supabase, ai, modelId, request, additionalInstruction);
+  const { plan } = await withOperationRun(supabase, { requestId, operationType: "content_planning", modelId }, () =>
+    buildPlanDraft(supabase, ai, modelId, request, additionalInstruction)
+  );
 
   return persistPlanVersion(
     supabase,
@@ -261,7 +264,9 @@ export async function regenerateWholePlanDraft(
   additionalInstruction: string | null
 ): Promise<ManualContentPlanInput> {
   const request = await getRequestOrThrow(supabase, requestId);
-  const { plan } = await buildPlanDraft(supabase, ai, modelId, request, additionalInstruction);
+  const { plan } = await withOperationRun(supabase, { requestId, operationType: "content_planning", modelId }, () =>
+    buildPlanDraft(supabase, ai, modelId, request, additionalInstruction)
+  );
   return plan;
 }
 
@@ -303,18 +308,20 @@ export async function regeneratePlanSectionPreview(
   const { packets: evidencePackets } = await getEvidenceContextForRequest(supabase, request);
   const otherSections = currentDraft.sections.filter((_, i) => i !== sectionIndex);
 
-  return regeneratePlanSectionAI(ai, modelId, {
-    topic: request.topic,
-    audience: request.resolved_audience,
-    objective: request.resolved_objective,
-    tone: request.resolved_tone,
-    planTitle: currentDraft.title,
-    planAngle: currentDraft.angle,
-    otherSections,
-    targetSection,
-    instruction,
-    evidencePackets,
-  });
+  return withOperationRun(supabase, { requestId, operationType: "content_planning", modelId }, () =>
+    regeneratePlanSectionAI(ai, modelId, {
+      topic: request.topic,
+      audience: request.resolved_audience,
+      objective: request.resolved_objective,
+      tone: request.resolved_tone,
+      planTitle: currentDraft.title,
+      planAngle: currentDraft.angle,
+      otherSections,
+      targetSection,
+      instruction,
+      evidencePackets,
+    })
+  );
 }
 
 /**

@@ -49,7 +49,13 @@ function ChannelCard({
   const router = useRouter();
 
   const hasVersion = Boolean(currentVersion);
-  const locked = isPending || busyCount > 0;
+  /**
+   * Includes anything running anywhere on this request, not only work
+   * started from this card — editing a channel asset while it is being
+   * re-adapted is two writers on one document.
+   */
+  const { running: somethingRunning } = useAutoMode();
+  const locked = isPending || busyCount > 0 || somethingRunning;
   const handleBusyChange = (busy: boolean) => setBusyCount((c) => Math.max(0, c + (busy ? 1 : -1)));
 
   function retry() {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useAutoMode } from "@/components/requests/auto-mode-context";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { retryArticleOptionAction, evaluateArticleAction, selectArticleAction, autoReviseArticleAction } from "@/actions/articles";
@@ -59,7 +60,13 @@ export function ArticleOptionCard({ requestId, artifact, currentVersion, evaluat
   // actually available; after that the per-section Regenerate is the route.
   const autoReviseUsed = versions.some((v) => v.change_type === "automatic_revision");
   const canAutoRevise = needsRevision && !autoReviseUsed;
-  const locked = isPending || busyCount > 0;
+  /**
+   * Anything running anywhere on this request, not just work started from
+   * this card. Retrying, evaluating, revising or selecting an article
+   * while it is being regenerated are all writers racing each other.
+   */
+  const { running: somethingRunning } = useAutoMode();
+  const locked = isPending || busyCount > 0 || somethingRunning;
   const handleBusyChange = (busy: boolean) => setBusyCount((c) => Math.max(0, c + (busy ? 1 : -1)));
 
   function retry() {

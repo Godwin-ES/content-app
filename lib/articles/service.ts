@@ -7,6 +7,7 @@ import { hashCanonicalJson } from "@/lib/domain/hashing";
 import type { AIProvider } from "@/lib/ai/types";
 import { evaluateArticle as evaluateArticleAI, reviseArticle as reviseArticleAI } from "@/lib/ai/service";
 import { composeArticle } from "@/lib/articles/compose";
+import { withOperationRun } from "@/lib/operations/track";
 import type { ArticleAngle } from "@/lib/ai/prompts/article-writer";
 import type { ContentPlan, ContentPlanSection } from "@/lib/ai/schemas/content-plan";
 import { articleBodyMarkdown, type ArticleOutput } from "@/lib/ai/schemas/article";
@@ -441,11 +442,16 @@ export async function autoReviseArticle(
   }
 
   const article = version.content as unknown as ArticleOutput;
-  const revised = await reviseArticleAI(ai, modelId, {
-    article,
-    evaluation: evaluationRowToEvaluation(latestEvaluation!),
-    evidencePackets,
-  });
+  const revised = await withOperationRun(
+    supabase,
+    { requestId: request.id, operationType: "article_revision", modelId },
+    () =>
+      reviseArticleAI(ai, modelId, {
+        article,
+        evaluation: evaluationRowToEvaluation(latestEvaluation!),
+        evidencePackets,
+      })
+  );
   validateClaimEvidence(revised.claims, validEvidenceIds);
 
   const contentHash = hashCanonicalJson(JSON.parse(JSON.stringify(revised)));
@@ -527,7 +533,7 @@ export async function proposeTargetedRevision(
   targetSection: string,
   instruction: string
 ): Promise<ArticleOutput> {
-  const { version, evidencePackets } = await loadArticleContext(supabase, articleVersionId);
+  const { version, request, evidencePackets } = await loadArticleContext(supabase, articleVersionId);
   const article = version.content as unknown as ArticleOutput;
 
   const syntheticEvaluation: Evaluation = {
@@ -539,7 +545,11 @@ export async function proposeTargetedRevision(
     revisionInstructions: instruction,
   };
 
-  return reviseArticleAI(ai, modelId, { article, evaluation: syntheticEvaluation, evidencePackets });
+  return withOperationRun(
+    supabase,
+    { requestId: request.id, operationType: "article_revision", modelId },
+    () => reviseArticleAI(ai, modelId, { article, evaluation: syntheticEvaluation, evidencePackets })
+  );
 }
 
 /**

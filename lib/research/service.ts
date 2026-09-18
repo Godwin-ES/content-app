@@ -10,6 +10,7 @@ import { analyzeSource } from "@/lib/ai/service";
 import { canonicalizeUrl, dedupeByCanonicalUrl, parseUserSuppliedUrl } from "@/lib/research/url";
 import { isBlockedResearchDomain } from "@/lib/research/blocked-domains";
 import { createOperationRun, updateOperationRun } from "@/lib/repositories/operations";
+import { withOperationRun } from "@/lib/operations/track";
 import { recordActivityEvent } from "@/lib/repositories/activity";
 import {
   createResearchSource,
@@ -219,7 +220,32 @@ export interface ResearchPipelineResult {
  * ones, and the request only advances to `source_review` once at least one
  * usable source has been persisted.
  */
+/**
+ * One research run, as a person experiences it, held open from the first
+ * step to the last.
+ *
+ * The pipeline is several operations — plan, search, retrieve, analyse
+ * each source — and each already records its own run. But the workspace
+ * reads those rows to decide whether anything is happening, and the gaps
+ * between them are real: searching and retrieving take seconds during
+ * which no per-step row is open. A tab returned to in one of those gaps
+ * showed an idle Start research button over a run in progress, which is
+ * exactly the thing that gets clicked twice. This row closes the gaps; the
+ * per-step rows still say which step was slow or failed.
+ */
 export async function runResearchPipeline(
+  supabase: SupabaseClient<Database>,
+  ai: AIProvider,
+  research: ResearchProvider,
+  modelId: string,
+  requestId: string
+): Promise<ResearchPipelineResult> {
+  return withOperationRun(supabase, { requestId, operationType: "research_pipeline", modelId }, () =>
+    runResearchPipelineSteps(supabase, ai, research, modelId, requestId)
+  );
+}
+
+async function runResearchPipelineSteps(
   supabase: SupabaseClient<Database>,
   ai: AIProvider,
   research: ResearchProvider,
@@ -668,6 +694,18 @@ export function researchRunAvailability(request: {
  * unreadable page never stops the rest.
  */
 export async function researchAddedSources(
+  supabase: SupabaseClient<Database>,
+  ai: AIProvider,
+  research: ResearchProvider,
+  modelId: string,
+  requestId: string
+): Promise<ResearchPipelineResult> {
+  return withOperationRun(supabase, { requestId, operationType: "research_pipeline", modelId }, () =>
+    researchAddedSourcesSteps(supabase, ai, research, modelId, requestId)
+  );
+}
+
+async function researchAddedSourcesSteps(
   supabase: SupabaseClient<Database>,
   ai: AIProvider,
   research: ResearchProvider,
