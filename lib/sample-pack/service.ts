@@ -7,6 +7,7 @@ import type { LinkedinPost, XPost, Newsletter } from "@/lib/ai/schemas/channel";
 import { getSourceSetSources } from "@/lib/repositories/sources";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
+type ContentPackageRow = Database["public"]["Tables"]["content_packages"]["Row"];
 type EvaluationRow = Database["public"]["Tables"]["evaluations"]["Row"];
 type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"];
 
@@ -61,10 +62,8 @@ export interface SamplePack {
 
 /**
  * Assembles the Week 4 sample-pack deliverable from the request's exact
- * current approved package — its pinned article/channel version content
- * and pinned evaluation IDs, not whatever happens to be "current" right
- * now (SYSTEM-DESIGN-NEXTJS.md §23, Task 21 Step 1). A request with no
- * package yet has nothing to show; callers should check for that first.
+ * current package — its pinned article/channel version content and pinned
+ * evaluation IDs, not whatever happens to be "current" right now.
  */
 export async function getSamplePack(supabase: SupabaseClient<Database>, requestId: string): Promise<SamplePack> {
   const { data: request, error: requestError } = await supabase.from("content_requests").select().eq("id", requestId).single();
@@ -82,10 +81,48 @@ export async function getSamplePack(supabase: SupabaseClient<Database>, requestI
     .single();
   if (pkgError || !pkg) throw pkgError ?? new DomainError("NOT_FOUND", "sample_pack", "Package not found.");
 
+  return assembleSamplePack(supabase, typedRequest, pkg as ContentPackageRow);
+}
+
+/**
+ * Reads one exact immutable package directly. This is intentionally separate
+ * from getSamplePack(requestId): public submission views must stay pinned to
+ * the package that was shared even if the owning request later creates a new
+ * current package. The caller is responsible for deciding which package IDs
+ * are safe to expose; this function does not make arbitrary packages public.
+ */
+export async function getSamplePackByPackageId(
+  supabase: SupabaseClient<Database>,
+  packageId: string
+): Promise<SamplePack> {
+  const { data: pkg, error: pkgError } = await supabase
+    .from("content_packages")
+    .select()
+    .eq("id", packageId)
+    .single();
+  if (pkgError || !pkg) throw pkgError ?? new DomainError("NOT_FOUND", "sample_pack", "Package not found.");
+
+  const typedPackage = pkg as ContentPackageRow;
+  const { data: request, error: requestError } = await supabase
+    .from("content_requests")
+    .select()
+    .eq("id", typedPackage.request_id)
+    .single();
+  if (requestError || !request) throw requestError ?? new DomainError("NOT_FOUND", "sample_pack", "Request not found.");
+
+  return assembleSamplePack(supabase, request as ContentRequestRow, typedPackage);
+}
+
+async function assembleSamplePack(
+  supabase: SupabaseClient<Database>,
+  typedRequest: ContentRequestRow,
+  pkg: ContentPackageRow
+): Promise<SamplePack> {
   const [articleVersion, linkedinVersion, xVersion, newsletterVersion] = await Promise.all(
     [pkg.article_version_id, pkg.linkedin_version_id, pkg.x_version_id, pkg.newsletter_version_id].map(async (id) => {
-      const { data } = await supabase.from("artifact_versions").select().eq("id", id).single();
-      return data!;
+      const { data, error } = await supabase.from("artifact_versions").select().eq("id", id).single();
+      if (error || !data) throw error ?? new DomainError("NOT_FOUND", "sample_pack", "Packaged content version not found.");
+      return data;
     })
   );
 
@@ -99,7 +136,7 @@ export async function getSamplePack(supabase: SupabaseClient<Database>, requestI
   const sources = await getSourceSetSources(supabase, pkg.source_set_version_id);
 
   return {
-    requestId,
+    requestId: typedRequest.id,
     topic: typedRequest.topic,
     assumptions: {
       suppliedAudience: typedRequest.supplied_audience,
