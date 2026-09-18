@@ -1,8 +1,8 @@
 # Koya Content Studio
 
-An AI-assisted content research, editorial review, and publishing-preparation application for a marketing/content team, built for the Koya AI Automation Academy Week 4 project.
+An AI-assisted content research, editorial review, and publishing-preparation application, built for the Koya AI Automation Academy Week 4 project.
 
-It takes a raw content idea or a set of source URLs, researches the topic, lets a Content Manager review the retrieved sources, produces an evidence-backed content plan and three article options, evaluates and (once, automatically) revises weak drafts, adapts the selected article into LinkedIn/X/newsletter versions, requires an independent Reviewer's approval of the *exact* submitted package, and only then allows the approved package's channels to enter an **internal publishing/scheduling queue**.
+It takes a raw content idea or a set of source URLs, researches the topic, lets you review the retrieved sources, produces an evidence-backed content plan and three article options, evaluates and (once, automatically) revises weak drafts, adapts the selected article into LinkedIn/X/newsletter versions, requires a human's explicit approval of the *exact* assembled package, and only then allows the approved package's channels to enter an **internal publishing/scheduling queue**.
 
 See `../SYSTEM-DESIGN-NEXTJS.md` and `../IMPLEMENTATION-PLAN-NEXTJS.md` in the parent folder for the full system design and build plan, and `../BUILD-NOTES-NEXTJS.md` for the evidence log of decisions, real bugs found, and residual risks accumulated while building it.
 
@@ -10,12 +10,21 @@ See `../SYSTEM-DESIGN-NEXTJS.md` and `../IMPLEMENTATION-PLAN-NEXTJS.md` in the p
 
 **This application never posts to LinkedIn, X, or an email provider.** The authoritative Week 4 endpoint is an internal queue: an approved package's channels can be queued immediately or scheduled for a future time, rescheduled, or cancelled — but the only statuses that ever exist are `queued`, `scheduled`, and `cancelled`. There is deliberately no `published`/`delivered` state anywhere, because no external provider ever confirms one. This is an intentional scope boundary (SYSTEM-DESIGN-NEXTJS.md §4.1, §90), not a missing feature.
 
-## Roles
+## Accounts
 
-- **Content Manager** — creates requests, reviews sources, generates/edits/selects content, creates and submits packages, manages the publishing queue. Cannot approve their own submissions.
-- **Reviewer** — reviews the exact submitted package (read-only, "Reviewing Package vN · Exact submitted version") and decides Approve / Request Changes / Reject. Cannot rewrite submitted content, and cannot decide a review they submitted themselves.
+One account, one person. You sign up with an email and password or with Google, and you own everything you create: requests, sources, drafts, packages, approvals, and the publishing queue. There are no roles to assign and nobody to invite.
 
-Both roles are looked up from the signed-in user's `profiles` row server-side on every action — a role is never trusted from the client.
+The app started with two — a Content Manager who wrote and a Reviewer who approved — which is why the approval trail still records a submission and a decision separately. Collapsing to one account removed the handover, not the gate: **nothing reaches the publishing queue until a human has looked at a specific package version and deliberately approved it**, and that decision is recorded against that version with its author and timestamp.
+
+Every action re-reads who you are from `auth.uid()` server-side and checks ownership in RLS and in the security-definer RPCs. Nothing about identity is ever trusted from the client.
+
+### Signing in with Google
+
+The code path is in place (`/signup`, `/login` → `signInWithOAuth` → `/auth/callback`), but the Google provider has to be enabled on the Supabase project with a client ID and secret before it works — that is dashboard configuration, not code. Until it is, the button surfaces Supabase's own "provider is not enabled" message rather than failing silently.
+
+### Channels
+
+Settings holds one destination per channel: a LinkedIn profile or page, an X handle, and a newsletter list with its recipients. These are destinations, not OAuth connections — see the publishing boundary above. The publishing queue warns when something is queued for a channel with nowhere to go.
 
 ## Setup
 
@@ -82,7 +91,7 @@ pnpm reset:test-data
 ## Project structure
 
 - `lib/` — pure/business logic, organized by domain (`articles/`, `channels/`, `packages/`, `approvals/`, `publishing/`, `research/`, `grounding/`, `ai/`, `test-support/`, `sample-pack/`, `workspace/`) plus `repositories/` (thin Supabase query wrappers) and `domain/` (shared types/errors).
-- `actions/` — Next.js Server Actions, one file per domain, thin wrappers around `lib/` that add auth/role checks and centralized error logging.
+- `actions/` — Next.js Server Actions, one file per domain, thin wrappers around `lib/` that add authentication checks and centralized error logging.
 - `components/` — UI, mirroring the `lib/` domains plus `shared/` (status badges, empty states, error displays) and `ui/` (shadcn primitives).
 - `app/` — routes. `(app)/` is the authenticated shell; `api/test/` is the one dev-only route (failure injection).
 - `supabase/migrations/` — the full schema, RLS policies, and transactional business RPCs (package/approval/queue state transitions are enforced in Postgres, not just in application code).

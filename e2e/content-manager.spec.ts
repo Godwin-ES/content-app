@@ -23,7 +23,9 @@ test.beforeAll(async () => {
   const { data: created, error } = await admin.auth.admin.createUser({ email: ownerEmail, password: ownerPassword, email_confirm: true });
   if (error || !created.user) throw error ?? new Error("Failed to create e2e test user");
   ownerUserId = created.user.id;
-  await admin.from("profiles").insert({ user_id: ownerUserId, display_name: "E2E Content Manager", role: "content_manager" });
+  await admin
+    .from("profiles")
+    .upsert({ user_id: ownerUserId, display_name: "E2E Owner", role: "owner" }, { onConflict: "user_id" });
 });
 
 test.afterAll(async () => {
@@ -103,7 +105,7 @@ test("switching tabs reveals each section's own empty state", async ({ page }) =
   await expect(page.getByText("Select an article first")).toBeVisible();
 
   await page.getByRole("tab", { name: "Package" }).click();
-  await expect(page.getByText("Not ready for approval yet")).toBeVisible();
+  await expect(page.getByText("No package yet")).toBeVisible();
 
   await page.getByRole("tab", { name: "Publishing" }).click();
   await expect(page.getByText("No approved package yet")).toBeVisible();
@@ -115,7 +117,7 @@ test("switching tabs reveals each section's own empty state", async ({ page }) =
   await expect(page.getByText(/nothing has happened on this request yet/i)).toBeVisible();
 });
 
-test("a pending_approval request shows the read-only submission message", async ({ page }) => {
+test("a submitted request shows that the decision is the next step", async ({ page }) => {
   const { data: request } = await admin
     .from("content_requests")
     .insert({
@@ -133,5 +135,5 @@ test("a pending_approval request shows the read-only submission message", async 
 
   await login(page);
   await page.goto(`/requests/${request!.id}`);
-  await expect(page.getByText("Awaiting review")).toBeVisible();
+  await expect(page.getByText("Package: Decide on the submitted package")).toBeVisible();
 });

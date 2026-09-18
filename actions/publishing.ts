@@ -1,7 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireContentManager } from "@/lib/auth/guards";
+import { requireSignedIn } from "@/lib/auth/guards";
 import { queueChannel, rescheduleItem, cancelItem, getPublishingQueue, type PublishingChannel } from "@/lib/publishing/service";
 import { toLoggedActionError } from "@/lib/notifications/action-error";
 import type { ActionResult } from "@/lib/domain/errors";
@@ -17,7 +17,7 @@ export async function queueChannelAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const item = await queueChannel(supabase, requestId, channel, schedule);
     return { ok: true, data: item };
   } catch (error) {
@@ -33,7 +33,7 @@ export async function rescheduleQueueItemAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const item = await rescheduleItem(supabase, queueItemId, schedule);
     return { ok: true, data: item };
   } catch (error) {
@@ -46,7 +46,7 @@ export async function cancelQueueItemAction(queueItemId: string, reason: string 
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const item = await cancelItem(supabase, queueItemId, reason);
     return { ok: true, data: item };
   } catch (error) {
@@ -59,7 +59,7 @@ export async function getPublishingQueueAction(requestId: string) {
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const queue = await getPublishingQueue(supabase, requestId);
     return { ok: true as const, data: queue };
   } catch (error) {

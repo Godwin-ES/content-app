@@ -47,7 +47,7 @@ describe.skipIf(!hasCredentials)("content planning (hosted Supabase integration)
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "planning-owner");
+    owner = await createTestUser(admin, "planning-owner");
   });
 
   afterAll(async () => {

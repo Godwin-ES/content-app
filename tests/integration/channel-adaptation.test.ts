@@ -76,7 +76,7 @@ describe.skipIf(!hasCredentials)("channel adaptation (hosted Supabase integratio
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "channels-owner");
+    owner = await createTestUser(admin, "channels-owner");
   });
 
   afterAll(async () => {

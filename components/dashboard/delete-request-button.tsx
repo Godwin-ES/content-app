@@ -6,7 +6,7 @@ import { deleteRequestAction } from "@/actions/requests";
 import { Button } from "@/components/ui/button";
 
 /**
- * Offered until a Reviewer has responded to the request. The server action
+ * Offered until a decision has been recorded on the request. The server action
  * re-checks that itself (delete_request), so this button is a convenience,
  * not the actual enforcement point.
  */

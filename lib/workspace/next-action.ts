@@ -11,9 +11,9 @@ export type NextActionKey =
   | "generate_channels"
   | "resolve_channel_issue"
   | "create_package"
-  | "submit_for_approval"
-  | "await_review"
-  | "review_requested_changes"
+  | "decide_package"
+  | "await_decision"
+  | "address_requested_changes"
   | "queue_approved_content"
   | "none";
 
@@ -92,18 +92,18 @@ export function deriveNextAction(snapshot: WorkspaceSnapshot): NextAction {
       }
       if (!snapshot.hasCurrentPackage) {
         if (snapshot.packageReady) {
-          return action("create_package", "Approval: Create package", "Everything is ready — create the package for approval.");
+          return action("create_package", "Package: Create package", "Everything is ready — assemble the package to review.");
         }
         return action("resolve_channel_issue", "Channels: Resolve remaining readiness issues", "Check the package readiness checklist for what remains.");
       }
-      return action("submit_for_approval", "Approval: Submit for approval", "Send the current package to the Reviewer.");
+      return action("decide_package", "Package: Approve or request changes", "Read the assembled package and decide whether it is ready to publish.");
     }
 
     case "pending_approval":
-      return action("await_review", "Approval: Awaiting review", "The package is read-only while the Reviewer decides.");
+      return action("await_decision", "Package: Decide on the submitted package", "This package was submitted for approval and is read-only until you decide on it or withdraw it.");
 
     case "changes_requested":
-      return action("review_requested_changes", "Approval: Review requested changes", "The Reviewer asked for changes before resubmission.");
+      return action("address_requested_changes", "Package: Address the changes you noted", "Make the edits, then create a new package and approve it.");
 
     case "approved":
       if (!snapshot.hasActiveQueueItems) {
@@ -123,7 +123,7 @@ export function deriveNextAction(snapshot: WorkspaceSnapshot): NextAction {
  * ("Articles: Select an article"), so this mapping is what that prefix
  * has been saying all along, made explicit and reusable.
  */
-export const PIPELINE_STAGES = ["Research", "Plan", "Articles", "Channels", "Approval", "Publishing"] as const;
+export const PIPELINE_STAGES = ["Research", "Plan", "Articles", "Channels", "Package", "Publishing"] as const;
 
 export type PipelineStage = (typeof PIPELINE_STAGES)[number];
 
@@ -146,10 +146,10 @@ const STAGE_FOR_ACTION: Record<NextActionKey, PipelineStage> = {
   select_article: "Articles",
   generate_channels: "Channels",
   resolve_channel_issue: "Channels",
-  create_package: "Approval",
-  submit_for_approval: "Approval",
-  await_review: "Approval",
-  review_requested_changes: "Approval",
+  create_package: "Package",
+  decide_package: "Package",
+  await_decision: "Package",
+  address_requested_changes: "Package",
   queue_approved_content: "Publishing",
   // Nothing outstanding only ever happens at the end of the line.
   none: "Publishing",

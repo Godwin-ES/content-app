@@ -1,7 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireContentManager } from "@/lib/auth/guards";
+import { requireSignedIn } from "@/lib/auth/guards";
 import { getPackageReadiness, createContentPackage, type PackageReadiness } from "@/lib/packages/service";
 import { toLoggedActionError } from "@/lib/notifications/action-error";
 import type { ActionResult } from "@/lib/domain/errors";
@@ -13,7 +13,7 @@ export async function getPackageReadinessAction(requestId: string): Promise<Acti
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const readiness = await getPackageReadiness(supabase, requestId);
     return { ok: true, data: readiness };
   } catch (error) {
@@ -26,7 +26,7 @@ export async function createContentPackageAction(requestId: string): Promise<Act
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const pkg = await createContentPackage(supabase, requestId);
     return { ok: true, data: pkg };
   } catch (error) {

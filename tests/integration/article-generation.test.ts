@@ -43,7 +43,7 @@ describe.skipIf(!hasCredentials)("article generation (hosted Supabase integratio
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "articles-owner");
+    owner = await createTestUser(admin, "articles-owner");
   });
 
   afterAll(async () => {

@@ -1,7 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireContentManager } from "@/lib/auth/guards";
+import { requireSignedIn } from "@/lib/auth/guards";
 import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai/provider";
 import {
   generateChannelAssets,
@@ -23,7 +23,7 @@ export async function generateChannelsAction(requestId: string): Promise<ActionR
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
 
     const { data: request, error } = await supabase.from("content_requests").select().eq("id", requestId).single();
     if (error || !request) throw error;
@@ -44,7 +44,7 @@ export async function retryChannelAction(artifactId: string): Promise<ActionResu
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
 
     const { data: artifact } = await supabase.from("content_artifacts").select("request_id").eq("id", artifactId).single();
     if (!artifact) throw new Error("Artifact not found");
@@ -68,7 +68,7 @@ export async function evaluateChannelAction(channelVersionId: string): Promise<A
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
 
     const { data: version } = await supabase.from("artifact_versions").select("artifact_id").eq("id", channelVersionId).single();
     if (!version) throw new Error("Channel version not found");
@@ -101,7 +101,7 @@ export async function proposeChannelRevisionAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
 
     const { data: artifact } = await supabase.from("content_artifacts").select("request_id").eq("id", artifactId).single();
     if (!artifact) throw new Error("Artifact not found");
@@ -127,7 +127,7 @@ export async function saveManualChannelRevisionAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    const user = await requireContentManager(supabase);
+    const user = await requireSignedIn(supabase);
     const version = await saveManualChannelRevision(supabase, artifactId, updatedContent, user.userId);
     return { ok: true, data: version };
   } catch (error) {

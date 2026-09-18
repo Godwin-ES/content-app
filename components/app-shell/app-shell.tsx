@@ -6,23 +6,20 @@ import { NavLinks } from "@/components/app-shell/nav-links";
 import { UserMenu } from "@/components/app-shell/user-menu";
 
 /**
- * Role-aware nav shell. The brand is a logo mark plus wordmark sitting in
- * its own group, divided from the nav by a rule and real space, so it
- * never reads as the first tab; the nav itself highlights the current
- * section as a filled pill.
+ * Nav shell. The brand is a logo mark plus wordmark sitting in its own
+ * group, divided from the nav by a rule and real space, so it never reads
+ * as the first tab; the nav itself highlights the current section as a
+ * filled pill.
  */
 export async function AppShell({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
 
   const links: { href: string; label: string }[] = [];
-  if (user?.role === "content_manager") {
+  if (user) {
     links.push({ href: "/dashboard", label: "Dashboard" }, { href: "/publishing", label: "Publishing Queue" });
     if (process.env.ENABLE_AI_TEST_MODE === "true") {
       links.push({ href: "/test-benchmark", label: "Test & Benchmark" });
     }
-  }
-  if (user?.role === "reviewer") {
-    links.push({ href: "/reviews", label: "Reviewer Queue" });
   }
 
   return (
@@ -48,7 +45,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
             </>
           ) : null}
 
-          {user ? <UserMenu displayName={user.displayName} email={user.email} role={user.role} /> : null}
+          {user ? <UserMenu displayName={user.displayName} email={user.email} /> : null}
         </div>
       </header>
 

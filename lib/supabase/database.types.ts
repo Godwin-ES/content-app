@@ -235,6 +235,47 @@ export type Database = {
           },
         ]
       }
+      channel_connections: {
+        Row: {
+          account_label: string | null
+          account_url: string | null
+          channel: string
+          connected: boolean
+          created_at: string
+          recipients: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_label?: string | null
+          account_url?: string | null
+          channel: string
+          connected?: boolean
+          created_at?: string
+          recipients?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_label?: string | null
+          account_url?: string | null
+          channel?: string
+          connected?: boolean
+          created_at?: string
+          recipients?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_connections_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       content_artifacts: {
         Row: {
           created_at: string
@@ -856,7 +897,7 @@ export type Database = {
         Insert: {
           created_at?: string
           display_name: string
-          role: string
+          role?: string
           user_id: string
         }
         Update: {
@@ -1558,10 +1599,6 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: boolean
       }
-      request_visible_to_current_reviewer: {
-        Args: { p_request_id: string }
-        Returns: boolean
-      }
       reschedule_queue_item: {
         Args: {
           p_queue_item_id: string
@@ -1585,6 +1622,21 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "publishing_queue_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_display_name: {
+        Args: { p_display_name: string }
+        Returns: {
+          created_at: string
+          display_name: string
+          role: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
           isOneToOne: true
           isSetofReturn: false
         }

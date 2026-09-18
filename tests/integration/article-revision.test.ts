@@ -86,7 +86,7 @@ describe.skipIf(!hasCredentials)("article revision, selection, and targeted edit
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "revision-owner");
+    owner = await createTestUser(admin, "revision-owner");
   });
 
   afterAll(async () => {

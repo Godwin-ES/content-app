@@ -61,13 +61,14 @@ export function RequestList({
 
             <div className="flex shrink-0 items-center gap-3">
               <Badge variant="outline">{STATUS_LABELS[request.status]}</Badge>
-              {/* Out for review: withdraw rather than delete. Nothing has
-                  been decided yet so deleting is technically allowed, but
-                  pulling it out from under the Reviewer is the wrong move —
-                  withdrawing returns it to In Progress, where deleting is a
-                  deliberate second step. Once a Reviewer has responded,
-                  neither is offered; the server refuses the delete anyway,
-                  to protect their feedback. */}
+              {/* Submitted: withdraw rather than delete. Nothing has been
+                  decided yet so deleting is technically allowed, but
+                  discarding a package that is sitting in front of a
+                  decision is a slip, not an intent — withdrawing returns it
+                  to In Progress, where deleting is a deliberate second
+                  step. Once a decision exists, neither is offered; the
+                  server refuses the delete anyway, to protect that
+                  record. */}
               {request.status === "pending_approval" ? (
                 pendingReviewId ? (
                   <WithdrawSubmissionButton reviewId={pendingReviewId} />

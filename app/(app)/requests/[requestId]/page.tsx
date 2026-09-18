@@ -28,7 +28,7 @@ import { ChannelWorkspace } from "@/components/channels/channel-workspace";
 import { PackageReadiness } from "@/components/approvals/package-readiness";
 import { ContentPackagePreview } from "@/components/approvals/content-package-preview";
 import { SamplePackView } from "@/components/requests/sample-pack-view";
-import { SubmissionPanel } from "@/components/approvals/submission-panel";
+import { ApprovalPanel } from "@/components/approvals/approval-panel";
 import { QueueControls } from "@/components/publishing/queue-controls";
 import { PublishingList } from "@/components/publishing/publishing-list";
 import { ActivityHistory } from "@/components/activity/activity-history";
@@ -137,7 +137,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   }
 
   const readiness = request.selected_article_version_id ? await getPackageReadiness(supabase, requestId) : null;
-  const latestReview = request.status === "pending_approval" ? await getLatestReview(supabase, requestId) : null;
+  const latestReview = await getLatestReview(supabase, requestId);
   const queue = request.current_package_id ? await getPublishingQueue(supabase, requestId) : null;
   // The Package tab shows the assembled pack in place, so what gets
   // approved is what the approver actually reads. Assembling it dereferences
@@ -170,7 +170,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
 
   // Request-level settings (primary keyword, CTA) stay editable right up to
   // submission; once a package is under review or approved, what it was
-  // written to target is part of what the Reviewer judged. The RPCs enforce
+  // written to target is part of what was approved. The RPCs enforce
   // the same rule, so this only decides whether to offer the control.
   const canEditSettings = ["draft", "source_review", "content_development", "changes_requested"].includes(request.status);
 
@@ -271,15 +271,16 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
         />
       ) : null}
       {/* The assembled pack below is the package preview, in full and with
-          its evaluations — ContentPackagePreview would print the same
-          article and posts a second time. It stays for the reviewer's page,
-          which has no pack of its own. */}
+          its evaluations. ContentPackagePreview is the fallback for the one
+          case the pack cannot cover: a package whose pinned version or
+          evaluation rows could not be read, where showing the snapshot the
+          package carries is better than showing nothing. */}
       {currentPackage && !samplePack ? <ContentPackagePreview contentPackage={currentPackage} /> : null}
-      <SubmissionPanel
+      <ApprovalPanel
         requestId={requestId}
         requestStatus={request.status}
         hasCurrentPackage={Boolean(request.current_package_id)}
-        pendingReviewId={latestReview?.id ?? null}
+        pendingReviewId={latestReview?.status === "pending" ? latestReview.id : null}
       />
       {samplePack ? (
         <>

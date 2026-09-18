@@ -47,7 +47,7 @@ describe.skipIf(!hasCredentials)("research pipeline (hosted Supabase integration
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "research-owner");
+    owner = await createTestUser(admin, "research-owner");
   });
 
   afterAll(async () => {

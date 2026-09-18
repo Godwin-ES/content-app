@@ -12,12 +12,11 @@ import { createContentPackage } from "@/lib/packages/service";
 import { saveManualArticleRevision } from "@/lib/articles/service";
 import {
   submitForApproval,
+  decideOwnPackage,
   withdrawApproval,
   decideApproval,
-  getReviewerQueue,
-  getPackageReview,
 } from "@/lib/approvals/service";
-import { getLatestReview, submitPackageForReview } from "@/lib/repositories/approvals";
+import { submitPackageForReview } from "@/lib/repositories/approvals";
 import { deleteRequest } from "@/lib/repositories/requests";
 
 function articleContent(title = "Article") {
@@ -48,19 +47,19 @@ const hasCredentials = hasSupabaseCredentials();
 describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration)", () => {
   let admin: SupabaseClient<Database>;
   let owner: { client: SupabaseClient<Database>; userId: string };
-  let reviewer: { client: SupabaseClient<Database>; userId: string };
+  let stranger: { client: SupabaseClient<Database>; userId: string };
   const requestIds: string[] = [];
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "approval-owner");
-    reviewer = await createTestUser(admin, "reviewer", "approval-reviewer");
+    owner = await createTestUser(admin, "approval-owner");
+    stranger = await createTestUser(admin, "approval-stranger");
   });
 
   afterAll(async () => {
     if (requestIds.length > 0) await admin.from("content_requests").delete().in("id", requestIds);
     await deleteTestUser(admin, owner.userId);
-    await deleteTestUser(admin, reviewer.userId);
+    await deleteTestUser(admin, stranger.userId);
   });
 
   async function createVersion(
@@ -155,19 +154,55 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     void pkg;
   });
 
-  it("prevents a reviewer from approving a review they themselves submitted (self-approval)", async () => {
-    // The request is owned by the reviewer test user here specifically to
-    // exercise decide_package_review's own self-approval protection
-    // (submitted_by = auth.uid()) directly at the service layer — the
-    // app-action layer additionally requires the Content Manager role to
-    // submit and the Reviewer role to decide, which would prevent a real
-    // single user from reaching this state through the UI at all.
-    const { requestId, pkg } = await fullyReadyRequest(reviewer);
-    const review = await submitPackageForReview(reviewer.client, requestId, pkg.id);
+  it("lets the owner approve their own package — there is no one else to", async () => {
+    // decide_package_review used to refuse this outright (SELF_APPROVAL).
+    // With one account per workspace, the only person who can see a request
+    // is the one who created it, so that rule would have made approval
+    // impossible rather than safe. The gate that matters — a human
+    // deliberately deciding on a specific package version, recorded — is
+    // exactly what this asserts still happens.
+    const { requestId, pkg } = await fullyReadyRequest();
+    const review = await decideOwnPackage(owner.client, requestId, "approved", null);
+
+    expect(review.package_id).toBe(pkg.id);
+    expect(review.status).toBe("approved");
+    expect(review.submitted_by).toBe(owner.userId);
+    expect(review.decided_by).toBe(owner.userId);
+    expect(review.decided_at).not.toBeNull();
+
+    const { data: request } = await admin.from("content_requests").select("status").eq("id", requestId).single();
+    expect(request?.status).toBe("approved");
+  });
+
+  it("decides a review that is already pending instead of opening a second one", async () => {
+    const { requestId, pkg } = await fullyReadyRequest();
+    const pending = await submitForApproval(owner.client, requestId);
+
+    const decided = await decideOwnPackage(owner.client, requestId, "changes_requested", "Tighten the intro");
+    expect(decided.id).toBe(pending.id);
+
+    const { count } = await admin
+      .from("approval_reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("request_id", requestId);
+    expect(count).toBe(1);
+    void pkg;
+  });
+
+  it("refuses to record changes_requested with no comment", async () => {
+    const { requestId } = await fullyReadyRequest();
+    await expect(decideOwnPackage(owner.client, requestId, "changes_requested", null)).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
+  });
+
+  it("refuses a decision from an account that does not own the request", async () => {
+    const { requestId, pkg } = await fullyReadyRequest();
+    const review = await submitForApproval(owner.client, requestId);
 
     await expect(
-      decideApproval(reviewer.client, { reviewId: review.id, packageId: pkg.id, decision: "approved", comment: null })
-    ).rejects.toMatchObject({ code: "SELF_APPROVAL" });
+      decideApproval(stranger.client, { reviewId: review.id, packageId: pkg.id, decision: "approved", comment: null })
+    ).rejects.toMatchObject({ code: "PERMISSION_DENIED" });
   });
 
   it("returns a withdrawn request to an editable status, so it lands back in the dashboard's In Progress", async () => {
@@ -200,7 +235,7 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     expect(pkg2.id).not.toBe(pkg.id);
 
     await expect(
-      decideApproval(reviewer.client, { reviewId: review2.id, packageId: pkg.id, decision: "approved", comment: null })
+      decideApproval(owner.client, { reviewId: review2.id, packageId: pkg.id, decision: "approved", comment: null })
     ).rejects.toMatchObject({ code: "STALE_VERSION" });
   });
 
@@ -210,7 +245,7 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     await withdrawApproval(owner.client, review.id);
 
     await expect(
-      decideApproval(reviewer.client, { reviewId: review.id, packageId: pkg.id, decision: "approved", comment: null })
+      decideApproval(owner.client, { reviewId: review.id, packageId: pkg.id, decision: "approved", comment: null })
     ).rejects.toMatchObject({ code: "INVALID_STATE" });
   });
 
@@ -218,7 +253,7 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     const { requestId, articleArtifactId, pkg } = await fullyReadyRequest();
     const review = await submitForApproval(owner.client, requestId);
 
-    await decideApproval(reviewer.client, { reviewId: review.id, packageId: pkg.id, decision: "changes_requested", comment: "Fix the intro" });
+    await decideApproval(owner.client, { reviewId: review.id, packageId: pkg.id, decision: "changes_requested", comment: "Fix the intro" });
 
     const { data: afterChanges } = await admin.from("content_requests").select("status").eq("id", requestId).single();
     expect(afterChanges?.status).toBe("changes_requested");
@@ -233,13 +268,13 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     // directly from `changes_requested` with no intermediate reopen step.
     const pkg2 = await createContentPackage(owner.client, requestId);
     const review2 = await submitForApproval(owner.client, requestId);
-    await decideApproval(reviewer.client, { reviewId: review2.id, packageId: pkg2.id, decision: "approved", comment: null });
+    await decideApproval(owner.client, { reviewId: review2.id, packageId: pkg2.id, decision: "approved", comment: null });
 
     const { data: afterApproval } = await admin.from("content_requests").select("status").eq("id", requestId).single();
     expect(afterApproval?.status).toBe("approved");
   });
 
-  it("allows deleting a request with generated content, but refuses once a Reviewer has given feedback", async () => {
+  it("allows deleting a request with generated content, but refuses once a review decision exists", async () => {
     const { requestId, pkg } = await fullyReadyRequest();
 
     // Well past draft, with a plan, artifacts, versions and a package —
@@ -251,11 +286,11 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     expect(gone).toBeNull();
     void review;
 
-    // A second request that the Reviewer has actually responded to.
+    // A second request that has an actual recorded decision.
     const second = await fullyReadyRequest();
     requestIds.push(second.requestId);
     const secondReview = await submitPackageForReview(owner.client, second.requestId, second.pkg.id);
-    await decideApproval(reviewer.client, {
+    await decideApproval(owner.client, {
       reviewId: secondReview.id,
       packageId: second.pkg.id,
       decision: "changes_requested",
@@ -268,12 +303,12 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     expect(kept).not.toBeNull();
   });
 
-  it("refuses a 'rejected' decision outright — the Reviewer has only approve/changes_requested", async () => {
+  it("refuses a 'rejected' decision outright — there is only approve/changes_requested", async () => {
     const { requestId, pkg } = await fullyReadyRequest();
     const review = await submitForApproval(owner.client, requestId);
 
     await expect(
-      decideApproval(reviewer.client, {
+      decideApproval(owner.client, {
         reviewId: review.id,
         packageId: pkg.id,
         // Cast past the narrowed ReviewDecision type on purpose: the point
@@ -290,7 +325,7 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
   it("keeps an approved package immutable and historically correct even after a later edit", async () => {
     const { requestId, articleArtifactId, pkg } = await fullyReadyRequest();
     const review = await submitForApproval(owner.client, requestId);
-    await decideApproval(reviewer.client, { reviewId: review.id, packageId: pkg.id, decision: "approved", comment: null });
+    await decideApproval(owner.client, { reviewId: review.id, packageId: pkg.id, decision: "approved", comment: null });
 
     const { data: approvedRequest } = await admin.from("content_requests").select().eq("id", requestId).single();
     expect(approvedRequest?.status).toBe("approved");
@@ -311,18 +346,4 @@ describe.skipIf(!hasCredentials)("approval workflow (hosted Supabase integration
     expect(requestAfterEdit?.status).toBe("content_development");
   });
 
-  it("builds a reviewer queue split by status and an exact package review context", async () => {
-    const { requestId, pkg } = await fullyReadyRequest();
-    await submitForApproval(owner.client, requestId);
-
-    const queue = await getReviewerQueue(reviewer.client);
-    expect(queue.awaitingReview.some((c) => c.requestId === requestId)).toBe(true);
-
-    const review = await getLatestReview(reviewer.client, requestId);
-    const context = await getPackageReview(reviewer.client, requestId);
-    expect(context.package.id).toBe(pkg.id);
-    expect(context.review.id).toBe(review!.id);
-    expect(context.sources.length).toBeGreaterThan(0);
-    expect(context.evaluations.article?.overall_status).toBe("pass");
-  });
 });

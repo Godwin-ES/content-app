@@ -4,6 +4,12 @@ import { sendDiscordMessage } from "@/lib/notifications/discord";
 import { getInjectedFailureMode } from "@/lib/test-support/failure-injection";
 import type { ReviewDecision } from "@/lib/domain/types";
 
+/**
+ * Which Discord channel a notification goes to. "content_manager" is a
+ * historical name kept because it is a stored value in
+ * notification_attempts.channel: with one role, it simply means the
+ * owner's own channel.
+ */
 type NotificationChannel = "content_manager" | "reviewer" | "system_errors";
 
 /**
@@ -45,26 +51,6 @@ async function notify(params: {
     event_type: params.eventType,
     status,
     error,
-  });
-}
-
-export async function notifyReviewerSubmission(params: { requestId: string; topic: string }): Promise<void> {
-  await notify({
-    requestId: params.requestId,
-    channel: "reviewer",
-    eventType: "package_submitted",
-    webhookUrl: process.env.DISCORD_REVIEW_WEBHOOK_URL,
-    message: `New package submitted for review: **${params.topic}**`,
-  });
-}
-
-export async function notifyReviewerWithdrawal(params: { requestId: string; topic: string }): Promise<void> {
-  await notify({
-    requestId: params.requestId,
-    channel: "reviewer",
-    eventType: "package_withdrawn",
-    webhookUrl: process.env.DISCORD_REVIEW_WEBHOOK_URL,
-    message: `Submission withdrawn: **${params.topic}**`,
   });
 }
 

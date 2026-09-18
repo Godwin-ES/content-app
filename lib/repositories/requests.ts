@@ -104,7 +104,7 @@ export async function getContentRequest(
 
 /**
  * Deletes a request outright. `delete_request` re-checks ownership and
- * refuses once a Reviewer has approved it or asked for changes, and removes
+ * refuses once it has been approved or sent back for changes, and removes
  * every dependant row in the order the non-cascading provenance FKs
  * require; the one thing it cannot reach is the actual file bytes in
  * Storage, so those are removed first, explicitly, the same way a single
@@ -136,7 +136,7 @@ export async function deleteRequest(supabase: SupabaseClient<Database>, requestI
  * the resolved column go back to null, which hands the field back to the
  * research plan to derive. The RPC re-checks ownership and refuses once
  * the request is under review — changing what a package was written to
- * target while a Reviewer is judging it would make their decision
+ * target while it is sitting in front of a decision would make that decision
  * meaningless.
  */
 export async function setRequestPrimaryKeyword(

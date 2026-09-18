@@ -1,23 +1,14 @@
-import type { UserRole } from "@/lib/domain/types";
-
 /**
- * Two business roles only (SYSTEM-DESIGN-NEXTJS.md #4.2). Content Managers own
- * requests, sources, drafts, channels, packages, and publishing. Reviewers make
- * review decisions only; they never write submitted content.
+ * There is one role, so there is nothing to branch on — what someone may
+ * do is decided entirely by what they own, which every RLS policy and RPC
+ * already checks against `auth.uid()`.
+ *
+ * This file used to hold isContentManager/isReviewer and a canDecideReview
+ * rule that forbade approving your own package. That rule is gone with the
+ * second role: the only person who can see a request is the one who
+ * created it, so keeping it would have meant nothing could ever be
+ * approved. The approval gate itself remains — a human still has to
+ * deliberately approve a specific package version before it can be
+ * queued for publishing — it is simply the same human.
  */
-export function isContentManager(role: UserRole): boolean {
-  return role === "content_manager";
-}
-
-export function isReviewer(role: UserRole): boolean {
-  return role === "reviewer";
-}
-
-/**
- * A Content Manager can never approve their own package (SYSTEM-DESIGN-NEXTJS.md #4.2, #24.3).
- * This is a UI-level convenience check; the authoritative enforcement lives in the
- * `decide_package_review` database RPC (Task 3).
- */
-export function canDecideReview(reviewerId: string, submittedById: string): boolean {
-  return reviewerId !== submittedById;
-}
+export {};

@@ -1,7 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireContentManager } from "@/lib/auth/guards";
+import { requireSignedIn } from "@/lib/auth/guards";
 import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai/provider";
 import {
   generateArticleOptions,
@@ -40,7 +40,7 @@ export async function generateArticleOptionsAction(requestId: string): Promise<A
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
 
     const { data: request, error } = await supabase.from("content_requests").select().eq("id", requestId).single();
     if (error || !request) throw error;
@@ -61,7 +61,7 @@ export async function retryArticleOptionAction(artifactId: string): Promise<Acti
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
 
     const { data: artifact } = await supabase.from("content_artifacts").select("request_id").eq("id", artifactId).single();
     if (!artifact) throw new Error("Artifact not found");
@@ -85,7 +85,7 @@ export async function evaluateArticleAction(articleVersionId: string): Promise<A
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
 
     const { data: version } = await supabase.from("artifact_versions").select("artifact_id").eq("id", articleVersionId).single();
     if (!version) throw new Error("Article version not found");
@@ -112,7 +112,7 @@ export async function autoReviseArticleAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const { ai, modelId } = await providerForArticleVersion(supabase, articleVersionId);
     const result = await autoReviseArticle(supabase, ai, modelId, articleVersionId);
     return { ok: true, data: result };
@@ -129,7 +129,7 @@ export async function saveManualArticleRevisionAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    const user = await requireContentManager(supabase);
+    const user = await requireSignedIn(supabase);
     const version = await saveManualArticleRevision(supabase, artifactId, updatedContent, user.userId);
     return { ok: true, data: version };
   } catch (error) {
@@ -146,7 +146,7 @@ export async function proposeTargetedRevisionAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const { ai, modelId } = await providerForArticleVersion(supabase, articleVersionId);
     const proposal = await proposeTargetedRevision(supabase, ai, modelId, articleVersionId, targetSection, instruction);
     return { ok: true, data: proposal };
@@ -163,7 +163,7 @@ export async function applyTargetedRevisionAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    const user = await requireContentManager(supabase);
+    const user = await requireSignedIn(supabase);
     const version = await applyTargetedRevision(supabase, articleVersionId, proposedContent, user.userId);
     return { ok: true, data: version };
   } catch (error) {
@@ -176,7 +176,7 @@ export async function selectArticleAction(requestId: string, articleVersionId: s
   const supabase = await createSupabaseServerClient();
 
   try {
-    const user = await requireContentManager(supabase);
+    const user = await requireSignedIn(supabase);
     await selectArticle(supabase, requestId, articleVersionId, user.userId);
     return { ok: true, data: null };
   } catch (error) {

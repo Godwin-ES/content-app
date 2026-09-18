@@ -1,7 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireContentManager } from "@/lib/auth/guards";
+import { requireSignedIn } from "@/lib/auth/guards";
 import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai/provider";
 import { getResearchProvider } from "@/lib/research/provider";
 import { runAutoStep, type AutoStepResult } from "@/lib/workspace/auto-mode";
@@ -19,7 +19,7 @@ export async function runAutoStepAction(requestId: string, stopAfter: PipelineSt
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
 
     const { data: request, error } = await supabase.from("content_requests").select().eq("id", requestId).single();
     if (error || !request) throw error;

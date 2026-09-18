@@ -40,19 +40,17 @@ const hasCredentials = hasSupabaseCredentials();
 describe.skipIf(!hasCredentials)("publishing queue (hosted Supabase integration)", () => {
   let admin: SupabaseClient<Database>;
   let owner: { client: SupabaseClient<Database>; userId: string };
-  let reviewer: { client: SupabaseClient<Database>; userId: string };
   const requestIds: string[] = [];
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "publishing-owner");
-    reviewer = await createTestUser(admin, "reviewer", "publishing-reviewer");
+    owner = await createTestUser(admin, "publishing-owner");
+    
   });
 
   afterAll(async () => {
     if (requestIds.length > 0) await admin.from("content_requests").delete().in("id", requestIds);
     await deleteTestUser(admin, owner.userId);
-    await deleteTestUser(admin, reviewer.userId);
   });
 
   async function createVersion(kind: "article" | "linkedin" | "x" | "newsletter", requestId: string, sourceSetId: string, content: unknown) {
@@ -123,7 +121,7 @@ describe.skipIf(!hasCredentials)("publishing queue (hosted Supabase integration)
 
     const pkg = await createContentPackage(owner.client, request!.id);
     const review = await submitForApproval(owner.client, request!.id);
-    await decideApproval(reviewer.client, { reviewId: review.id, packageId: pkg.id, decision: "approved", comment: null });
+    await decideApproval(owner.client, { reviewId: review.id, packageId: pkg.id, decision: "approved", comment: null });
 
     return { requestId: request!.id, pkg };
   }

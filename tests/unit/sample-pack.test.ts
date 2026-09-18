@@ -43,7 +43,7 @@ describe.skipIf(!hasCredentials)("sample pack (hosted Supabase integration)", ()
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "sample-pack-owner");
+    owner = await createTestUser(admin, "sample-pack-owner");
   });
 
   afterAll(async () => {

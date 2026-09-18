@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
-import { createAdminClient, login, seedFullyReadyRequest } from "./helpers";
+import { createAdminClient, createUserWithPassword, login, seedFullyReadyRequest } from "./helpers";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -11,39 +11,26 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 test.skip(!SUPABASE_URL || !ANON_KEY || !SERVICE_ROLE_KEY, "Supabase credentials are required for this e2e suite.");
 
 let admin: SupabaseClient<Database>;
-let owner: { email: string; password: string; userId: string; client: SupabaseClient<Database> };
-let reviewer: { email: string; password: string; userId: string; client: SupabaseClient<Database> };
+let owner: Awaited<ReturnType<typeof createUserWithPassword>>;
 const requestIds: string[] = [];
-
-async function createUserWithPassword(role: "content_manager" | "reviewer", label: string) {
-  const email = `e2e-${label}-${randomUUID()}@koya-content-studio.test`;
-  const password = randomUUID();
-  const { data: created, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-  if (error || !created.user) throw error ?? new Error(`Failed to create ${label}`);
-  await admin.from("profiles").insert({ user_id: created.user.id, display_name: label, role });
-  const client = createClient<Database>(SUPABASE_URL!, ANON_KEY!, { auth: { autoRefreshToken: false, persistSession: false } });
-  await client.auth.signInWithPassword({ email, password });
-  return { email, password, userId: created.user.id, client };
-}
 
 test.beforeAll(async () => {
   admin = createAdminClient();
-  owner = await createUserWithPassword("content_manager", "publishing-spec-owner");
-  reviewer = await createUserWithPassword("reviewer", "publishing-spec-reviewer");
+  owner = await createUserWithPassword(admin, "publishing-spec-owner");
 });
 
 test.afterAll(async () => {
   if (requestIds.length > 0) await admin.from("content_requests").delete().in("id", requestIds);
   await admin.auth.admin.deleteUser(owner.userId);
-  await admin.auth.admin.deleteUser(reviewer.userId);
 });
 
 async function approvedRequest(topic: string) {
   const { requestId, packageId } = await seedFullyReadyRequest(admin, owner.client, owner.userId, topic);
   requestIds.push(requestId);
 
+  // The owner approves their own package — there is no second account.
   const { data: review } = await owner.client.rpc("submit_package_for_review", { p_request_id: requestId, p_package_id: packageId });
-  await reviewer.client.rpc("decide_package_review", {
+  await owner.client.rpc("decide_package_review", {
     p_review_id: (review as { id: string }).id,
     p_package_id: packageId,
     p_decision: "approved",

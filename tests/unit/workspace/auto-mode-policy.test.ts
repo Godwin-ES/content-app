@@ -6,7 +6,9 @@ import { AUTO_MODE_STAGES, PIPELINE_STAGES, type NextActionKey } from "@/lib/wor
  * The brief requires "a review step where a human can approve... before
  * publishing or scheduling". Auto mode exists to remove the waiting, not the
  * review — so the gate is asserted here rather than left to the reading of
- * one set literal.
+ * one set literal. It matters more, not less, now that the person who
+ * approves is the person who asked for the content: the only thing standing
+ * between a topic and a publishable package is that they read it.
  */
 const EVERY_ACTION: Record<NextActionKey, boolean> = {
   // Auto mode performs these.
@@ -23,9 +25,9 @@ const EVERY_ACTION: Record<NextActionKey, boolean> = {
   // It must not perform these.
   wait_for_research: false,
   resolve_no_usable_sources: false,
-  submit_for_approval: false,
-  await_review: false,
-  review_requested_changes: false,
+  decide_package: false,
+  await_decision: false,
+  address_requested_changes: false,
   queue_approved_content: false,
   none: false,
 };
@@ -37,14 +39,14 @@ describe("auto mode policy", () => {
     }
   });
 
-  it("never performs submission, review, or publishing", () => {
-    for (const key of ["submit_for_approval", "await_review", "review_requested_changes", "queue_approved_content"] as NextActionKey[]) {
+  it("never approves, asks for changes, or publishes", () => {
+    for (const key of ["decide_package", "await_decision", "address_requested_changes", "queue_approved_content"] as NextActionKey[]) {
       expect(autoModeCanPerform(key)).toBe(false);
     }
   });
 
   it("stops at the package, and offers no stage beyond it", () => {
-    expect(AUTO_MODE_FINAL_STAGE).toBe("Approval");
+    expect(AUTO_MODE_FINAL_STAGE).toBe("Package");
     expect(AUTO_MODE_STAGES).not.toContain("Publishing");
     // Every offered stop is a real pipeline stage.
     for (const stage of AUTO_MODE_STAGES) expect(PIPELINE_STAGES).toContain(stage);

@@ -1,8 +1,14 @@
 /**
- * Seeds the two dedicated E2E/manual-test accounts (Task 22 Step 1) from
- * environment-only credentials — never hard-coded, never committed.
- * Idempotent: safe to run repeatedly; an existing user with a matching
- * email is left alone rather than duplicated.
+ * Seeds the dedicated manual-test accounts from environment-only
+ * credentials — never hard-coded, never committed. Idempotent: safe to run
+ * repeatedly; an existing user with a matching email is left alone rather
+ * than duplicated.
+ *
+ * These used to be a Content Manager and a Reviewer, two halves of one
+ * workflow. With one role they are simply two independent accounts, each
+ * owning its own work — the second one is still worth having, because
+ * "account B cannot see account A's request" is the isolation guarantee
+ * every RLS policy now rests on.
  *
  * Required env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
  * TEST_CONTENT_MANAGER_EMAIL, TEST_CONTENT_MANAGER_PASSWORD,
@@ -29,8 +35,7 @@ async function ensureUser(
   admin: SupabaseClient<Database>,
   email: string,
   password: string,
-  displayName: string,
-  role: "content_manager" | "reviewer"
+  displayName: string
 ): Promise<void> {
   const { data: existingUsers, error: listError } = await admin.auth.admin.listUsers({ perPage: 200 });
   if (listError) throw listError;
@@ -51,16 +56,13 @@ async function ensureUser(
     console.log(`Created user: ${email} (${userId})`);
   }
 
-  const { data: existingProfile } = await admin.from("profiles").select().eq("user_id", userId).maybeSingle();
-  if (existingProfile) {
-    if (existingProfile.role !== role) {
-      await admin.from("profiles").update({ role }).eq("user_id", userId);
-      console.log(`Updated role for ${email} to ${role}`);
-    }
-  } else {
-    await admin.from("profiles").insert({ user_id: userId, display_name: displayName, role });
-    console.log(`Created profile for ${email} (${role})`);
-  }
+  // The on_auth_user_created trigger creates the profile for any account
+  // made after migration 020; this makes the script safe either way and
+  // pins the display name.
+  await admin
+    .from("profiles")
+    .upsert({ user_id: userId, display_name: displayName, role: "owner" }, { onConflict: "user_id" });
+  console.log(`Profile ready for ${email}`);
 }
 
 async function main() {
@@ -68,14 +70,8 @@ async function main() {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  await ensureUser(
-    admin,
-    requireEnv("TEST_CONTENT_MANAGER_EMAIL"),
-    requireEnv("TEST_CONTENT_MANAGER_PASSWORD"),
-    "Charles Morris",
-    "content_manager"
-  );
-  await ensureUser(admin, requireEnv("TEST_REVIEWER_EMAIL"), requireEnv("TEST_REVIEWER_PASSWORD"), "Carl Richards", "reviewer");
+  await ensureUser(admin, requireEnv("TEST_CONTENT_MANAGER_EMAIL"), requireEnv("TEST_CONTENT_MANAGER_PASSWORD"), "Charles Morris");
+  await ensureUser(admin, requireEnv("TEST_REVIEWER_EMAIL"), requireEnv("TEST_REVIEWER_PASSWORD"), "Carl Richards");
 
   console.log("Done.");
 }

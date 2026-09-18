@@ -131,15 +131,15 @@ describe("deriveNextAction", () => {
         hasCurrentPackage: true,
       })
     );
-    expect(result.key).toBe("submit_for_approval");
+    expect(result.key).toBe("decide_package");
   });
 
   it("shows awaiting review while pending_approval", () => {
-    expect(deriveNextAction(base({ status: "pending_approval" })).key).toBe("await_review");
+    expect(deriveNextAction(base({ status: "pending_approval" })).key).toBe("await_decision");
   });
 
   it("asks to review requested changes", () => {
-    expect(deriveNextAction(base({ status: "changes_requested" })).key).toBe("review_requested_changes");
+    expect(deriveNextAction(base({ status: "changes_requested" })).key).toBe("address_requested_changes");
   });
 
   it("asks to queue approved content when nothing is queued yet", () => {
@@ -164,8 +164,8 @@ describe("derivePipelineProgress", () => {
       { snapshot: base({ status: "source_review", sources: { usable: 2, pending: 0, failed: 0, unusable: 0 } }), stage: "Research", step: 1 },
       { snapshot: base({ status: "content_development" }), stage: "Plan", step: 2 },
       { snapshot: base({ status: "content_development", hasContentPlan: true }), stage: "Articles", step: 3 },
-      { snapshot: base({ status: "pending_approval" }), stage: "Approval", step: 5 },
-      { snapshot: base({ status: "changes_requested" }), stage: "Approval", step: 5 },
+      { snapshot: base({ status: "pending_approval" }), stage: "Package", step: 5 },
+      { snapshot: base({ status: "changes_requested" }), stage: "Package", step: 5 },
       { snapshot: base({ status: "approved" }), stage: "Publishing", step: 6 },
     ];
 

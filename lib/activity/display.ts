@@ -17,7 +17,7 @@
  *   at the moment the reader is looking at it.
  *
  * What remains is the list of things someone actually did or that the
- * system produced: creations, edits, selections, submissions, and reviewer
+ * system produced: creations, edits, selections, submissions, and review
  * feedback — plus failures, which are rare and never noise.
  */
 const SHOWN_EVENT_TYPES = new Set([
@@ -38,7 +38,7 @@ const SHOWN_EVENT_TYPES = new Set([
   // Selections and decisions
   "source_set_confirmed",
   "article_selected",
-  // Submissions and reviewer feedback
+  // Submissions and approval decisions
   "package_submitted",
   "package_withdrawn",
   "package_review_decided",

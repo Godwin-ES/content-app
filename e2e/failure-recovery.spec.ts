@@ -37,7 +37,9 @@ test.beforeAll(async () => {
   const password = randomUUID();
   const { data: created, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (error || !created.user) throw error ?? new Error("Failed to create owner");
-  await admin.from("profiles").insert({ user_id: created.user.id, display_name: "Failure Recovery Owner", role: "content_manager" });
+  await admin
+    .from("profiles")
+    .upsert({ user_id: created.user.id, display_name: "Failure Recovery Owner", role: "owner" }, { onConflict: "user_id" });
   const client = createClient<Database>(SUPABASE_URL!, ANON_KEY!, { auth: { autoRefreshToken: false, persistSession: false } });
   await client.auth.signInWithPassword({ email, password });
   owner = { email, password, userId: created.user.id, client };

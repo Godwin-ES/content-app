@@ -26,7 +26,7 @@ interface LogEntry {
  * left half-finished, because each step is committed on its own.
  */
 export function AutoModePanel({ requestId, canRun }: { requestId: string; canRun: boolean }) {
-  const [stopAfter, setStopAfter] = useState<PipelineStage>("Approval");
+  const [stopAfter, setStopAfter] = useState<PipelineStage>("Package");
   const [log, setLog] = useState<LogEntry[]>([]);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +83,7 @@ export function AutoModePanel({ requestId, canRun }: { requestId: string; canRun
           >
             {AUTO_MODE_STAGES.map((stage) => (
               <option key={stage} value={stage}>
-                {stage === "Approval" ? "Package (furthest)" : stage}
+                {stage === "Package" ? "Package (furthest)" : stage}
               </option>
             ))}
           </select>

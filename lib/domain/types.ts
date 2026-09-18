@@ -1,4 +1,10 @@
-export type UserRole = "content_manager" | "reviewer";
+/**
+ * One account, one person. The role column survives in the database so
+ * every policy helper and generated type keeps working, but there is
+ * nothing left to distinguish: the person who writes the content is the
+ * person who approves and publishes it.
+ */
+export type UserRole = "owner";
 
 export type ContentRequestStatus =
   | "draft"
@@ -37,12 +43,11 @@ export type EvaluationStatus = "pass" | "revise" | "reject";
 export type ApprovalReviewStatus = "pending" | "withdrawn" | "approved" | "changes_requested";
 
 /**
- * What a Reviewer can decide on a pending package. Approve ships it;
- * Request Changes sends it back for edits and resubmission. There is
- * deliberately no third "reject" outcome — it differed from Request
- * Changes only by blocking resubmission until an explicit reopen, a
- * distinction the product never surfaced anywhere the Reviewer or the
- * Content Manager could see.
+ * What the owner can decide on a package. Approve ships it; Request
+ * Changes sends it back for edits and resubmission. There is deliberately
+ * no third "reject" outcome — it differed from Request Changes only by
+ * blocking resubmission until an explicit reopen, a distinction the
+ * product never surfaced anywhere anyone could see.
  */
 export type ReviewDecision = Extract<ApprovalReviewStatus, "approved" | "changes_requested">;
 

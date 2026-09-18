@@ -1,7 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireContentManager } from "@/lib/auth/guards";
+import { requireSignedIn } from "@/lib/auth/guards";
 import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai/provider";
 import {
   generateContentPlan,
@@ -37,7 +37,7 @@ export async function generateContentPlanAction(requestId: string, instruction: 
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const { ai, modelId } = await requestAndModel(supabase, requestId);
     const plan = await generateContentPlan(supabase, ai, modelId, requestId, instruction);
     return { ok: true, data: plan };
@@ -54,7 +54,7 @@ export async function saveManualContentPlanAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    const user = await requireContentManager(supabase);
+    const user = await requireSignedIn(supabase);
     const plan = await saveManualContentPlan(supabase, requestId, updates, user.userId);
     return { ok: true, data: plan };
   } catch (error) {
@@ -67,7 +67,7 @@ export async function listContentPlanVersionsAction(requestId: string): Promise<
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const versions = await listContentPlanVersions(supabase, requestId);
     return { ok: true, data: versions };
   } catch (error) {
@@ -90,7 +90,7 @@ export async function regeneratePlanSectionPreviewAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const { ai, modelId } = await requestAndModel(supabase, requestId);
     const section = await regeneratePlanSectionPreview(ai, modelId, supabase, requestId, currentDraft, sectionIndex, instruction);
     return { ok: true, data: section };
@@ -107,7 +107,7 @@ export async function regenerateWholePlanDraftAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const { ai, modelId } = await requestAndModel(supabase, requestId);
     const draft = await regenerateWholePlanDraft(supabase, ai, modelId, requestId, instruction);
     return { ok: true, data: draft };
@@ -121,7 +121,7 @@ export async function revertToPlanVersionAction(requestId: string, versionId: st
   const supabase = await createSupabaseServerClient();
 
   try {
-    const user = await requireContentManager(supabase);
+    const user = await requireSignedIn(supabase);
     const plan = await revertToPlanVersion(supabase, requestId, versionId, user.userId);
     return { ok: true, data: plan };
   } catch (error) {

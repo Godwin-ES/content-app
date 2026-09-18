@@ -19,13 +19,16 @@ export function createAdminClient(): SupabaseClient<Database> {
 }
 
 /**
- * Creates an ephemeral auth user + profile row and returns a signed-in
- * client acting as that user. Integration tests for Task 3 are self-contained
- * (they do not depend on the seeded demo accounts created in Task 22).
+ * Creates an ephemeral account and returns a signed-in client acting as it.
+ * Integration tests are self-contained — they never depend on the seeded
+ * accounts.
+ *
+ * There is no role to pass any more: every account is an owner of its own
+ * work, so a test that needs two actors creates two accounts and relies on
+ * ownership, which is what the application enforces.
  */
 export async function createTestUser(
   admin: SupabaseClient<Database>,
-  role: "content_manager" | "reviewer",
   label: string
 ): Promise<{ client: SupabaseClient<Database>; userId: string; email: string }> {
   if (!SUPABASE_URL || !ANON_KEY) {
@@ -43,9 +46,12 @@ export async function createTestUser(
     throw createError ?? new Error("Failed to create test user");
   }
 
+  // The on_auth_user_created trigger (migration 020) already inserted a
+  // profile; this only replaces the name it guessed with the test's label,
+  // which is what assertions read.
   const { error: profileError } = await admin
     .from("profiles")
-    .insert({ user_id: created.user.id, display_name: label, role });
+    .upsert({ user_id: created.user.id, display_name: label, role: "owner" }, { onConflict: "user_id" });
   if (profileError) throw profileError;
 
   const client = createClient<Database>(SUPABASE_URL, ANON_KEY, {

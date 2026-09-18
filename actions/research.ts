@@ -1,7 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireContentManager } from "@/lib/auth/guards";
+import { requireSignedIn } from "@/lib/auth/guards";
 import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai/provider";
 import { getResearchProvider } from "@/lib/research/provider";
 import { runResearchPipeline, retryResearchSource, addPendingSourceUrl, analyzeUploadedMaterialSource } from "@/lib/research/service";
@@ -12,7 +12,7 @@ export async function startResearchAction(requestId: string): Promise<ActionResu
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
 
     const { data: request, error } = await supabase.from("content_requests").select().eq("id", requestId).single();
     if (error || !request) throw new DomainError("NOT_FOUND", "start_research", "Request not found.");
@@ -54,7 +54,7 @@ export async function startSourceAction(sourceId: string): Promise<ActionResult<
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
 
     const { data: source } = await supabase.from("research_sources").select("request_id, origin").eq("id", sourceId).single();
     if (!source) throw new DomainError("NOT_FOUND", "start_source", "Source not found.");
@@ -83,7 +83,7 @@ export async function addSourceUrlAction(requestId: string, url: string): Promis
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     await addPendingSourceUrl(supabase, requestId, url);
     return { ok: true, data: null };
   } catch (error) {

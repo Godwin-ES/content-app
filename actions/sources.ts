@@ -1,7 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireContentManager } from "@/lib/auth/guards";
+import { requireSignedIn } from "@/lib/auth/guards";
 import {
   recordSourceDecision,
   resolveSourceConflict,
@@ -22,7 +22,7 @@ export async function recordSourceDecisionAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    const user = await requireContentManager(supabase);
+    const user = await requireSignedIn(supabase);
     await recordSourceDecision(supabase, { sourceId, decision, reason, decidedBy: user.userId });
     return { ok: true, data: null };
   } catch (error) {
@@ -39,7 +39,7 @@ export async function resolveSourceConflictAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    const user = await requireContentManager(supabase);
+    const user = await requireSignedIn(supabase);
     await resolveSourceConflict(supabase, { conflictId, resolution, note, resolvedBy: user.userId });
     return { ok: true, data: null };
   } catch (error) {
@@ -52,7 +52,7 @@ export async function confirmSourceSetAction(requestId: string): Promise<ActionR
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const sourceSet = await confirmReviewedSourceSet(supabase, requestId);
     return { ok: true, data: { versionNumber: sourceSet.version_number } };
   } catch (error) {
@@ -71,7 +71,7 @@ export async function deleteSourceAction(sourceId: string): Promise<ActionResult
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const source = await getResearchSource(supabase, sourceId);
     if (!source) throw new DomainError("NOT_FOUND", "delete_source", "Source not found.");
 

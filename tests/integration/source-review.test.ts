@@ -25,7 +25,7 @@ describe.skipIf(!hasCredentials)("Source Review (hosted Supabase integration)", 
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "source-review-owner");
+    owner = await createTestUser(admin, "source-review-owner");
   });
 
   afterAll(async () => {

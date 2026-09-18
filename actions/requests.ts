@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireContentManager } from "@/lib/auth/guards";
+import { requireSignedIn } from "@/lib/auth/guards";
 import {
   createContentRequest,
   deleteRequest,
@@ -25,7 +25,7 @@ export async function createContentRequestAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    const user = await requireContentManager(supabase);
+    const user = await requireSignedIn(supabase);
 
     // Primary keyword and CTA are optional intake context again. Both are
     // still derived when left blank — the keyword from the research plan,
@@ -119,7 +119,7 @@ function emptyToUndefined(value: FormDataEntryValue | null): string | undefined 
 
 /**
  * Deletes a request outright. `delete_request` re-checks ownership and
- * refuses once a Reviewer has left feedback, so this is a real
+ * refuses once a decision has been recorded, so this is a real
  * server-enforced rule rather than a UI affordance that happens to be
  * hidden at the right moments.
  */
@@ -127,7 +127,7 @@ export async function deleteRequestAction(requestId: string): Promise<ActionResu
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     await deleteRequest(supabase, requestId);
     return { ok: true, data: null };
   } catch (error) {
@@ -150,7 +150,7 @@ export async function setSuppliedSourcesOnlyAction(requestId: string, value: boo
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     await setSuppliedSourcesOnly(supabase, requestId, value);
     revalidatePath(`/requests/${requestId}`);
     return { ok: true, data: null };
@@ -171,7 +171,7 @@ export async function setPrimaryKeywordAction(requestId: string, primaryKeyword:
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     await setRequestPrimaryKeyword(supabase, requestId, primaryKeyword.trim() || null);
     revalidatePath(`/requests/${requestId}`);
     return { ok: true, data: null };
@@ -193,7 +193,7 @@ export async function setCtaAction(requestId: string, cta: string): Promise<Acti
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     await setRequestCta(supabase, requestId, cta.trim() || null);
     revalidatePath(`/requests/${requestId}`);
     return { ok: true, data: null };

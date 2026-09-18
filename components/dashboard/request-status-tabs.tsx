@@ -38,7 +38,7 @@ const TABS: Array<{ key: TabKey; label: string; emptyTitle: string; emptyDescrip
     key: "needs-changes",
     label: "Needs Changes",
     emptyTitle: "Nothing needs changes",
-    emptyDescription: "Requests a reviewer sent back, with their feedback, will show up here.",
+    emptyDescription: "Requests you sent back for changes, with the notes you left, will show up here.",
   },
   {
     key: "awaiting-approval",

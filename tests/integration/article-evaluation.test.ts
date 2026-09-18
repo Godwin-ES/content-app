@@ -62,7 +62,7 @@ describe.skipIf(!hasCredentials)("article evaluation (hosted Supabase integratio
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "evaluation-owner");
+    owner = await createTestUser(admin, "evaluation-owner");
   });
 
   afterAll(async () => {

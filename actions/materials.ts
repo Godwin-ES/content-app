@@ -1,7 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireContentManager } from "@/lib/auth/guards";
+import { requireSignedIn } from "@/lib/auth/guards";
 import { uploadSupportingMaterial } from "@/lib/materials/service";
 import { deleteSupportingMaterial } from "@/lib/repositories/materials";
 import { toLoggedActionError } from "@/lib/notifications/action-error";
@@ -18,7 +18,7 @@ export async function uploadSupportingMaterialAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    const user = await requireContentManager(supabase);
+    const user = await requireSignedIn(supabase);
 
     const file = formData.get("file");
     if (!(file instanceof File)) {
@@ -45,7 +45,7 @@ export async function deleteSupportingMaterialAction(materialId: string): Promis
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     await deleteSupportingMaterial(supabase, materialId);
     return { ok: true, data: null };
   } catch (error) {

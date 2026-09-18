@@ -32,16 +32,14 @@ const hasCredentials = hasSupabaseCredentials();
 describe.skipIf(!hasCredentials)("schema invariants (hosted Supabase integration)", () => {
   let admin: SupabaseClient<Database>;
   let owner: { client: SupabaseClient<Database>; userId: string };
-  let reviewer: { client: SupabaseClient<Database>; userId: string };
   let otherOwner: { client: SupabaseClient<Database>; userId: string };
 
   const requestIds: string[] = [];
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "owner");
-    reviewer = await createTestUser(admin, "reviewer", "reviewer");
-    otherOwner = await createTestUser(admin, "content_manager", "other-owner");
+    owner = await createTestUser(admin, "owner");
+    otherOwner = await createTestUser(admin, "other-owner");
   });
 
   afterAll(async () => {
@@ -49,7 +47,6 @@ describe.skipIf(!hasCredentials)("schema invariants (hosted Supabase integration
       await admin.from("content_requests").delete().in("id", requestIds);
     }
     await deleteTestUser(admin, owner.userId);
-    await deleteTestUser(admin, reviewer.userId);
     await deleteTestUser(admin, otherOwner.userId);
   });
 
@@ -167,8 +164,22 @@ describe.skipIf(!hasCredentials)("schema invariants (hosted Supabase integration
     return { requestId: request.id, articleArtifactVersionId: versionIds.article, package: pkg, review };
   }
 
-  it("rejects self-approval when the submitter tries to decide their own review", async () => {
+  it("lets the request's owner decide their own review, and rejects a second decision on it", async () => {
+    // decide_package_review used to refuse this as SELF_APPROVAL. With one
+    // account per workspace the owner is the only person who can see the
+    // request at all, so the rule would have made approval impossible.
     const { review, package: pkg } = await buildSubmittedFixture();
+
+    const approved = await rpcOrThrow(
+      owner.client.rpc("decide_package_review", {
+        p_review_id: review.id,
+        p_package_id: pkg.id,
+        p_decision: "approved",
+        p_comment: "Looks good.",
+      })
+    );
+    expect(approved.status).toBe("approved");
+    expect(approved.decided_by).toBe(owner.userId);
 
     await expect(
       rpcOrThrow(
@@ -179,10 +190,10 @@ describe.skipIf(!hasCredentials)("schema invariants (hosted Supabase integration
           p_comment: undefined,
         })
       )
-    ).rejects.toThrow(/SELF_APPROVAL|PERMISSION/);
+    ).rejects.toThrow(/INVALID_STATE/);
   });
 
-  it("rejects a decision from a content manager who did not submit the review (role check)", async () => {
+  it("rejects a decision from an account that does not own the request", async () => {
     const { review, package: pkg } = await buildSubmittedFixture();
 
     await expect(
@@ -195,31 +206,6 @@ describe.skipIf(!hasCredentials)("schema invariants (hosted Supabase integration
         })
       )
     ).rejects.toThrow(/PERMISSION_DENIED/);
-  });
-
-  it("lets an independent reviewer approve, and rejects a second decision on the same review", async () => {
-    const { review, package: pkg } = await buildSubmittedFixture();
-
-    const approved = await rpcOrThrow(
-      reviewer.client.rpc("decide_package_review", {
-        p_review_id: review.id,
-        p_package_id: pkg.id,
-        p_decision: "approved",
-        p_comment: "Looks good.",
-      })
-    );
-    expect(approved.status).toBe("approved");
-
-    await expect(
-      rpcOrThrow(
-        reviewer.client.rpc("decide_package_review", {
-          p_review_id: review.id,
-          p_package_id: pkg.id,
-          p_decision: "approved",
-          p_comment: undefined,
-        })
-      )
-    ).rejects.toThrow(/INVALID_STATE/);
   });
 
   it("rejects a stale expected version when creating a new artifact version", async () => {
@@ -262,7 +248,7 @@ describe.skipIf(!hasCredentials)("schema invariants (hosted Supabase integration
   it("prevents a duplicate active queue item for the same package/channel", async () => {
     const { review, package: pkg } = await buildSubmittedFixture();
     await rpcOrThrow(
-      reviewer.client.rpc("decide_package_review", {
+      owner.client.rpc("decide_package_review", {
         p_review_id: review.id,
         p_package_id: pkg.id,
         p_decision: "approved",
@@ -307,7 +293,7 @@ describe.skipIf(!hasCredentials)("schema invariants (hosted Supabase integration
   it("reuses the existing row when the same idempotency key is retried, never inserting twice", async () => {
     const { review, package: pkg } = await buildSubmittedFixture();
     await rpcOrThrow(
-      reviewer.client.rpc("decide_package_review", {
+      owner.client.rpc("decide_package_review", {
         p_review_id: review.id,
         p_package_id: pkg.id,
         p_decision: "approved",

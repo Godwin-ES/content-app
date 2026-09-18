@@ -6,9 +6,9 @@ import { withdrawApprovalAction } from "@/actions/approvals";
 import { Button } from "@/components/ui/button";
 
 /**
- * Offered instead of Delete while a request is out for review. Deleting
- * from under a Reviewer would be the wrong move even where the rules allow
- * it (nothing has been decided yet, so it is technically deletable);
+ * Offered instead of Delete while a request is submitted and awaiting a
+ * decision. Deleting is technically allowed at that point — nothing has
+ * been decided — but it is far more likely a slip than an intent;
  * withdrawing pulls the submission back and returns the request to
  * In Progress, where it can be edited — or deleted — deliberately.
  */

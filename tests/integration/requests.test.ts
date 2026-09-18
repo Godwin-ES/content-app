@@ -30,7 +30,7 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "intake-owner");
+    owner = await createTestUser(admin, "intake-owner");
   });
 
   afterEach(() => {
@@ -135,7 +135,7 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
     const request = await createContentRequest(owner.client, owner.userId, { topic: "AI agents in recruiting" });
     requestIds.push(request.id);
 
-    const stranger = await createTestUser(admin, "content_manager", "intake-stranger");
+    const stranger = await createTestUser(admin, "intake-stranger");
     try {
       // The RPC is security definer, so it reads the row and refuses on
       // ownership rather than failing to find it.

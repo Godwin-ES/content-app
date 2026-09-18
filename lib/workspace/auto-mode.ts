@@ -38,12 +38,12 @@ type EvaluationRow = Database["public"]["Tables"]["evaluations"]["Row"];
  */
 
 /** The furthest auto mode will ever go on its own, regardless of configuration. */
-export const AUTO_MODE_FINAL_STAGE: PipelineStage = "Approval";
+export const AUTO_MODE_FINAL_STAGE: PipelineStage = "Package";
 
 /**
  * Actions auto mode is allowed to perform. Everything omitted is either a
  * human decision or past the point where a human must take over:
- * `submit_for_approval` and beyond are the approval gate the brief requires
+ * `decide_package` and beyond are the approval gate the brief requires
  * ("a review step where a human can approve... before publishing"), and
  * `resolve_no_usable_sources` means research found nothing to work from,
  * which no amount of retrying fixes.

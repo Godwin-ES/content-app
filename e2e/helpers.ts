@@ -11,10 +11,7 @@ export async function login(page: Page, email: string, password: string) {
   await page.fill("#email", email);
   await page.fill("#password", password);
   await page.click('button[type="submit"]');
-  // Sign-in routes by role: a Content Manager lands on /dashboard, a
-  // Reviewer on /reviews. Waiting only for /dashboard silently worked
-  // while every account went there regardless of role.
-  await page.waitForURL(/\/(dashboard|reviews)/, { timeout: 15000 });
+  await page.waitForURL(/\/dashboard/, { timeout: 15000 });
 }
 
 // Deliberately reimplements a thin slice of lib/packages/service.ts's
@@ -182,4 +179,30 @@ export async function seedFullyReadyRequest(
   });
 
   return { requestId: request!.id, articleArtifactId: article.artifactId, packageId: (pkg as { id: string }).id };
+}
+
+/**
+ * createTestUser returns a signed-in client but not the plaintext
+ * password, and a UI login needs one — so specs that sign in through the
+ * browser create their account here instead, keeping the password in
+ * scope.
+ */
+export async function createUserWithPassword(admin: SupabaseClient<Database>, label: string) {
+  const { randomUUID } = await import("node:crypto");
+  const { createClient } = await import("@supabase/supabase-js");
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+  const email = `e2e-${label}-${randomUUID()}@koya-content-studio.test`;
+  const password = randomUUID();
+  const { data: created, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+  if (error || !created.user) throw error ?? new Error(`Failed to create ${label}`);
+
+  // The on_auth_user_created trigger already made the profile; this only
+  // sets the display name the spec expects.
+  await admin.from("profiles").upsert({ user_id: created.user.id, display_name: label, role: "owner" }, { onConflict: "user_id" });
+
+  const client = createClient<Database>(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  await client.auth.signInWithPassword({ email, password });
+  return { email, password, userId: created.user.id, client };
 }

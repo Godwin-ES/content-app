@@ -23,7 +23,7 @@ describe.skipIf(!hasCredentials)("supporting material upload (hosted Supabase in
 
   beforeAll(async () => {
     admin = createAdminClient();
-    owner = await createTestUser(admin, "content_manager", "materials-owner");
+    owner = await createTestUser(admin, "materials-owner");
   });
 
   afterAll(async () => {

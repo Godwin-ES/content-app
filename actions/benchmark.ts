@@ -1,7 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireContentManager } from "@/lib/auth/guards";
+import { requireSignedIn } from "@/lib/auth/guards";
 import { getAIProvider, getModelIdFor } from "@/lib/ai/provider";
 import { assertAllowedAIModel } from "@/lib/ai/model-config";
 import { loadBenchmarkScenarios, runBenchmarkScenario, type BenchmarkRunResult } from "@/lib/benchmark/service";
@@ -15,7 +15,7 @@ export async function getBenchmarkScenariosAction(): Promise<ActionResult<Awaite
       throw new DomainError("PERMISSION_DENIED", "benchmark", "The benchmark workspace is only available in AI test mode.");
     }
     const supabase = await createSupabaseServerClient();
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
     const scenarios = await loadBenchmarkScenarios();
     return { ok: true, data: scenarios };
   } catch (error) {
@@ -39,7 +39,7 @@ export async function runBenchmarkAction(scenarioKey: string, model: string): Pr
     assertAllowedAIModel(model);
 
     const supabase = await createSupabaseServerClient();
-    await requireContentManager(supabase);
+    await requireSignedIn(supabase);
 
     const scenarios = await loadBenchmarkScenarios();
     const scenario = scenarios.find((s) => s.key === scenarioKey);
