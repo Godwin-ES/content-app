@@ -41,20 +41,28 @@ export class AnthropicAIProvider implements AIProvider {
     const attempt = async (): Promise<T> => {
       let response: Anthropic.Message;
       try {
-        response = await this.client.messages.create({
-          model: modelId,
-          max_tokens: MAX_OUTPUT_TOKENS,
-          system,
-          messages: [{ role: "user", content: user }],
-          tools: [
-            {
-              name: RESULT_TOOL_NAME,
-              description: "Return the required structured result. Always call this tool exactly once.",
-              input_schema: toToolInputSchema(schema),
-            },
-          ],
-          tool_choice: { type: "tool", name: RESULT_TOOL_NAME },
-        });
+        // Streamed rather than a plain create(): at a 32k output budget the
+        // SDK refuses a non-streaming request outright, because a response
+        // that size can outlast the 10-minute non-streaming limit. Nothing
+        // here consumes the stream incrementally — a Server Action returns
+        // once, whole — so the final message is all that is wanted, and
+        // streaming is simply what makes a long generation legal.
+        response = await this.client.messages
+          .stream({
+            model: modelId,
+            max_tokens: MAX_OUTPUT_TOKENS,
+            system,
+            messages: [{ role: "user", content: user }],
+            tools: [
+              {
+                name: RESULT_TOOL_NAME,
+                description: "Return the required structured result. Always call this tool exactly once.",
+                input_schema: toToolInputSchema(schema),
+              },
+            ],
+            tool_choice: { type: "tool", name: RESULT_TOOL_NAME },
+          })
+          .finalMessage();
       } catch (error) {
         // Normalize any thrown value to a readable message, mirroring the
         // fix applied to the Google adapter after manual verification
