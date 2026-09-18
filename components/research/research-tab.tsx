@@ -29,6 +29,8 @@ interface ResearchTabProps {
   decisionsBySource: Record<string, "accepted" | "excluded" | null>;
   conflicts: SourceConflictRow[];
   suppliedSourcesOnly: boolean;
+  /** What the last run's scope was — null before any run has happened. */
+  researchedSuppliedOnly: boolean | null;
   runAvailability: ResearchRunAvailability;
 }
 
@@ -49,6 +51,7 @@ export function ResearchTab({
   decisionsBySource,
   conflicts,
   suppliedSourcesOnly,
+  researchedSuppliedOnly,
   runAvailability,
 }: ResearchTabProps) {
   const [busyCount, setBusyCount] = useState(0);
@@ -66,7 +69,16 @@ export function ResearchTab({
   // stepping, every control here is one that would collide with it.
   const { running: autoModeRunning } = useAutoMode();
   const locked = busyCount > 0 || autoModeRunning;
-  const canChangeScope = status === "draft" || status === "source_review";
+  /**
+   * A web search has already run, so the scope no longer decides anything.
+   *
+   * The searches are done and will not be repeated — re-running only ever
+   * reads sources you have added since. Leaving the box live would suggest
+   * ticking it could take those results back, or that unticking it could
+   * buy another search; neither is true.
+   */
+  const webSearchDone = researchedSuppliedOnly === false;
+  const canChangeScope = (status === "draft" || status === "source_review") && !webSearchDone;
 
   /**
    * A researched source is out of scope while "supplied only" is ticked:
@@ -184,6 +196,12 @@ export function ResearchTab({
               the request is a draft. Supplied-only research that finds
               nothing relevant is the most likely dead end there is, and
               unticking this is the way out of it. */}
+          {hasSuppliedSources && webSearchDone ? (
+            <p className="text-sm text-muted-foreground">
+              A web search has already run for this request, so it will not run again. Adding a source researches that source on
+              its own.
+            </p>
+          ) : null}
           {hasSuppliedSources && canChangeScope ? (
             <label className="flex w-fit items-start gap-2 text-sm">
               <input
@@ -196,9 +214,7 @@ export function ResearchTab({
               <span>
                 Only use the supplied materials and URLs — skip general web research
                 {suppliedOnly && status === "source_review" ? (
-                  <span className="block text-muted-foreground">
-                    Untick to let research look beyond them.
-                  </span>
+                  <span className="block text-muted-foreground">Untick to let research look beyond them, once.</span>
                 ) : null}
               </span>
             </label>

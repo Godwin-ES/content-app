@@ -207,6 +207,7 @@ export default async function RequestWorkspacePage({
       decisionsBySource={decisionsBySource}
       conflicts={conflicts}
       suppliedSourcesOnly={request.supplied_sources_only}
+      researchedSuppliedOnly={request.researched_supplied_only}
       runAvailability={researchRunAvailability(request, sources.filter((s) => s.retrieval_status === "pending").length)}
     />
   );
