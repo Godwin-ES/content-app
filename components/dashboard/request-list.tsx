@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { LocalDateTime } from "@/components/shared/local-date-time";
 import { DeleteRequestButton } from "@/components/dashboard/delete-request-button";
 import { RestoreRequestButton } from "@/components/dashboard/restore-request-button";
+import { PurgeRequestButton } from "@/components/dashboard/purge-request-button";
+import { BinBulkActions } from "@/components/dashboard/bin-bulk-actions";
 import { RequestStage } from "@/components/dashboard/request-stage";
 import { DELETED_REQUEST_RETENTION_DAYS } from "@/lib/domain/retention";
 import type { Database } from "@/lib/supabase/database.types";
@@ -49,7 +51,12 @@ export function RequestList({
   }
 
   return (
-    <div className="flex flex-col divide-y rounded-lg border">
+    <div className="flex flex-col gap-3">
+      {/* Above the list, because they act on all of it — and because a
+          "delete all" sitting among the rows reads like it belongs to
+          whichever row it happens to be next to. */}
+      {deleted ? <BinBulkActions count={requests.length} /> : null}
+      <div className="flex flex-col divide-y rounded-lg border">
       {requests.map((request) => {
         const remaining = deleted && request.deleted_at ? daysLeft(request.deleted_at) : null;
 
@@ -74,11 +81,19 @@ export function RequestList({
 
             <div className="flex shrink-0 items-center gap-3">
               <Badge variant="outline">{STATUS_LABELS[request.status]}</Badge>
-              {deleted ? <RestoreRequestButton requestId={request.id} /> : <DeleteRequestButton requestId={request.id} />}
+              {deleted ? (
+                <div className="flex items-center gap-1">
+                  <RestoreRequestButton requestId={request.id} />
+                  <PurgeRequestButton requestId={request.id} topic={request.topic} />
+                </div>
+              ) : (
+                <DeleteRequestButton requestId={request.id} />
+              )}
             </div>
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

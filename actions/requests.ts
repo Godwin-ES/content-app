@@ -8,6 +8,8 @@ import {
   createContentRequest,
   deleteRequest,
   restoreRequest,
+  purgeRequest,
+  listDeletedRequests,
   setSuppliedSourcesOnly,
 } from "@/lib/repositories/requests";
 import { uploadSupportingMaterial } from "@/lib/materials/service";
@@ -148,6 +150,74 @@ export async function restoreRequestAction(requestId: string): Promise<ActionRes
     const actionError = await toLoggedActionError(error, "restore_request", { requestId });
     return { ok: false, error: actionError };
   }
+}
+
+/**
+ * Removes one binned request for good, without waiting out its thirty
+ * days. The RPC refuses anything that is not already in the bin, so this
+ * is always the second of two deliberate steps rather than a way to
+ * destroy live work in one click.
+ */
+export async function purgeRequestAction(requestId: string): Promise<ActionResult<null>> {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    await requireSignedIn(supabase);
+    await purgeRequest(supabase, requestId);
+    revalidatePath("/dashboard");
+    return { ok: true, data: null };
+  } catch (error) {
+    const actionError = await toLoggedActionError(error, "purge_request", { requestId });
+    return { ok: false, error: actionError };
+  }
+}
+
+/**
+ * Empties the bin, or restores all of it.
+ *
+ * Both walk the same list the bin is rendered from, one request at a time,
+ * and report how many they got through. Sequential rather than concurrent
+ * on purpose: purging touches provenance rows in an order that matters,
+ * and a handful of requests is not worth racing.
+ *
+ * A single failure does not abort the rest — emptying a bin of twelve and
+ * stopping on the third leaves someone to work out which three went.
+ */
+async function forEachDeletedRequest(
+  stage: "purge_all_requests" | "restore_all_requests",
+  act: (supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, requestId: string) => Promise<void>
+): Promise<ActionResult<{ done: number; failed: number }>> {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    const user = await requireSignedIn(supabase);
+    const deleted = await listDeletedRequests(supabase, user.userId);
+
+    let done = 0;
+    let failed = 0;
+    for (const request of deleted) {
+      try {
+        await act(supabase, request.id);
+        done++;
+      } catch {
+        failed++;
+      }
+    }
+
+    revalidatePath("/dashboard");
+    return { ok: true, data: { done, failed } };
+  } catch (error) {
+    const actionError = await toLoggedActionError(error, stage, {});
+    return { ok: false, error: actionError };
+  }
+}
+
+export async function purgeAllDeletedRequestsAction(): Promise<ActionResult<{ done: number; failed: number }>> {
+  return forEachDeletedRequest("purge_all_requests", purgeRequest);
+}
+
+export async function restoreAllDeletedRequestsAction(): Promise<ActionResult<{ done: number; failed: number }>> {
+  return forEachDeletedRequest("restore_all_requests", restoreRequest);
 }
 
 export async function setSuppliedSourcesOnlyAction(requestId: string, value: boolean): Promise<ActionResult<null>> {

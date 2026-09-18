@@ -156,6 +156,30 @@ export async function deleteRequest(supabase: SupabaseClient<Database>, requestI
   if (error) throwFromRpcError(error, "delete_request");
 }
 
+/**
+ * Removes one binned request for good, now, rather than waiting out its
+ * thirty days.
+ *
+ * The same RPC the expiry sweep uses, so a request deleted deliberately
+ * and one deleted by time follow the identical path — including the
+ * ordering of the non-cascading provenance rows, which is the part that
+ * has to be right. It returns the Storage paths it orphaned, deleted here
+ * for the same reason the sweep does: the database cannot reach the
+ * bucket.
+ *
+ * Only a binned request can be purged; the RPC refuses anything else,
+ * which is what stops a mistyped id from taking out live work.
+ */
+export async function purgeRequest(supabase: SupabaseClient<Database>, requestId: string): Promise<void> {
+  const { data, error } = await supabase.rpc("purge_request", { p_request_id: requestId });
+  if (error) throwFromRpcError(error, "purge_request");
+
+  const paths = (data ?? []) as string[];
+  if (paths.length > 0) {
+    await supabase.storage.from("content-support").remove(paths);
+  }
+}
+
 /** Brings a request back out of the bin, if it is still inside the window. */
 export async function restoreRequest(supabase: SupabaseClient<Database>, requestId: string): Promise<void> {
   await sweepExpiredRequests(supabase);
