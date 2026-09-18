@@ -30,7 +30,7 @@ function getProviderName(): ProviderName {
 /** The model id for whichever provider is configured. */
 export function getModelId(): string {
   const provider = getProviderName();
-  const variable = provider === "google" ? "GOOGLE_MODEL" : "ANTHROPIC_MODEL";
+  const variable = provider === "google" ? "GEMINI_MODEL" : "ANTHROPIC_MODEL";
   const model = process.env[variable];
   if (!model) {
     throw new DomainError(

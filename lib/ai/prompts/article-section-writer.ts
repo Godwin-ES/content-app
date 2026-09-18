@@ -2,6 +2,18 @@ import { SHARED_GROUNDING_RULES, formatEvidencePackets, type EvidencePacketInput
 import type { ContentPlan, ContentPlanSection } from "@/lib/ai/schemas/content-plan";
 import type { ArticleAngle } from "@/lib/ai/prompts/article-writer";
 
+/**
+ * How long a section should be.
+ *
+ * Stated because it has to be: left to infer it, a fast model wrote
+ * sixty-word sections — four of them adding up to less than a page — while
+ * a larger one wrote three hundred. The length of the article is part of
+ * the deliverable, and it cannot depend on which provider is configured
+ * this week.
+ */
+const SECTION_TARGET_WORDS_MIN = 250;
+const SECTION_TARGET_WORDS_MAX = 400;
+
 const ANGLE_GUIDANCE: Record<ArticleAngle, string> = {
   practical: "Write a practical, operational angle: concrete steps, tactics, and what to actually do.",
   strategic: "Write a strategic, thought-leadership angle: why this matters, bigger-picture implications, and what leaders should consider.",
@@ -66,6 +78,7 @@ export function buildArticleSectionWriterPrompt(input: ArticleSectionWriterInput
     `- ${positionRules}`,
     "",
     "Content rules:",
+    `- Write ${SECTION_TARGET_WORDS_MIN} to ${SECTION_TARGET_WORDS_MAX} words. This is a long-form article section, not a summary — a few sentences is too thin to be worth a heading.`,
     "- Use short paragraphs of 2 to 3 sentences.",
     "- Every factual or inference claim must appear in `claims` with the exact evidence IDs it draws on, and `articleSection` set to this section's heading. Editorial and connective language needs no claim entry.",
     "- The evidence IDs that exist are listed below under \"Evidence IDs you may cite\". That list is exhaustive. Copy an ID from it character for character.",

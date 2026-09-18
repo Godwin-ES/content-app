@@ -14,9 +14,9 @@ export class GoogleAIProvider implements AIProvider {
   private client: GoogleGenAI;
 
   constructor(apiKey?: string) {
-    const key = apiKey ?? process.env.GOOGLE_AI_API_KEY;
+    const key = apiKey ?? process.env.GOOGLE_API_KEY;
     if (!key) {
-      throw new DomainError("CONFIGURATION_ERROR", "ai_provider", "Missing GOOGLE_AI_API_KEY.");
+      throw new DomainError("CONFIGURATION_ERROR", "ai_provider", "Missing GOOGLE_API_KEY.");
     }
     this.client = new GoogleGenAI({ apiKey: key });
   }
