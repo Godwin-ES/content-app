@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import {
@@ -20,16 +20,12 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
   let admin: SupabaseClient<Database>;
   let owner: { client: SupabaseClient<Database>; userId: string };
   const requestIds: string[] = [];
-  const originalProdModel = process.env.PRODUCTION_AI_MODEL;
 
   beforeAll(async () => {
     admin = createAdminClient();
     owner = await createTestUser(admin, "intake-owner");
   });
 
-  afterEach(() => {
-    process.env.PRODUCTION_AI_MODEL = originalProdModel;
-  });
 
   afterAll(async () => {
     if (requestIds.length > 0) await admin.from("content_requests").delete().in("id", requestIds);
@@ -46,7 +42,6 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
     expect(request.resolved_audience).toBe(DEFAULT_REQUEST_SETTINGS.audience);
     expect(request.resolved_objective).toBe(DEFAULT_REQUEST_SETTINGS.objective);
     expect(request.resolved_tone).toBe(DEFAULT_REQUEST_SETTINGS.tone);
-    expect(request.ai_model_choice).toBeNull();
 
     const events = await listActivityEvents(owner.client, request.id);
     expect(events.some((e) => e.event_type === "request_created")).toBe(true);
@@ -99,17 +94,7 @@ describe.skipIf(!hasCredentials)("content request intake (hosted Supabase integr
     expect(request).not.toHaveProperty("source_urls");
   });
 
-  it("records the model the request picked", async () => {
-    const request = await createContentRequest(owner.client, owner.userId, { topic: "Topic" }, "gemini");
-    requestIds.push(request.id);
-    expect(request.ai_model_choice).toBe("gemini");
-  });
 
-  it("rejects a model this app does not support, whatever the client sends", async () => {
-    await expect(createContentRequest(owner.client, owner.userId, { topic: "Topic" }, "gpt-4o")).rejects.toMatchObject({
-      code: "VALIDATION_ERROR",
-    });
-  });
 
   it("returns every owned request, including one still at draft", async () => {
     // A draft used to be dropped from the dashboard entirely, so this

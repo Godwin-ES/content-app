@@ -12,15 +12,11 @@ See `../SYSTEM-DESIGN-NEXTJS.md` and `../IMPLEMENTATION-PLAN-NEXTJS.md` in the p
 
 ## Accounts
 
-One account, one person. You sign up with an email and password or with Google, and you own everything you create: requests, sources, drafts, packages, approvals, and the publishing queue. There are no roles to assign and nobody to invite.
+One account, one person. You sign up with an email and password, and you own everything you create: requests, sources, drafts, packages, approvals, and the publishing queue. There are no roles to assign and nobody to invite.
 
 The app started with two — a Content Manager who wrote and a Reviewer who approved. Collapsing to one account removed the handover, not the gate: **nothing reaches the publishing queue until a human has read a specific package version and deliberately approved it**, and that approval is recorded against that version with its author and timestamp. There is no "request changes" counterpart, because rejecting your own work is just editing it — any edit starts a new version and returns the request to development, leaving the approved one untouched.
 
 Every action re-reads who you are from `auth.uid()` server-side and checks ownership in RLS and in the security-definer RPCs. Nothing about identity is ever trusted from the client.
-
-### Signing in with Google
-
-The code path is in place (`/signup`, `/login` → `signInWithOAuth` → `/auth/callback`), but the Google provider has to be enabled on the Supabase project with a client ID and secret before it works — that is dashboard configuration, not code. Until it is, the button surfaces Supabase's own "provider is not enabled" message rather than failing silently.
 
 ### Intake checks
 
@@ -66,7 +62,7 @@ pnpm install
 cp .env.example .env.local   # fill in real values — never commit .env.local
 ```
 
-Required for the app to run at all: a Supabase project (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`), an Anthropic API key, and a Google (Gemini) API key. See `.env.example` for every variable and a short comment on each.
+Required for the app to run at all: a Supabase project (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`), an Anthropic API key and model, and a Firecrawl key. See `.env.example` for every variable and a short comment on each.
 
 Apply migrations and generate types against your own Supabase project (uses the Transaction pooler connection string if your network can't reach the direct host — see `BUILD-NOTES-NEXTJS.md`):
 
@@ -95,7 +91,7 @@ See `.env.example` for the full list with inline comments. The load-bearing ones
 
 | Variable | Purpose |
 |---|---|
-| `PRODUCTION_AI_PROVIDER` / `PRODUCTION_AI_MODEL` | The model a request uses when it does not pick its own at intake. |
+| `ANTHROPIC_MODEL` | The model every generation runs on. Set server-side only: model identifiers and what they cost are a deployment decision, not a per-request one. |
 
 
 ## Tests

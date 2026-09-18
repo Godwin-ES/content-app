@@ -53,7 +53,6 @@ export async function createContentRequestAction(
 
     const files = formData.getAll("materials").filter((v): v is File => v instanceof File && v.size > 0);
 
-    const aiModelChoice = emptyToUndefined(formData.get("aiModelChoice"));
 
     // Re-checked here, not only in reviewIntakeAction: a check that lives
     // solely in an action the client chooses to call is not a check. Only
@@ -64,7 +63,7 @@ export async function createContentRequestAction(
       throw new DomainError("VALIDATION_ERROR", "create_content_request", blocking[0].message);
     }
 
-    const request = await createContentRequest(supabase, user.userId, rawInput, aiModelChoice);
+    const request = await createContentRequest(supabase, user.userId, rawInput);
 
     // Attached after the request exists, since both need its id. An upload
     // that fails validation (unsupported type, too large) must not discard

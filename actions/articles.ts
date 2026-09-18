@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireSignedIn } from "@/lib/auth/guards";
-import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai/provider";
+import { getAIProvider, getModelId } from "@/lib/ai/provider";
 import {
   generateArticleOptions,
   regenerateArticleOption,
@@ -32,8 +32,7 @@ async function providerForArticleVersion(supabase: SupabaseClient<Database>, art
   const { data: request, error } = await supabase.from("content_requests").select().eq("id", artifact.request_id).single();
   if (error || !request) throw error;
 
-  const modelChoice = resolveAIModelForRequest(request);
-  return { ai: await getAIProvider(modelChoice), modelId: getModelIdFor(modelChoice) };
+  return { ai: await getAIProvider(), modelId: getModelId() };
 }
 
 export async function generateArticleOptionsAction(requestId: string): Promise<ActionResult<ArticleOptionResult[]>> {
@@ -45,9 +44,8 @@ export async function generateArticleOptionsAction(requestId: string): Promise<A
     const { data: request, error } = await supabase.from("content_requests").select().eq("id", requestId).single();
     if (error || !request) throw error;
 
-    const modelChoice = resolveAIModelForRequest(request);
-    const ai = await getAIProvider(modelChoice);
-    const modelId = getModelIdFor(modelChoice);
+    const ai = await getAIProvider();
+    const modelId = getModelId();
 
     const results = await generateArticleOptions(supabase, ai, modelId, requestId);
     return { ok: true, data: results };
@@ -69,9 +67,8 @@ export async function retryArticleOptionAction(artifactId: string): Promise<Acti
     const { data: request, error } = await supabase.from("content_requests").select().eq("id", artifact.request_id).single();
     if (error || !request) throw error;
 
-    const modelChoice = resolveAIModelForRequest(request);
-    const ai = await getAIProvider(modelChoice);
-    const modelId = getModelIdFor(modelChoice);
+    const ai = await getAIProvider();
+    const modelId = getModelId();
 
     const result = await regenerateArticleOption(supabase, ai, modelId, artifactId);
     return { ok: true, data: result };
@@ -94,9 +91,8 @@ export async function evaluateArticleAction(articleVersionId: string): Promise<A
     const { data: request, error } = await supabase.from("content_requests").select().eq("id", artifact.request_id).single();
     if (error || !request) throw error;
 
-    const modelChoice = resolveAIModelForRequest(request);
-    const ai = await getAIProvider(modelChoice);
-    const modelId = getModelIdFor(modelChoice);
+    const ai = await getAIProvider();
+    const modelId = getModelId();
 
     const evaluation = await evaluateArticleVersion(supabase, ai, modelId, articleVersionId);
     return { ok: true, data: evaluation };

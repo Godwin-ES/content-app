@@ -175,8 +175,7 @@ export function AutoModePanel({
 
       <p className="text-sm text-muted-foreground">
         Carries the request forward on its own — research, sources, plan, articles, channels — and stops at the package for you to
-        review. It never approves or publishes. While it runs, the other tabs&apos; controls are disabled so nothing competes with
-        it; Stop finishes the stage in flight rather than abandoning it half-done.
+        review.
       </p>
 
       {log.length > 0 ? (

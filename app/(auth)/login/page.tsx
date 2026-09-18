@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AuthCard, AuthDivider } from "@/components/auth/auth-card";
-import { GoogleButton } from "@/components/auth/google-button";
+import { AuthCard } from "@/components/auth/auth-card";
 
 function InvalidSessionNotice() {
   const reason = useSearchParams().get("reason");
@@ -60,8 +59,6 @@ export default function LoginPage() {
   return (
     <AuthCard title="Sign in" description="Continue to your workspace.">
       <div className="flex flex-col gap-4">
-        <GoogleButton />
-        <AuthDivider />
         <LoginForm />
         <p className="text-center text-sm text-muted-foreground">
           No account yet?{" "}

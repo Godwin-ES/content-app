@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireSignedIn } from "@/lib/auth/guards";
-import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai/provider";
+import { getAIProvider, getModelId } from "@/lib/ai/provider";
 import {
   generateChannelAssets,
   regenerateChannelAsset,
@@ -28,9 +28,8 @@ export async function generateChannelsAction(requestId: string): Promise<ActionR
     const { data: request, error } = await supabase.from("content_requests").select().eq("id", requestId).single();
     if (error || !request) throw error;
 
-    const modelChoice = resolveAIModelForRequest(request);
-    const ai = await getAIProvider(modelChoice);
-    const modelId = getModelIdFor(modelChoice);
+    const ai = await getAIProvider();
+    const modelId = getModelId();
 
     const results = await generateChannelAssets(supabase, ai, modelId, requestId);
     return { ok: true, data: results };
@@ -52,9 +51,8 @@ export async function retryChannelAction(artifactId: string): Promise<ActionResu
     const { data: request, error } = await supabase.from("content_requests").select().eq("id", artifact.request_id).single();
     if (error || !request) throw error;
 
-    const modelChoice = resolveAIModelForRequest(request);
-    const ai = await getAIProvider(modelChoice);
-    const modelId = getModelIdFor(modelChoice);
+    const ai = await getAIProvider();
+    const modelId = getModelId();
 
     const result = await regenerateChannelAsset(supabase, ai, modelId, artifactId);
     return { ok: true, data: result };
@@ -77,9 +75,8 @@ export async function evaluateChannelAction(channelVersionId: string): Promise<A
     const { data: request, error } = await supabase.from("content_requests").select().eq("id", artifact.request_id).single();
     if (error || !request) throw error;
 
-    const modelChoice = resolveAIModelForRequest(request);
-    const ai = await getAIProvider(modelChoice);
-    const modelId = getModelIdFor(modelChoice);
+    const ai = await getAIProvider();
+    const modelId = getModelId();
 
     const evaluation = await evaluateChannelVersion(supabase, ai, modelId, channelVersionId);
     return { ok: true, data: evaluation };
@@ -108,9 +105,8 @@ export async function proposeChannelRevisionAction(
     const { data: request, error } = await supabase.from("content_requests").select().eq("id", artifact.request_id).single();
     if (error || !request) throw error;
 
-    const modelChoice = resolveAIModelForRequest(request);
-    const ai = await getAIProvider(modelChoice);
-    const modelId = getModelIdFor(modelChoice);
+    const ai = await getAIProvider();
+    const modelId = getModelId();
 
     const proposal = await proposeChannelRevision(supabase, ai, modelId, artifactId, instruction);
     return { ok: true, data: proposal };

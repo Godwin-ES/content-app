@@ -76,39 +76,6 @@ export async function signUp(_prevState: ActionResult<null> | null, formData: Fo
   redirect("/dashboard");
 }
 
-/**
- * Hands off to Google and comes back through /auth/callback, which
- * exchanges the code for a session.
- *
- * This needs the Google provider enabled on the Supabase project with a
- * client ID and secret — it cannot be configured from the codebase. Until
- * it is, Supabase returns a "provider is not enabled" error, which is
- * surfaced rather than swallowed so the cause is obvious.
- */
-export async function signInWithGoogle(): Promise<ActionResult<null>> {
-  const supabase = await createSupabaseServerClient();
-  const origin = process.env.APP_URL ?? "http://localhost:3000";
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: { redirectTo: `${origin}/auth/callback?next=/dashboard` },
-  });
-
-  if (error || !data.url) {
-    return {
-      ok: false,
-      error: {
-        code: "PERMISSION_DENIED",
-        stage: "sign_in",
-        message: error?.message ?? "Could not start Google sign-in.",
-        retrySafe: true,
-      },
-    };
-  }
-
-  redirect(data.url);
-}
-
 export async function signOut(): Promise<void> {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();

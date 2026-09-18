@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AuthCard, AuthDivider } from "@/components/auth/auth-card";
-import { GoogleButton } from "@/components/auth/google-button";
+import { AuthCard } from "@/components/auth/auth-card";
 
 /**
  * Signing up is the whole of onboarding. There is nothing to assign and
@@ -22,8 +21,6 @@ export default function SignupPage() {
   return (
     <AuthCard title="Create your account" description="Research, write, approve and publish — from one workspace.">
       <div className="flex flex-col gap-4">
-        <GoogleButton label="Sign up with Google" />
-        <AuthDivider />
 
         <form action={formAction} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">

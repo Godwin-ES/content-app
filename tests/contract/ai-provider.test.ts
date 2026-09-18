@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { FakeAIProvider } from "@/lib/ai/providers/fake";
 import { AnthropicAIProvider } from "@/lib/ai/providers/anthropic";
-import { GoogleAIProvider } from "@/lib/ai/providers/google";
 import { createResearchPlan, generateArticle, evaluateArticle } from "@/lib/ai/service";
 import type { ArticleOutput } from "@/lib/ai/schemas/article";
 
@@ -118,7 +117,6 @@ describe("generateStructured (fake provider)", () => {
 });
 
 const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY);
-const hasGoogleKey = Boolean(process.env.GOOGLE_AI_API_KEY);
 
 const trivialSchema = z.object({ answer: z.literal("ok") });
 
@@ -126,7 +124,7 @@ describe.skipIf(!hasAnthropicKey)("generateStructured (live Anthropic contract c
   it("returns schema-valid structured output from a real Claude call", async () => {
     const provider = new AnthropicAIProvider();
     const result = await provider.generateStructured({
-      modelId: process.env.ANTHROPIC_HAIKU_MODEL!,
+      modelId: process.env.ANTHROPIC_MODEL!,
       system: "You must call the tool with exactly the literal string \"ok\" for the answer field.",
       user: "Respond now.",
       schema: trivialSchema,
@@ -135,15 +133,3 @@ describe.skipIf(!hasAnthropicKey)("generateStructured (live Anthropic contract c
   }, 30000);
 });
 
-describe.skipIf(!hasGoogleKey)("generateStructured (live Google contract check)", () => {
-  it("returns schema-valid structured output from a real Gemini call", async () => {
-    const provider = new GoogleAIProvider();
-    const result = await provider.generateStructured({
-      modelId: process.env.GOOGLE_GEMINI_MODEL!,
-      system: "You must respond with exactly the literal string \"ok\" for the answer field.",
-      user: "Respond now.",
-      schema: trivialSchema,
-    });
-    expect(result.answer).toBe("ok");
-  }, 30000);
-});

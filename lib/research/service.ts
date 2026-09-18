@@ -625,10 +625,8 @@ export function researchRunAvailability(request: {
       // Beside the button as well as above it: this is the moment someone
       // is deciding whether to press it, and "will this search again?" is
       // the question the button alone cannot answer.
-      hint: "Web search already run — only your added sources are analysed",
-      detail:
-        `Analyses the ${pendingSourceCount} source${pendingSourceCount === 1 ? "" : "s"} you have added. ` +
-        "No new web search — the searches have already run, and repeating them would return the same pages.",
+      hint: `Web search already run — only your ${pendingSourceCount} added source${pendingSourceCount === 1 ? "" : "s"} ${pendingSourceCount === 1 ? "is" : "are"} analysed`,
+      detail: "",
     };
   }
 

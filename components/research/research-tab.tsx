@@ -183,9 +183,11 @@ export function ResearchTab({
           {isStarting ? (
             <ResearchProgress signals={progressSignals} />
           ) : (
-            <p className="text-sm text-muted-foreground">
-              {runAvailability.canRun ? runAvailability.detail : runAvailability.reason}
-            </p>
+            (runAvailability.canRun ? runAvailability.detail : runAvailability.reason) ? (
+              <p className="text-sm text-muted-foreground">
+                {runAvailability.canRun ? runAvailability.detail : runAvailability.reason}
+              </p>
+            ) : null
           )}
           {error ? (
             <Alert variant="destructive">
@@ -196,12 +198,6 @@ export function ResearchTab({
               the request is a draft. Supplied-only research that finds
               nothing relevant is the most likely dead end there is, and
               unticking this is the way out of it. */}
-          {hasSuppliedSources && webSearchDone ? (
-            <p className="text-sm text-muted-foreground">
-              A web search has already run for this request, so it will not run again. Adding a source researches that source on
-              its own.
-            </p>
-          ) : null}
           {hasSuppliedSources && canChangeScope ? (
             <label className="flex w-fit items-start gap-2 text-sm">
               <input

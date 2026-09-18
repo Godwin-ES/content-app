@@ -11,10 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ResolvedDefaultsCard } from "@/components/requests/resolved-defaults-card";
 import { IntakeAttachments } from "@/components/requests/intake-attachments";
-import { ModelSelector } from "@/components/requests/model-selector";
 import { IntakeFieldFlag } from "@/components/requests/intake-field-flag";
 import { checkIntakeFields, type IntakeField, type IntakeFlag } from "@/lib/domain/intake-checks";
-import type { AIModelChoice } from "@/lib/domain/types";
 
 export function RequestForm() {
   const [state, formAction, pending] = useActionState(createContentRequestAction, null);
@@ -23,7 +21,6 @@ export function RequestForm() {
   const [audience, setAudience] = useState("");
   const [objective, setObjective] = useState("");
   const [tone, setTone] = useState("");
-  const [aiModelChoice, setAiModelChoice] = useState<AIModelChoice>("gemini");
   const [files, setFiles] = useState<File[]>([]);
   const [urls, setUrls] = useState<string[]>([]);
 
@@ -162,10 +159,6 @@ export function RequestForm() {
         urlCount={urls.length}
       />
 
-      <div className="rounded-lg border p-4">
-        <ModelSelector id="ai-model-choice" value={aiModelChoice} onChange={setAiModelChoice} label="AI model" />
-        <input type="hidden" name="aiModelChoice" value={aiModelChoice} />
-      </div>
 
       <div className="flex flex-col gap-4">
         <Button

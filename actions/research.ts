@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireSignedIn } from "@/lib/auth/guards";
-import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai/provider";
+import { getAIProvider, getModelId } from "@/lib/ai/provider";
 import { getResearchProvider } from "@/lib/research/provider";
 import {
   runResearchPipeline,
@@ -39,10 +39,9 @@ export async function startResearchAction(requestId: string): Promise<ActionResu
       throw new DomainError("INVALID_STATE", "start_research", "Research is already running for this request.", true);
     }
 
-    const modelChoice = resolveAIModelForRequest(request);
-    const ai = await getAIProvider(modelChoice);
+    const ai = await getAIProvider();
     const research = await getResearchProvider();
-    const modelId = getModelIdFor(modelChoice);
+    const modelId = getModelId();
 
     // Adding a source only ever earns the cheap half of the pipeline: read
     // what was added, and leave the searches alone. Decided from the same
@@ -78,9 +77,8 @@ export async function startSourceAction(sourceId: string): Promise<ActionResult<
     const { data: request } = await supabase.from("content_requests").select().eq("id", source.request_id).single();
     if (!request) throw new DomainError("NOT_FOUND", "start_source", "Request not found.");
 
-    const modelChoice = resolveAIModelForRequest(request);
-    const ai = await getAIProvider(modelChoice);
-    const modelId = getModelIdFor(modelChoice);
+    const ai = await getAIProvider();
+    const modelId = getModelId();
 
     if (source.origin === "uploaded_material") {
       await analyzeUploadedMaterialSource(supabase, ai, modelId, sourceId);

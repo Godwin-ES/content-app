@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { contentRequestInputSchema } from "@/lib/domain/schemas";
 import { resolveRequestSettings } from "@/lib/domain/defaults";
-import { assertAllowedAIModel } from "@/lib/ai/model-config";
 import { DomainError } from "@/lib/domain/errors";
 import { recordActivityEvent } from "@/lib/repositories/activity";
 import { throwFromRpcError } from "@/lib/supabase/rpc";
@@ -14,13 +13,11 @@ type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"]
  * Validates, resolves visible defaults, and persists a new content request
  * in `draft`. Cheap validation runs before any database write
  * (SYSTEM-DESIGN-NEXTJS.md §7.4); the AI model choice, if any, is checked
- * against the allowed list before being stored.
  */
 export async function createContentRequest(
   supabase: SupabaseClient<Database>,
   ownerId: string,
-  rawInput: unknown,
-  aiModelChoice?: string
+  rawInput: unknown
 ): Promise<ContentRequestRow> {
   const parsed = contentRequestInputSchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -32,9 +29,6 @@ export async function createContentRequest(
   }
   const input = parsed.data;
 
-  if (aiModelChoice !== undefined) {
-    assertAllowedAIModel(aiModelChoice);
-  }
 
   const resolved = resolveRequestSettings(input);
 
@@ -50,7 +44,6 @@ export async function createContentRequest(
       resolved_objective: resolved.objective.value,
       resolved_tone: resolved.tone.value,
       supplied_sources_only: input.suppliedSourcesOnly ?? false,
-      ai_model_choice: aiModelChoice ?? null,
       status: "draft",
     })
     .select()

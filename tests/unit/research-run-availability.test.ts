@@ -29,7 +29,10 @@ describe("researchRunAvailability", () => {
     const result = researchRunAvailability(base, 2);
     expect(result.canRun && result.kind).toBe("added");
     expect(result.canRun && result.label).toBe("Research added sources");
-    expect(result.canRun && result.detail).toContain("No new web search");
+    // Said once, beside the button, rather than repeated in a paragraph
+    // above it saying the same thing in more words.
+    expect(result.canRun && result.hint).toBe("Web search already run — only your 2 added sources are analysed");
+    expect(result.canRun && result.detail).toBe("");
   });
 
   it("offers a web search once one has been allowed", () => {

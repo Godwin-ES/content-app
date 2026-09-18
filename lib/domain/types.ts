@@ -21,10 +21,6 @@ export type ContentRequestStatus =
 
 export type OperationStatus = "queued" | "running" | "succeeded" | "failed" | "stale" | "cancelled";
 
-export type AIProviderName = "anthropic" | "google" | "fake";
-
-export type AIModelChoice = "gemini" | "claude_haiku_4_5" | "claude_sonnet_5";
-
 export type SourceOrigin = "researched" | "user_url" | "uploaded_material";
 
 export type MaterialClassification = "public" | "internal";

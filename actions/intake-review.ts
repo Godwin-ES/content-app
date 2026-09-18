@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireSignedIn } from "@/lib/auth/guards";
-import { getAIProvider, getModelIdFor, resolveAIModelForRequest } from "@/lib/ai/provider";
+import { getAIProvider, getModelId } from "@/lib/ai/provider";
 import { reviewIntake } from "@/lib/ai/service";
 import { checkIntakeFields, type IntakeFlag, type IntakeValues } from "@/lib/domain/intake-checks";
 import { toLoggedActionError } from "@/lib/notifications/action-error";
@@ -44,10 +44,9 @@ export async function reviewIntakeAction(values: IntakeValues & { topic: string 
 
     // No request exists yet, so there is no per-request model choice to
     // honour — this uses whatever the deployment's default is.
-    const modelChoice = resolveAIModelForRequest({ ai_model_choice: null });
-    const ai = await getAIProvider(modelChoice);
+    const ai = await getAIProvider();
 
-    const review = await reviewIntake(ai, getModelIdFor(modelChoice), {
+    const review = await reviewIntake(ai, getModelId(), {
       topic: remaining.topic ?? "",
       audience: remaining.audience ?? null,
       objective: remaining.objective ?? null,

@@ -473,7 +473,6 @@ export type Database = {
       }
       content_requests: {
         Row: {
-          ai_model_choice: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
@@ -497,7 +496,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          ai_model_choice?: string | null
           created_at?: string
           current_package_id?: string | null
           current_plan_id?: string | null
@@ -521,7 +519,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          ai_model_choice?: string | null
           created_at?: string
           current_package_id?: string | null
           current_plan_id?: string | null
@@ -1600,7 +1597,6 @@ export type Database = {
       restore_request: {
         Args: { p_request_id: string }
         Returns: {
-          ai_model_choice: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
@@ -1665,7 +1661,6 @@ export type Database = {
       set_supplied_sources_only: {
         Args: { p_request_id: string; p_value: boolean }
         Returns: {
-          ai_model_choice: string | null
           created_at: string
           current_package_id: string | null
           current_plan_id: string | null
