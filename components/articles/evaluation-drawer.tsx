@@ -7,6 +7,24 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type EvaluationRow = Database["public"]["Tables"]["evaluations"]["Row"];
 
+/**
+ * `source_grounding` as a person would write it: Source Grounding.
+ *
+ * The rubric keys are identifiers, and printing an identifier with its
+ * underscores swapped for spaces reads as a leaked internal name rather
+ * than a heading. SEO is upper-cased as a word in its own right, because
+ * "Seo Fit" is not a thing.
+ */
+const ACRONYMS = new Set(["seo", "ai", "cta"]);
+
+function criterionLabel(criterion: string): string {
+  return criterion
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((word) => (ACRONYMS.has(word.toLowerCase()) ? word.toUpperCase() : word.charAt(0).toUpperCase() + word.slice(1)))
+    .join(" ");
+}
+
 interface EvaluationCriterionLike {
   criterion: string;
   score: number;
@@ -49,7 +67,7 @@ export function EvaluationDetails({ evaluation }: { evaluation: EvaluationRow })
         <ul className="flex flex-col gap-1">
           {criteria.map((c) => (
             <li key={c.criterion}>
-              <span className="font-medium">{c.criterion.replace(/_/g, " ")}:</span> {c.score}/5 — {c.finding}
+              <span className="font-medium">{criterionLabel(c.criterion)}:</span> {c.score}/5 — {c.finding}
             </li>
           ))}
         </ul>

@@ -25,6 +25,19 @@ function countHeadings(markdown: string, level: number): number {
 }
 
 /**
+ * Links a reader can actually click, counted in the prose.
+ *
+ * This used to count the writer's `links` array instead, which is
+ * metadata: the article rendered without a single hyperlink in it while
+ * the check cheerfully reported "5 link(s) included". A check that passes
+ * on something nobody can see is worse than no check, because it is
+ * evidence that the thing is fine.
+ */
+function countInlineLinks(markdown: string): number {
+  return (markdown.match(/\[[^\]]+\]\((https?:\/\/|\/)[^)\s]+\)/g) ?? []).length;
+}
+
+/**
  * Mechanical SEO checks the application enforces itself rather than
  * trusting an AI self-certification (SYSTEM-DESIGN-NEXTJS.md §16). Only
  * genuinely qualitative criteria are left to the AI evaluator (Task 13
@@ -33,6 +46,7 @@ function countHeadings(markdown: string, level: number): number {
 export function validateArticleSEO(article: ArticleSeoInput): SeoCheckResult[] {
   const h1Count = countHeadings(article.bodyMarkdown, 1);
   const h2Count = countHeadings(article.bodyMarkdown, 2);
+  const inlineLinkCount = countInlineLinks(article.bodyMarkdown);
   const keywordLower = normalizeForKeywordMatch(article.primaryKeyword);
   const titleForMatch = normalizeForKeywordMatch(article.title);
 
@@ -68,8 +82,11 @@ export function validateArticleSEO(article: ArticleSeoInput): SeoCheckResult[] {
     },
     {
       key: "has_relevant_links",
-      ok: article.links.length >= 1,
-      message: article.links.length >= 1 ? `${article.links.length} link(s) included.` : "No links included; 2-3 relevant links are recommended.",
+      ok: inlineLinkCount >= 1,
+      message:
+        inlineLinkCount >= 1
+          ? `${inlineLinkCount} link(s) in the article body.`
+          : "No links in the article body; 2-3 relevant links are recommended.",
     },
   ];
 }
