@@ -10,10 +10,21 @@ import { analyzeSource } from "@/lib/ai/service";
 import { canonicalizeUrl, dedupeByCanonicalUrl, parseUserSuppliedUrl } from "@/lib/research/url";
 import { createOperationRun, updateOperationRun } from "@/lib/repositories/operations";
 import { recordActivityEvent } from "@/lib/repositories/activity";
-import { createResearchSource, updateResearchSource, createSourceEvidence, getResearchSource, listResearchSources } from "@/lib/repositories/sources";
+import {
+  createResearchSource,
+  updateResearchSource,
+  createSourceEvidence,
+  getResearchSource,
+  listResearchSources,
+  confirmSourceSet,
+} from "@/lib/repositories/sources";
+import { assessKeywordCoverage, type KeywordCoverage } from "@/lib/research/keyword-coverage";
+import { bestEffort } from "@/lib/notifications/action-error";
+import { notifyKeywordCoverageGap } from "@/lib/notifications/service";
 
 type ContentRequestRow = Database["public"]["Tables"]["content_requests"]["Row"];
 type ResearchSourceRow = Database["public"]["Tables"]["research_sources"]["Row"];
+type SourceSetVersionRow = Database["public"]["Tables"]["source_set_versions"]["Row"];
 
 const MAX_SEARCH_RESULTS_PER_QUERY = 5;
 const MAX_USABLE_SOURCES = 8;
@@ -324,6 +335,32 @@ export async function runResearchPipeline(
     actorId: request.owner_id,
   });
 
+  // Checked here rather than after the source decisions, so the Content
+  // Manager learns about it while they are still looking at the sources —
+  // the last point where changing the keyword or adding one source is
+  // cheap. It never stops the pipeline: the sources are real and the
+  // request should still reach source review, where the gap is shown and
+  // confirming is what gets blocked.
+  if (usableSourceCount > 0) {
+    const coverage = await assessRequestKeywordCoverage(supabase, requestId);
+    if (coverage.assessed && !coverage.covered && coverage.keyword) {
+      await recordActivityEvent({
+        requestId,
+        eventType: "keyword_coverage_gap",
+        message: `No usable source mentions the primary keyword "${coverage.keyword}"`,
+        actorId: request.owner_id,
+      });
+      await bestEffort(() =>
+        notifyKeywordCoverageGap({
+          requestId,
+          topic: request.topic,
+          keyword: coverage.keyword!,
+          blocking: coverage.blocking,
+        })
+      );
+    }
+  }
+
   let transitioned = false;
   if (usableSourceCount > 0 && request.status === "draft") {
     await admin.from("content_requests").update({ status: "source_review" }).eq("id", requestId);
@@ -472,4 +509,82 @@ export async function analyzeUploadedMaterialSource(
   const result = await analyzeAndStoreEvidence(supabase, ai, modelId, request, usableSource, material.extracted_text, []);
   await transitionToSourceReviewIfNeeded(supabase, request, result);
   return result;
+}
+
+/**
+ * Assesses the request's keyword coverage against the evidence that will
+ * actually inform the article.
+ *
+ * Which sources count depends on where the request is. Before the source
+ * set is confirmed, every usable source is still a candidate; once
+ * decisions exist, only the accepted ones matter — excluding the one
+ * source that mentioned the keyword is exactly the case worth catching.
+ */
+export async function assessRequestKeywordCoverage(
+  supabase: SupabaseClient<Database>,
+  requestId: string
+): Promise<KeywordCoverage> {
+  const request = await getRequestOrThrow(supabase, requestId);
+
+  const { data: sources, error } = await supabase
+    .from("research_sources")
+    .select("id, title, extracted_text, origin, retrieval_status")
+    .eq("request_id", requestId)
+    .eq("retrieval_status", "usable");
+  if (error) throw error;
+
+  const usable = sources ?? [];
+  if (usable.length === 0) return assessKeywordCoverage(request.resolved_primary_keyword, []);
+
+  const { data: decisions, error: decisionError } = await supabase
+    .from("source_review_decisions")
+    .select("source_id, decision, created_at")
+    .in(
+      "source_id",
+      usable.map((s) => s.id)
+    )
+    .order("created_at", { ascending: false });
+  if (decisionError) throw decisionError;
+
+  // Newest first, so the first row seen for a source is its latest decision.
+  const latestDecision = new Map<string, string>();
+  for (const row of decisions ?? []) {
+    if (!latestDecision.has(row.source_id)) latestDecision.set(row.source_id, row.decision);
+  }
+
+  const considered = latestDecision.size === 0 ? usable : usable.filter((s) => latestDecision.get(s.id) === "accepted");
+
+  return assessKeywordCoverage(
+    request.resolved_primary_keyword,
+    considered.map((s) => ({
+      id: s.id,
+      title: s.title,
+      extractedText: s.extracted_text,
+      origin: s.origin as "researched" | "user_url" | "uploaded_material",
+    }))
+  );
+}
+
+/**
+ * Confirms the reviewed source set, refusing when the accepted evidence
+ * does not cover the request's primary keyword.
+ *
+ * The gate lives here rather than in the `confirm_source_set` RPC because
+ * it is a content-quality rule, not an authorization one — the same
+ * division the deterministic SEO checks already follow. The RPC keeps
+ * enforcing who may confirm and in what state.
+ *
+ * It only ever refuses on sources the system found for itself. Material
+ * the user supplied is their call: they know why it is relevant, and
+ * blocking on it would turn a safeguard into an obstacle.
+ */
+export async function confirmReviewedSourceSet(
+  supabase: SupabaseClient<Database>,
+  requestId: string
+): Promise<SourceSetVersionRow> {
+  const coverage = await assessRequestKeywordCoverage(supabase, requestId);
+  if (coverage.blocking) {
+    throw new DomainError("VALIDATION_ERROR", "confirm_source_set", coverage.message);
+  }
+  return confirmSourceSet(supabase, requestId);
 }

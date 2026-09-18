@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EditableSetting } from "@/components/shared/editable-setting";
+import { TriangleAlert } from "lucide-react";
+import type { KeywordCoverage } from "@/lib/research/keyword-coverage";
 import { SourceReviewWorkspace } from "@/components/research/source-review-workspace";
 import { SourceCard } from "@/components/research/source-card";
 import { ResearchProgress, type ResearchProgressSignals } from "@/components/research/research-progress";
@@ -29,6 +31,7 @@ interface ResearchTabProps {
   suppliedSourcesOnly: boolean;
   primaryKeyword: string | null;
   canEditSettings: boolean;
+  keywordCoverage: KeywordCoverage | null;
 }
 
 /**
@@ -50,6 +53,7 @@ export function ResearchTab({
   suppliedSourcesOnly,
   primaryKeyword,
   canEditSettings,
+  keywordCoverage,
 }: ResearchTabProps) {
   const [busyCount, setBusyCount] = useState(0);
   const [suppliedOnly, setSuppliedOnly] = useState(suppliedSourcesOnly);
@@ -153,6 +157,16 @@ export function ResearchTab({
         onSave={(next) => setPrimaryKeywordAction(requestId, next)}
         disabled={locked || !canEditSettings}
       />
+
+      {/* Only shown when there is a gap. A green "coverage is fine" banner
+          would be one more thing to read on every visit and would say
+          nothing the sources do not already. */}
+      {keywordCoverage?.assessed && !keywordCoverage.covered ? (
+        <Alert variant={keywordCoverage.blocking ? "destructive" : "default"}>
+          <TriangleAlert aria-hidden className="size-4" />
+          <AlertDescription>{keywordCoverage.message}</AlertDescription>
+        </Alert>
+      ) : null}
 
       {status === "draft" ? (
         <div className="flex flex-col gap-3 rounded-lg border p-4">

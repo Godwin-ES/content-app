@@ -12,6 +12,7 @@ import { getLatestReview } from "@/lib/repositories/approvals";
 import { getPublishingQueue } from "@/lib/publishing/service";
 import { listActivityEvents } from "@/lib/repositories/activity";
 import { filterDisplayedActivity } from "@/lib/activity/display";
+import { assessKeywordCoverage } from "@/lib/research/keyword-coverage";
 import { deriveNextAction } from "@/lib/workspace/next-action";
 import { buildWorkspaceSnapshot } from "@/lib/workspace/snapshot";
 import { articlesStaleAgainstPlan, channelsStaleAgainstArticle } from "@/lib/workspace/staleness";
@@ -67,6 +68,20 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
   ]);
   const evidenceBySource = Object.fromEntries(evidenceEntries);
   const decisionsBySource = Object.fromEntries(decisionEntries);
+
+  // Computed from the sources and decisions already loaded above rather
+  // than through assessRequestKeywordCoverage, which would re-fetch every
+  // source's extracted text a second time on every page load. Same pure
+  // function underneath, so the banner and the confirm gate cannot
+  // disagree.
+  const anyDecision = Object.values(decisionsBySource).some((d) => d !== null);
+  const coverageSources = sources
+    .filter((s) => s.retrieval_status === "usable")
+    .filter((s) => !anyDecision || decisionsBySource[s.id] === "accepted");
+  const keywordCoverage = assessKeywordCoverage(
+    request.resolved_primary_keyword,
+    coverageSources.map((s) => ({ id: s.id, title: s.title, extractedText: s.extracted_text, origin: s.origin as "researched" | "user_url" | "uploaded_material" }))
+  );
 
   const planVersions = await listContentPlanVersions(supabase, requestId);
   const plan = planVersions[0] ?? null;
@@ -200,6 +215,7 @@ export default async function RequestWorkspacePage({ params }: { params: Promise
       suppliedSourcesOnly={request.supplied_sources_only}
       primaryKeyword={request.resolved_primary_keyword}
       canEditSettings={canEditSettings}
+      keywordCoverage={keywordCoverage}
     />
   );
 

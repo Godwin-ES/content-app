@@ -5,10 +5,10 @@ import { requireContentManager } from "@/lib/auth/guards";
 import {
   recordSourceDecision,
   resolveSourceConflict,
-  confirmSourceSet,
   deleteResearchSource,
   getResearchSource,
 } from "@/lib/repositories/sources";
+import { confirmReviewedSourceSet } from "@/lib/research/service";
 import { deleteSupportingMaterial } from "@/lib/repositories/materials";
 import { DomainError } from "@/lib/domain/errors";
 import { toLoggedActionError } from "@/lib/notifications/action-error";
@@ -53,7 +53,7 @@ export async function confirmSourceSetAction(requestId: string): Promise<ActionR
 
   try {
     await requireContentManager(supabase);
-    const sourceSet = await confirmSourceSet(supabase, requestId);
+    const sourceSet = await confirmReviewedSourceSet(supabase, requestId);
     return { ok: true, data: { versionNumber: sourceSet.version_number } };
   } catch (error) {
     const actionError = await toLoggedActionError(error, "confirm_source_set", { requestId });

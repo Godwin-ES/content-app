@@ -42,7 +42,8 @@ const SHOWN_EVENT_TYPES = new Set([
   "package_submitted",
   "package_withdrawn",
   "package_review_decided",
-  // Failures
+  // Failures and quality gates
+  "keyword_coverage_gap",
   "system_error",
 ]);
 

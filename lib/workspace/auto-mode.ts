@@ -6,7 +6,7 @@ import type { ResearchProvider } from "@/lib/research/types";
 import { DomainError } from "@/lib/domain/errors";
 import { deriveNextAction, PIPELINE_STAGES, derivePipelineProgress, type NextActionKey, type PipelineStage } from "@/lib/workspace/next-action";
 import { loadWorkspace } from "@/lib/workspace/snapshot";
-import { runResearchPipeline } from "@/lib/research/service";
+import { runResearchPipeline, assessRequestKeywordCoverage } from "@/lib/research/service";
 import { recordSourceDecision, confirmSourceSet } from "@/lib/repositories/sources";
 import { generateContentPlan } from "@/lib/planning/service";
 import {
@@ -166,6 +166,13 @@ export async function runAutoStep(
           decidedBy: request.owner_id,
         });
       }
+      // The keyword-coverage gate is a judgement auto mode must not make
+      // for you: the fix is either to change the keyword or to accept that
+      // the research missed it, and both are the user's call. Reported as
+      // a stop, not an error — nothing failed.
+      const coverage = await assessRequestKeywordCoverage(supabase, requestId);
+      if (coverage.blocking) return blocked(coverage.message);
+
       await confirmSourceSet(supabase, requestId);
       return advanced(`Accepted ${usable.length} usable source(s) and confirmed the source set.`);
     }
