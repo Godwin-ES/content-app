@@ -42,11 +42,8 @@ const TABS: Array<{ key: TabKey; label: string; note?: string; emptyTitle: strin
   },
   {
     key: "published",
-    label: "Published",
-    // Said once, here, rather than left for someone to discover: the app
-    // schedules, it does not post. The README calls this out as a
-    // deliberate scope boundary and the tab should not quietly contradict it.
-    note: "Approved and queued for their channels. Koya schedules — it never posts on your behalf.",
+    label: "Ready for Publishing",
+    note: "View content packages",
     emptyTitle: "Nothing published yet",
     emptyDescription: "Approve a package and its channels will be queued from here.",
   },
