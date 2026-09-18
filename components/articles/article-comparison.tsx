@@ -74,7 +74,7 @@ export function ArticleComparison({
             onClick={generate}
             disabled={!canGenerate || isPending || somethingRunning || generating}
           >
-            {isPending || generating ? "Generating..." : articleArtifacts.length === 0 ? "Generate article" : "Retry"}
+            {isPending || generating ? "Generating..." : articleArtifacts.length === 0 ? "Generate article options" : "Retry all"}
           </Button>
         ) : null}
       </div>

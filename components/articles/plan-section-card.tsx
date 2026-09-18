@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { PlanRegenerateSectionDialog } from "@/components/articles/plan-regenerate-section-dialog";
+import { EvidenceChip, type EvidencePreview } from "@/components/articles/evidence-chip";
 import type { ContentPlanSection } from "@/lib/ai/schemas/content-plan";
 
 interface PlanSectionCardProps {
@@ -17,6 +18,8 @@ interface PlanSectionCardProps {
   index: number;
   currentDraft: { title: string; angle: string; sections: ContentPlanSection[] };
   locked?: boolean;
+  /** Evidence packets by ID, so each chip can show what it refers to. */
+  evidenceById?: Record<string, EvidencePreview>;
   onChange: (index: number, section: ContentPlanSection) => void;
   onRegenerated: (index: number, section: ContentPlanSection) => void;
   onBusyChange?: (busy: boolean) => void;
@@ -46,7 +49,13 @@ interface PlanSectionCardProps {
  * One chip per ID is the honest unit: each is short, they wrap as a group,
  * and the container grows with however many there are.
  */
-function EvidenceList({ evidenceIds }: { evidenceIds: string[] }) {
+function EvidenceList({
+  evidenceIds,
+  evidenceById,
+}: {
+  evidenceIds: string[];
+  evidenceById?: Record<string, EvidencePreview>;
+}) {
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -54,12 +63,8 @@ function EvidenceList({ evidenceIds }: { evidenceIds: string[] }) {
       </span>
       <ul className="flex flex-wrap gap-1.5">
         {evidenceIds.map((id) => (
-          <li key={id}>
-            {/* h-auto and whitespace-normal together: a single ID long
-                enough to wrap must be able to take the height it needs. */}
-            <Badge variant="outline" className="h-auto max-w-full py-0.5 font-mono break-all whitespace-normal">
-              {id}
-            </Badge>
+          <li key={id} className="max-w-full">
+            <EvidenceChip evidenceId={id} preview={evidenceById?.[id]} />
           </li>
         ))}
       </ul>
@@ -67,7 +72,7 @@ function EvidenceList({ evidenceIds }: { evidenceIds: string[] }) {
   );
 }
 
-export function PlanSectionCard({ requestId, section, index, currentDraft, locked = false, onChange, onRegenerated, onBusyChange }: PlanSectionCardProps) {
+export function PlanSectionCard({ requestId, section, index, currentDraft, locked = false, evidenceById, onChange, onRegenerated, onBusyChange }: PlanSectionCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(section);
 
@@ -173,9 +178,15 @@ export function PlanSectionCard({ requestId, section, index, currentDraft, locke
           </div>
         ) : (
           <>
+            {/* What the section is for comes first, directly under its
+                heading: it is the sentence that explains the card. The
+                evidence follows, because it is what the sentence rests
+                on — reading the citations before knowing what is being
+                cited for had them arriving in the wrong order. */}
+            <p className="text-muted-foreground">{section.purpose}</p>
             {section.hasFactualClaims ? (
               section.evidenceIds.length > 0 ? (
-                <EvidenceList evidenceIds={section.evidenceIds} />
+                <EvidenceList evidenceIds={section.evidenceIds} evidenceById={evidenceById} />
               ) : (
                 <Badge variant="destructive" className="w-fit">
                   Missing evidence
@@ -186,7 +197,6 @@ export function PlanSectionCard({ requestId, section, index, currentDraft, locke
                 Editorial
               </Badge>
             )}
-            <p className="text-muted-foreground">{section.purpose}</p>
           </>
         )}
       </CardContent>

@@ -23,6 +23,7 @@ import { RequestWorkspace } from "@/components/requests/request-workspace";
 import { parseWorkspaceTab } from "@/lib/workspace/tabs";
 import { ResearchTab } from "@/components/research/research-tab";
 import { PlanTab } from "@/components/articles/plan-tab";
+import { getEvidenceContextForRequest } from "@/lib/grounding/evidence-context";
 import { ArticleComparison } from "@/components/articles/article-comparison";
 import { ChannelWorkspace } from "@/components/channels/channel-workspace";
 import { PackageReadiness } from "@/components/approvals/package-readiness";
@@ -212,7 +213,43 @@ export default async function RequestWorkspacePage({
     />
   );
 
-  const planContent = <PlanTab requestId={requestId} plan={plan} versions={planVersions} canGenerate={request.status === "content_development"} />;
+  /**
+   * Evidence packets keyed by the ID the plan cites them with, so the Plan
+   * tab's evidence chips can show what they refer to. Built here rather
+   * than fetched by the tab because the packets and their `S1:key` labels
+   * come from the confirmed source set, which is server-side work — and
+   * because the same labelling has to match what the planner was given, or
+   * a chip would open the wrong excerpt.
+   *
+   * Empty before a source set is confirmed: there is no plan to cite from
+   * either, so there is nothing to show.
+   */
+  const planEvidenceById = request.current_source_set_id
+    ? Object.fromEntries(
+        (await getEvidenceContextForRequest(supabase, request)).packets.map((packet) => [
+          `${packet.sourceLabel}:${packet.evidenceKey}`,
+          {
+            evidenceId: `${packet.sourceLabel}:${packet.evidenceKey}`,
+            publisher: packet.publisher,
+            url: packet.url,
+            excerpt: packet.excerpt,
+            conservativeSummary: packet.conservativeSummary,
+            supports: packet.supports,
+            doesNotEstablish: packet.doesNotEstablish,
+          },
+        ])
+      )
+    : {};
+
+  const planContent = (
+    <PlanTab
+      requestId={requestId}
+      plan={plan}
+      versions={planVersions}
+      canGenerate={request.status === "content_development"}
+      evidenceById={planEvidenceById}
+    />
+  );
 
   const articlesStale = articlesStaleAgainstPlan(Object.values(articleVersionsByArtifact), plan?.id ?? null);
   const channelsStale = channelsStaleAgainstArticle(Object.values(channelVersionsByArtifact), request.selected_article_version_id);

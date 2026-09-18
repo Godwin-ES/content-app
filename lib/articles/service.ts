@@ -222,16 +222,15 @@ export async function generateArticleOptions(
   const { packets: evidencePackets, validEvidenceIds } = await getEvidenceContextForRequest(supabase, request);
 
   /**
-   * One article, not three.
+   * Three options, one per angle — practical, strategic, educational.
    *
-   * Three angle-differentiated options were three times the cost and, in
-   * practice, two drafts nobody opened — the plan has already settled the
-   * angle, so the options differed less than their names suggested. Slot A
-   * is kept as the article's identity rather than collapsed away: the
-   * artifact table is keyed on (request_id, slot), and every version,
-   * evaluation, and package already written points at A.
+   * Dropped to one when an article took seventy seconds to write and three
+   * of them meant waiting for the slowest. Writing a section at a time
+   * removed that reason: the three run concurrently and each is now a
+   * fraction of what one used to cost, so the choice is cheap again, and a
+   * choice between three angles is the point of the step.
    */
-  const slots: ArticleSlot[] = ["A"];
+  const slots: ArticleSlot[] = ["A", "B", "C"];
   const results = await Promise.all(
     slots.map((slot) =>
       generateOneOption(supabase, ai, modelId, request, plan, planRow.id, evidencePackets, validEvidenceIds, slot)
@@ -242,7 +241,7 @@ export async function generateArticleOptions(
   await recordActivityEvent({
     requestId,
     eventType: "article_options_generated",
-    message: `${succeeded} of ${slots.length} article(s) generated`,
+    message: `${succeeded} of ${slots.length} article option(s) generated`,
     actorId: request.owner_id,
   });
 

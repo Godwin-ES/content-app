@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import type { Database } from "@/lib/supabase/database.types";
 import type { ContentPlanSection } from "@/lib/ai/schemas/content-plan";
 import type { ManualContentPlanInput } from "@/lib/planning/service";
+import type { EvidencePreview } from "@/components/articles/evidence-chip";
 import { useAutoMode, useOperationRunning } from "@/components/requests/auto-mode-context";
 
 type ContentPlanRow = Database["public"]["Tables"]["content_plans"]["Row"];
@@ -23,6 +24,8 @@ interface PlanTabProps {
   plan: ContentPlanRow | null;
   versions: ContentPlanRow[];
   canGenerate: boolean;
+  /** Evidence packets by ID, so a section's citations can be opened. */
+  evidenceById?: Record<string, EvidencePreview>;
 }
 
 function toDraft(plan: ContentPlanRow): ManualContentPlanInput {
@@ -46,7 +49,7 @@ function toDraft(plan: ContentPlanRow): ManualContentPlanInput {
  * Version" persists, as one new immutable version (never overwrites the
  * one it's based on).
  */
-export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps) {
+export function PlanTab({ requestId, plan, versions, canGenerate, evidenceById }: PlanTabProps) {
   const { running: autoModeRunning } = useAutoMode();
   /**
    * Planning running anywhere — generation or a regeneration — read from
@@ -55,6 +58,20 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
    */
   const planning = useOperationRunning("content_planning");
   const [draft, setDraft] = useState<ManualContentPlanInput | null>(plan ? toDraft(plan) : null);
+  /**
+   * Which plan version the draft was taken from.
+   *
+   * The draft was seeded from `plan` once, at mount, and never again — so
+   * after generating a plan the refreshed props arrived with a plan while
+   * the draft was still null, and the editor below returns null for a null
+   * draft. The result was a blank tab that came back only on a remount,
+   * which is exactly what refreshing or leaving and returning does.
+   *
+   * Re-seeding on a version change rather than on every render is what
+   * keeps unsaved edits: the same plan re-rendering leaves the draft
+   * alone, a new version replaces it.
+   */
+  const [draftFromVersion, setDraftFromVersion] = useState<string | null>(plan?.id ?? null);
   const [busyCount, setBusyCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
@@ -70,6 +87,12 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
    */
   const locked = busyCount > 0 || isPending || revertingId !== null || autoModeRunning || planning;
   const handleBusyChange = (busy: boolean) => setBusyCount((c) => Math.max(0, c + (busy ? 1 : -1)));
+
+  if ((plan?.id ?? null) !== draftFromVersion) {
+    setDraftFromVersion(plan?.id ?? null);
+    setDraft(plan ? toDraft(plan) : null);
+    setBeforeRegeneration(null);
+  }
 
   const isDirty = plan ? JSON.stringify(draft) !== JSON.stringify(toDraft(plan)) : draft !== null;
 
@@ -198,6 +221,7 @@ export function PlanTab({ requestId, plan, versions, canGenerate }: PlanTabProps
             index={index}
             currentDraft={{ title: draft.title, angle: draft.angle, sections: draft.sections }}
             locked={locked}
+            evidenceById={evidenceById}
             onChange={updateSection}
             onRegenerated={(i, s) => {
               setBeforeRegeneration(draft);
