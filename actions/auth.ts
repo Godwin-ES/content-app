@@ -1,7 +1,9 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveAuthSiteUrl } from "@/lib/auth/site-url";
 import type { ActionResult } from "@/lib/domain/errors";
 
 function credentials(formData: FormData): { email: string; password: string } {
@@ -47,11 +49,19 @@ export async function signUp(_prevState: ActionResult<null> | null, formData: Fo
   if (!email || !password) return validationError("Enter both an email and a password.");
   if (password.length < 8) return validationError("Use a password of at least 8 characters.");
 
+  const requestHeaders = await headers();
+  const siteUrl = resolveAuthSiteUrl(requestHeaders);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: displayName ? { display_name: displayName } : undefined },
+    options: {
+      data: displayName ? { display_name: displayName } : undefined,
+      // Never rely on Supabase's project-level Site URL for this flow. That
+      // setting is easy to leave at localhost after deployment, which makes
+      // a valid confirmation email send the user back to a dead local URL.
+      emailRedirectTo: `${siteUrl}/login?confirmed=1`,
+    },
   });
 
   if (error) {
